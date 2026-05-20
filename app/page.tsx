@@ -237,12 +237,10 @@ export default function Home() {
       )}
 
       {openCheckout && (
-
         <CheckoutModal
-          cart={cart}
+          cartCount={cart.length}
           onClose={() => setOpenCheckout(false)}
         />
-
       )}
 
     </main>
