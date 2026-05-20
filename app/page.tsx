@@ -238,8 +238,15 @@ export default function Home() {
 
       {openCheckout && (
         <CheckoutModal
-          cartCount={cart.length}
+          total={cart.reduce(
+            (acc, item) => acc + item.price * item.quantity,
+            0
+          )}
           onClose={() => setOpenCheckout(false)}
+          onConfirm={(data) => {
+            console.log(data)
+            setOpenCheckout(false)
+          }}
         />
       )}
 
