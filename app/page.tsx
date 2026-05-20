@@ -165,7 +165,7 @@ export default function Home() {
 
     <main className="bg-black min-h-screen text-white">
 
-      <Header />
+      <Header cart={cart} />
 
       <Hero />
 
