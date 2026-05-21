@@ -243,9 +243,41 @@ export default function Home() {
             0
           )}
           onClose={() => setOpenCheckout(false)}
-          onConfirm={(data) => {
-            console.log(data)
+          onConfirm={async (data) => {
+
+            const total = cart.reduce(
+              (acc, item) => acc + item.price * item.quantity,
+              0
+            )
+
+            const { error } = await supabase
+              .from("pedidos")
+              .insert([
+                {
+                  cliente: data.nome,
+                  telefone: data.telefone,
+                  endereco: data.endereco,
+                  pagamento: data.pagamento,
+                  itens: cart,
+                  total,
+                  status: "pendente"
+                }
+              ])
+
+            if (error) {
+              console.log(error)
+              alert("Erro ao enviar pedido")
+              return
+            }
+
+            alert("Pedido enviado com sucesso!")
+
+            setCart([])
+
+            localStorage.removeItem("cart")
+
             setOpenCheckout(false)
+
           }}
         />
       )}
