@@ -1,37 +1,43 @@
 export default function Benefits() {
   return (
-    <div className="grid md:grid-cols-3 gap-6 mt-12">
+    <section className="max-w-7xl mx-auto px-5 py-10">
 
-      <div className="bg-zinc-900 p-6 rounded-3xl border border-zinc-800">
-        <h3 className="text-xl font-bold mb-2">
-          🚀 Entrega Rápida
-        </h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-        <p className="text-zinc-400">
-          Entregas em até 30 minutos.
-        </p>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+          <h3 className="text-xl font-bold mb-2">
+            Delivery Rápido
+          </h3>
+
+          <p className="text-zinc-400">
+            Entrega rápida e segura
+            para seus clientes.
+          </p>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+          <h3 className="text-xl font-bold mb-2">
+            Pagamento Fácil
+          </h3>
+
+          <p className="text-zinc-400">
+            Pix, cartão e dinheiro.
+          </p>
+        </div>
+
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+          <h3 className="text-xl font-bold mb-2">
+            Pedido em Tempo Real
+          </h3>
+
+          <p className="text-zinc-400">
+            Atualização automática
+            estilo iFood.
+          </p>
+        </div>
+
       </div>
 
-      <div className="bg-zinc-900 p-6 rounded-3xl border border-zinc-800">
-        <h3 className="text-xl font-bold mb-2">
-          💳 Pagamento Online
-        </h3>
-
-        <p className="text-zinc-400">
-          PIX, cartão e dinheiro.
-        </p>
-      </div>
-
-      <div className="bg-zinc-900 p-6 rounded-3xl border border-zinc-800">
-        <h3 className="text-xl font-bold mb-2">
-          ⭐ Sistema Premium
-        </h3>
-
-        <p className="text-zinc-400">
-          Estrutura pronta para virar SaaS.
-        </p>
-      </div>
-
-    </div>
+    </section>
   )
 }

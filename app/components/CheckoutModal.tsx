@@ -2,194 +2,272 @@
 
 import { useState } from "react"
 
-type CheckoutModalProps = {
-  total: number
+import { supabase } from "../../utils/supabase/client"
+
+type Props = {
+  open: boolean
   onClose: () => void
-  onConfirm: (data: {
-    nome: string
-    telefone: string
-    endereco: string
-    pagamento: string
-  }) => void
+
+  cart: any[]
+
+  total: number
+
+  clearCart: () => void
 }
 
 export default function CheckoutModal({
-  total,
+  open,
   onClose,
-  onConfirm,
-}: CheckoutModalProps) {
+  cart,
+  total,
+  clearCart,
+}: Props) {
 
-  const [nome, setNome] = useState("")
-  const [telefone, setTelefone] = useState("")
-  const [endereco, setEndereco] = useState("")
-  const [pagamento, setPagamento] = useState("Dinheiro")
+  const [cliente, setCliente] =
+    useState("")
 
-  function handleConfirm() {
+  const [telefone, setTelefone] =
+    useState("")
+
+  const [bairro, setBairro] =
+    useState("")
+
+  const [rua, setRua] =
+    useState("")
+
+  const [numero, setNumero] =
+    useState("")
+
+  const [observacoes, setObservacoes] =
+    useState("")
+
+  const [pagamento, setPagamento] =
+    useState("Pix")
+
+  const [loading, setLoading] =
+    useState(false)
+
+  if (!open) return null
+
+  async function finalizarPedido() {
 
     if (
-      !nome ||
+      !cliente ||
       !telefone ||
-      !endereco
+      !bairro ||
+      !rua ||
+      !numero
     ) {
-      alert("Preencha todos os campos")
+
+      alert(
+        "Preencha os campos obrigatórios"
+      )
+
       return
     }
 
-    onConfirm({
-      nome,
-      telefone,
-      endereco,
-      pagamento,
-    })
+    try {
 
+      setLoading(true)
+
+      const endereco = `
+${bairro},
+${rua},
+${numero}
+      `
+
+      const pedido = {
+
+        cliente,
+
+        telefone,
+
+        endereco,
+
+        pagamento,
+
+        observacoes,
+
+        itens: cart,
+
+        total,
+
+        status: "pendente",
+      }
+
+      const { data, error } =
+        await supabase
+          .from("pedidos")
+          .insert([pedido])
+          .select()
+          .single()
+
+      if (error) {
+
+        console.log(error)
+
+        alert(
+          "Erro ao finalizar pedido"
+        )
+
+        return
+      }
+
+      clearCart()
+
+      window.location.href =
+        `/pedido/${data.id}`
+
+    } catch (error) {
+
+      console.log(error)
+
+    } finally {
+
+      setLoading(false)
+    }
   }
 
   return (
 
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5">
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-lg overflow-hidden">
+      <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-xl p-6">
 
-        {/* HEADER */}
-        <div className="flex items-center justify-between p-6 border-b border-zinc-800">
+        <div className="flex items-center justify-between mb-6">
 
-          <div>
-
-            <h2 className="text-3xl font-bold text-white">
-              Finalizar Pedido
-            </h2>
-
-            <p className="text-zinc-400 mt-1">
-              Preencha seus dados para concluir
-            </p>
-
-          </div>
+          <h2 className="text-3xl font-black">
+            Finalizar Pedido
+          </h2>
 
           <button
             onClick={onClose}
-            className="bg-zinc-800 hover:bg-zinc-700 transition w-10 h-10 rounded-full text-white text-xl"
+            className="text-zinc-500 text-2xl"
           >
             ×
           </button>
 
         </div>
 
-        {/* BODY */}
-        <div className="p-6 space-y-5">
+        <div className="grid gap-4">
 
-          {/* NOME */}
-          <div>
+          <input
+            value={cliente}
+            onChange={(e) =>
+              setCliente(
+                e.target.value
+              )
+            }
+            placeholder="Seu nome"
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+          />
 
-            <label className="block text-sm text-zinc-400 mb-2">
-              Nome Completo
-            </label>
+          <input
+            value={telefone}
+            onChange={(e) =>
+              setTelefone(
+                e.target.value
+              )
+            }
+            placeholder="Telefone"
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+          />
 
-            <input
-              type="text"
-              value={nome}
-              onChange={(e) =>
-                setNome(e.target.value)
-              }
-              placeholder="Digite seu nome"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-green-500 transition"
-            />
-
-          </div>
-
-          {/* TELEFONE */}
-          <div>
-
-            <label className="block text-sm text-zinc-400 mb-2">
-              WhatsApp
-            </label>
+          <div className="grid grid-cols-2 gap-4">
 
             <input
-              type="text"
-              value={telefone}
+              value={bairro}
               onChange={(e) =>
-                setTelefone(e.target.value)
+                setBairro(
+                  e.target.value
+                )
               }
-              placeholder="(92) 99999-9999"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-green-500 transition"
+              placeholder="Bairro"
+              className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+            />
+
+            <input
+              value={numero}
+              onChange={(e) =>
+                setNumero(
+                  e.target.value
+                )
+              }
+              placeholder="Número"
+              className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
             />
 
           </div>
 
-          {/* ENDEREÇO */}
-          <div>
+          <input
+            value={rua}
+            onChange={(e) =>
+              setRua(
+                e.target.value
+              )
+            }
+            placeholder="Rua"
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+          />
 
-            <label className="block text-sm text-zinc-400 mb-2">
-              Endereço de Entrega
-            </label>
+          <textarea
+            value={observacoes}
+            onChange={(e) =>
+              setObservacoes(
+                e.target.value
+              )
+            }
+            placeholder="Observações do pedido"
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 h-28 resize-none"
+          />
 
-            <textarea
-              value={endereco}
-              onChange={(e) =>
-                setEndereco(e.target.value)
-              }
-              placeholder="Rua, número, bairro..."
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-green-500 transition resize-none h-28"
-            />
+          <select
+            value={pagamento}
+            onChange={(e) =>
+              setPagamento(
+                e.target.value
+              )
+            }
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+          >
+            <option>
+              Pix
+            </option>
 
-          </div>
+            <option>
+              Dinheiro
+            </option>
 
-          {/* PAGAMENTO */}
-          <div>
+            <option>
+              Cartão
+            </option>
 
-            <label className="block text-sm text-zinc-400 mb-2">
-              Forma de Pagamento
-            </label>
-
-            <select
-              value={pagamento}
-              onChange={(e) =>
-                setPagamento(e.target.value)
-              }
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 text-white outline-none focus:border-green-500 transition"
-            >
-
-              <option>
-                Dinheiro
-              </option>
-
-              <option>
-                Pix
-              </option>
-
-              <option>
-                Cartão de Crédito
-              </option>
-
-              <option>
-                Cartão de Débito
-              </option>
-
-            </select>
-
-          </div>
+          </select>
 
         </div>
 
-        {/* FOOTER */}
-        <div className="border-t border-zinc-800 p-6">
+        <div className="mt-8 flex items-center justify-between">
 
-          <div className="flex items-center justify-between mb-5">
+          <div>
 
-            <span className="text-zinc-400">
+            <p className="text-zinc-400">
               Total
-            </span>
+            </p>
 
-            <span className="text-4xl font-bold text-green-400">
+            <h3 className="text-4xl font-black text-green-400">
               R$ {total.toFixed(2)}
-            </span>
+            </h3>
 
           </div>
 
           <button
-            onClick={handleConfirm}
-            className="w-full bg-green-500 hover:bg-green-600 transition py-5 rounded-2xl text-xl font-bold text-white shadow-lg"
+            onClick={finalizarPedido}
+            disabled={loading}
+            className="bg-green-500 hover:bg-green-400 transition px-8 py-4 rounded-2xl font-bold text-lg"
           >
-            Confirmar Pedido
+            {loading
+              ? "Enviando..."
+              : "Confirmar Pedido"}
           </button>
 
         </div>
@@ -197,7 +275,5 @@ export default function CheckoutModal({
       </div>
 
     </div>
-
   )
-
 }

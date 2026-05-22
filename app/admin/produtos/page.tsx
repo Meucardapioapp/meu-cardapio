@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/app/utils/supabase/client"
+import { supabase } from "@/utils/supabase/client"
 import {
   Plus,
   Trash2,

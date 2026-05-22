@@ -1,257 +1,229 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react"
 
-interface Adicional {
-  id: string;
-  nome: string;
-  preco: number;
-  produto_id: string;
+type Adicional = {
+  nome: string
+  preco: number
 }
 
-interface Produto {
-  id: string;
-  nome: string;
-  descricao: string;
-  preco: number;
-  imagem: string;
+type Produto = {
+  id: string
+  name: string
+  description: string
+  price: number
+  image: string
+  adicionais?: Adicional[]
 }
 
-interface ProductModalProps {
-  produto: Produto;
-  onClose: () => void;
-  onAddToCart: (item: any) => void;
+type Props = {
+  open: boolean
+
+  onClose: () => void
+
+  product: Produto | null
+
+  onAdd: (
+    produto: Produto,
+    observation?: string,
+    adicionaisSelecionados?: Adicional[]
+  ) => void
 }
 
 export default function ProductModal({
-  produto,
+  open,
   onClose,
-  onAddToCart,
-}: ProductModalProps) {
+  product,
+  onAdd,
+}: Props) {
 
-  const [observacao, setObservacao] = useState("");
+  const [observation, setObservation] =
+    useState("")
 
-  const [adicionais, setAdicionais] = useState<
-    Adicional[]
-  >([]);
-
-  const [selecionados, setSelecionados] = useState<
-    Adicional[]
-  >([]);
+  const [
+    adicionaisSelecionados,
+    setAdicionaisSelecionados,
+  ] = useState<Adicional[]>([])
 
   useEffect(() => {
 
-    async function fetchAdicionais() {
+    if (open) {
 
-      try {
+      setObservation("")
 
-        const response = await fetch(
-          `https://ipxadfapzgyyquznmxqf.supabase.co/rest/v1/adicionais?produto_id=eq.${produto.id}`,
-          {
-            headers: {
-              apikey:
-                "sb_publishable_qU7HvW9BCxxP7cC7lfkVZA_kfE5lblA",
-
-              Authorization:
-                "Bearer sb_publishable_qU7HvW9BCxxP7cC7lfkVZA_kfE5lblA",
-            },
-          }
-        );
-
-        const data = await response.json();
-
-        setAdicionais(data || []);
-
-      } catch (error) {
-
-        console.log(error);
-
-      }
-
+      setAdicionaisSelecionados([])
     }
 
-    fetchAdicionais();
+  }, [open])
 
-  }, [produto.id]);
+  if (!open || !product)
+    return null
 
-  function toggleAdicional(adicional: Adicional) {
+  function toggleAdicional(
+    adicional: Adicional
+  ) {
 
-    const exists = selecionados.find(
-      (item) => item.id === adicional.id
-    );
+    const existe =
+      adicionaisSelecionados.find(
+        (item) =>
+          item.nome === adicional.nome
+      )
 
-    if (exists) {
+    if (existe) {
 
-      setSelecionados(
-        selecionados.filter(
-          (item) => item.id !== adicional.id
+      setAdicionaisSelecionados(
+
+        adicionaisSelecionados.filter(
+          (item) =>
+            item.nome !==
+            adicional.nome
         )
-      );
+      )
 
-    } else {
-
-      setSelecionados([
-        ...selecionados,
-        adicional,
-      ]);
-
+      return
     }
 
+    setAdicionaisSelecionados([
+      ...adicionaisSelecionados,
+      adicional,
+    ])
   }
 
-  const totalAdicionais = selecionados.reduce(
-    (acc, item) => acc + Number(item.preco),
-    0
-  );
+  const totalAdicionais =
+    adicionaisSelecionados.reduce(
+      (acc, item) =>
+        acc + Number(item.preco),
+      0
+    )
 
   const total =
-    Number(produto.preco) + totalAdicionais;
-
-  function handleAdd() {
-
-    onAddToCart({
-      name: produto.nome,
-
-      price: total,
-
-      quantity: 1,
-
-      observacao,
-
-      adicionais: selecionados.map(
-        (item) => ({
-          nome: item.nome,
-          preco: Number(item.preco),
-        })
-      ),
-    });
-
-    onClose();
-
-  }
+    Number(product.price) +
+    totalAdicionais
 
   return (
 
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5">
 
-      <div className="bg-zinc-900 rounded-3xl w-full max-w-md overflow-hidden border border-zinc-800">
+      <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-lg overflow-hidden">
 
-        <div className="relative">
+        <img
+          src={product.image}
+          alt={product.name}
+          className="w-full h-60 object-cover"
+        />
 
-          <img
-            src={produto.imagem}
-            alt={produto.nome}
-            className="w-full h-64 object-cover"
-          />
+        <div className="p-6">
 
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 bg-black/60 text-white w-8 h-8 rounded-full"
-          >
-            ×
-          </button>
+          <div className="flex items-start justify-between gap-4">
 
-        </div>
+            <div>
 
-        <div className="p-5">
+              <h2 className="text-3xl font-black">
+                {product.name}
+              </h2>
 
-          <h2 className="text-3xl font-bold text-white">
-            {produto.nome}
-          </h2>
-
-          <p className="text-zinc-400 mt-2">
-            {produto.descricao}
-          </p>
-
-          {/* ADICIONAIS */}
-          <div className="mt-6">
-
-            <h3 className="text-white font-semibold text-lg mb-3">
-              Adicionais
-            </h3>
-
-            {adicionais.length === 0 ? (
-
-              <p className="text-zinc-500">
-                Nenhum adicional disponível
+              <p className="text-zinc-400 mt-2">
+                {product.description}
               </p>
 
-            ) : (
+            </div>
 
-              <div className="space-y-3">
+            <button
+              onClick={onClose}
+              className="text-zinc-500 hover:text-white text-2xl"
+            >
+              ×
+            </button>
 
-                {adicionais.map((adicional) => {
+          </div>
 
-                  const active = selecionados.find(
-                    (item) => item.id === adicional.id
-                  );
+          {product.adicionais &&
+            product.adicionais.length > 0 && (
 
-                  return (
+              <div className="mt-6">
 
-                    <button
-                      key={adicional.id}
-                      onClick={() =>
-                        toggleAdicional(adicional)
-                      }
-                      className={`w-full flex items-center justify-between p-4 rounded-2xl border transition ${
-                        active
-                          ? "border-green-500 bg-green-500/10"
-                          : "border-zinc-700 bg-zinc-800"
-                      }`}
-                    >
+                <h3 className="font-bold text-lg mb-3">
+                  Adicionais
+                </h3>
 
-                      <div className="text-left">
+                <div className="space-y-2">
 
-                        <p className="text-white font-medium">
-                          {adicional.nome}
-                        </p>
+                  {product.adicionais.map(
+                    (
+                      adicional,
+                      index
+                    ) => {
 
-                        <p className="text-green-400 text-sm">
-                          + R$ {Number(adicional.preco).toFixed(2)}
-                        </p>
+                      const ativo =
+                        adicionaisSelecionados.find(
+                          (item) =>
+                            item.nome ===
+                            adicional.nome
+                        )
 
-                      </div>
+                      return (
 
-                      <div
-                        className={`w-5 h-5 rounded border ${
-                          active
-                            ? "bg-green-500 border-green-500"
-                            : "border-zinc-500"
-                        }`}
-                      />
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() =>
+                            toggleAdicional(
+                              adicional
+                            )
+                          }
+                          className={`w-full flex items-center justify-between p-4 rounded-2xl border transition ${
+                            ativo
+                              ? "border-green-500 bg-green-500/10"
+                              : "border-zinc-800 bg-zinc-900"
+                          }`}
+                        >
 
-                    </button>
+                          <span>
+                            + {adicional.nome}
+                          </span>
 
-                  );
+                          <span className="text-green-400 font-bold">
+                            R$ {" "}
+                            {Number(
+                              adicional.preco || 0
+                            ).toFixed(2)}
+                          </span>
 
-                })}
+                        </button>
+
+                      )
+                    }
+                  )}
+
+                </div>
 
               </div>
 
             )}
 
-          </div>
-
-          {/* OBSERVAÇÃO */}
           <div className="mt-6">
 
-            <h3 className="text-white font-semibold mb-2">
+            <h3 className="font-bold text-lg mb-3">
               Observações
             </h3>
 
             <textarea
-              value={observacao}
+              value={observation}
               onChange={(e) =>
-                setObservacao(e.target.value)
+                setObservation(
+                  e.target.value
+                )
               }
-              placeholder="Ex: sem cebola, pouco molho..."
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl p-4 text-white outline-none resize-none h-28"
+              placeholder="Ex: sem cebola, molho separado..."
+              className="w-full h-28 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 outline-none resize-none"
             />
 
           </div>
 
-          {/* TOTAL */}
-          <div className="mt-8 flex items-center justify-between">
+          <div className="mt-6 flex items-center justify-between">
 
             <div>
 
@@ -259,15 +231,25 @@ export default function ProductModal({
                 Total
               </p>
 
-              <p className="text-3xl font-bold text-green-400">
+              <h3 className="text-3xl font-black text-green-400">
                 R$ {total.toFixed(2)}
-              </p>
+              </h3>
 
             </div>
 
             <button
-              onClick={handleAdd}
-              className="bg-green-500 hover:bg-green-600 transition px-8 py-4 rounded-2xl text-white font-semibold"
+              type="button"
+              onClick={() => {
+
+                onAdd(
+                  product,
+                  observation,
+                  adicionaisSelecionados
+                )
+
+                onClose()
+              }}
+              className="bg-green-500 hover:bg-green-400 transition px-8 py-4 rounded-2xl font-bold text-lg"
             >
               Adicionar
             </button>
@@ -279,7 +261,5 @@ export default function ProductModal({
       </div>
 
     </div>
-
-  );
-
+  )
 }

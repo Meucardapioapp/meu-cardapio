@@ -1,20 +1,23 @@
+"use client"
+
+type Adicional = {
+  nome: string
+  preco: number
+}
+
 type CartItem = {
-  id: string
   uniqueId: string
   name: string
   price: number
   quantity: number
-  observation?: string
-  adicionais?: {
-    nome: string
-    preco: number
-  }[]
+  image?: string
+  adicionaisSelecionados?: Adicional[]
 }
 
-type CartProps = {
+type Props = {
   cart: CartItem[]
-  increaseQuantity: (uniqueId: string) => void
-  decreaseQuantity: (uniqueId: string) => void
+  increaseQuantity: (id: string) => void
+  decreaseQuantity: (id: string) => void
   onCheckout: () => void
 }
 
@@ -23,7 +26,7 @@ export default function Cart({
   increaseQuantity,
   decreaseQuantity,
   onCheckout,
-}: CartProps) {
+}: Props) {
 
   const total = cart.reduce(
     (acc, item) => acc + item.price * item.quantity,
@@ -31,78 +34,81 @@ export default function Cart({
   )
 
   return (
+    <div className="bg-zinc-950 border border-zinc-900 rounded-3xl p-6">
 
-    <div className="bg-zinc-950 border border-zinc-900 rounded-3xl p-4 md:p-6 h-fit sticky top-6">
-
-      <h2 className="text-2xl font-bold mb-6">
+      <h2 className="text-3xl font-bold mb-6">
         Carrinho
       </h2>
 
       {cart.length === 0 ? (
 
-        <div className="text-center py-10 text-zinc-500 border border-zinc-900 rounded-2xl">
+        <div className="border border-zinc-800 rounded-2xl p-10 text-center text-zinc-500">
           Seu carrinho está vazio.
         </div>
 
       ) : (
 
-        <div className="space-y-4">
+        <div className="space-y-6">
 
-          {cart.map((item, index) => (
+          {cart.map((item) => (
 
             <div
-              key={`${item.uniqueId}-${index}`}
-              className="border-b border-zinc-900 pb-4"
+              key={item.uniqueId}
+              className="border-b border-zinc-800 pb-5"
             >
 
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex justify-between items-start gap-4">
 
-                <div className="flex-1">
+                <div className="flex gap-4 flex-1">
 
-                  <h3 className="font-bold text-base md:text-lg leading-tight">
-                    {item.name}
-                  </h3>
+                  {item.image && (
 
-                  <p className="text-green-400 font-bold text-lg">
-                    R$ {(item.price * item.quantity).toFixed(2)}
-                  </p>
-
-                  {item.adicionais &&
-                    item.adicionais.length > 0 && (
-
-                      <div className="mt-2 space-y-1">
-
-                        {item.adicionais.map((adicional, adIndex) => (
-
-                          <div
-                            key={`${item.uniqueId}-${adicional.nome}-${adIndex}`}
-                            className="flex justify-between text-xs md:text-sm text-zinc-300"
-                          >
-
-                            <span>
-                              + {adicional.nome}
-                            </span>
-
-                            <span className="text-green-400">
-                              R$ {adicional.preco.toFixed(2)}
-                            </span>
-
-                          </div>
-
-                        ))}
-
-                      </div>
-
-                    )}
-
-                  {item.observation && (
-
-                    <p className="text-xs md:text-sm text-zinc-400 mt-2">
-                      {item.observation}
-                    </p>
-
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-20 h-20 rounded-xl object-cover"
+                    />
                   )}
 
+                  <div className="flex-1">
+
+                    <h3 className="font-bold text-lg">
+                      {item.name}
+                    </h3>
+
+                    <p className="text-green-400 font-bold mt-1">
+                      R$ {Number(item.price).toFixed(2)}
+                    </p>
+
+                    {item.adicionaisSelecionados &&
+                      item.adicionaisSelecionados.length > 0 && (
+
+                      <div className="mt-3 space-y-1">
+
+                        {item.adicionaisSelecionados.map(
+                          (adicional, index) => (
+
+                            <div
+                              key={index}
+                              className="flex justify-between text-sm text-green-400"
+                            >
+
+                              <span>
+                                + {adicional.nome}
+                              </span>
+
+                              <span>
+                                R$ {Number(adicional.preco).toFixed(2)}
+                              </span>
+
+                            </div>
+                          )
+                        )}
+
+                      </div>
+                    )}
+
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -111,12 +117,12 @@ export default function Cart({
                     onClick={() =>
                       decreaseQuantity(item.uniqueId)
                     }
-                    className="w-8 h-8 rounded-lg bg-zinc-900 hover:bg-zinc-800 transition"
+                    className="w-8 h-8 rounded-lg bg-zinc-900 hover:bg-zinc-800"
                   >
                     -
                   </button>
 
-                  <span className="font-bold w-4 text-center">
+                  <span className="w-5 text-center">
                     {item.quantity}
                   </span>
 
@@ -124,46 +130,38 @@ export default function Cart({
                     onClick={() =>
                       increaseQuantity(item.uniqueId)
                     }
-                    className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-400 transition"
+                    className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-400 text-black font-bold"
                   >
                     +
                   </button>
 
                 </div>
-
               </div>
 
             </div>
-
           ))}
 
-          <div className="pt-4">
+          <div className="flex items-center justify-between pt-2">
 
-            <div className="flex items-center justify-between mb-5">
+            <span className="text-2xl font-bold">
+              Total
+            </span>
 
-              <span className="text-xl font-bold">
-                Total
-              </span>
-
-              <span className="text-3xl md:text-4xl font-bold text-green-400">
-                R$ {total.toFixed(2)}
-              </span>
-
-            </div>
-
-            <button
-              onClick={onCheckout}
-              className="w-full bg-green-500 hover:bg-green-400 transition py-4 rounded-2xl text-lg font-bold"
-            >
-              Finalizar Pedido
-            </button>
+            <span className="text-4xl font-bold text-green-400">
+              R$ {total.toFixed(2)}
+            </span>
 
           </div>
 
+          <button
+            onClick={onCheckout}
+            className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-4 rounded-2xl transition"
+          >
+            Finalizar Pedido
+          </button>
+
         </div>
-
       )}
-
     </div>
   )
 }

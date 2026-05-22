@@ -1,6 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+export const dynamic = "force-dynamic"
+
+import {
+  useEffect,
+  useState,
+} from "react"
 
 import Header from "./components/Header"
 import Hero from "./components/Hero"
@@ -10,277 +15,462 @@ import ProductModal from "./components/ProductModal"
 import Cart from "./components/Cart"
 import CheckoutModal from "./components/CheckoutModal"
 
-import { supabase } from "./utils/supabase/client"
+import { supabase } from "@/utils/supabase/client"
 
-type Produto = {
-  id: string
+type Adicional = {
   nome: string
-  descricao: string
   preco: number
-  imagem: string
 }
 
-type CartItem = {
+type ProdutoFormatado = {
   id: string
-  uniqueId: string
   name: string
+  description: string
   price: number
+  image: string
+  adicionais?: Adicional[]
+}
+
+type CartItem = ProdutoFormatado & {
+  uniqueId: string
   quantity: number
   observation?: string
-  adicionais?: {
-    nome: string
-    preco: number
-  }[]
+  adicionaisSelecionados?: Adicional[]
 }
 
 export default function Home() {
 
-  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [produtos, setProdutos] =
+    useState<ProdutoFormatado[]>([])
 
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [selectedProduct, setSelectedProduct] =
+    useState<ProdutoFormatado | null>(null)
 
-  const [selectedProduct, setSelectedProduct] = useState<Produto | null>(null)
+  const [openModal, setOpenModal] =
+    useState(false)
 
-  const [openModal, setOpenModal] = useState(false)
+  const [
+    openCheckout,
+    setOpenCheckout,
+  ] = useState(false)
 
-  const [openCheckout, setOpenCheckout] = useState(false)
+  const [cart, setCart] =
+    useState<CartItem[]>([])
 
-  const [mounted, setMounted] = useState(false)
+  async function buscarProdutos() {
 
-  useEffect(() => {
-
-    setMounted(true)
-
-    const savedCart = localStorage.getItem("cart")
-
-    if (savedCart) {
-      setCart(JSON.parse(savedCart))
-    }
-
-  }, [])
-
-  useEffect(() => {
-
-    if (mounted) {
-      localStorage.setItem("cart", JSON.stringify(cart))
-    }
-
-  }, [cart, mounted])
-
-  useEffect(() => {
-
-    async function fetchProdutos() {
-
-      const { data, error } = await supabase
+    const { data, error } =
+      await supabase
         .from("produtos")
         .select("*")
+        .order("created_at", {
+          ascending: false,
+        })
 
-      if (error) {
-        console.log(error)
-        return
-      }
+    if (error) {
 
-      if (data) {
-        setProdutos(data)
-      }
+      console.log(error)
+
+      return
     }
 
-    fetchProdutos()
+    if (!data) {
+
+      setProdutos([])
+
+      return
+    }
+
+    const produtosFormatados =
+      await Promise.all(
+
+        data.map(async (produto) => {
+
+          const {
+            data: adicionais,
+          } = await supabase
+            .from("adicionais")
+            .select("*")
+            .eq(
+              "produto_id",
+              produto.id
+            )
+
+          return {
+
+            id: produto.id,
+
+            name: produto.nome,
+
+            description:
+              produto.descricao,
+
+            price: Number(
+              produto.preco
+            ),
+
+            image:
+              produto.imagem,
+
+            adicionais:
+              adicionais || [],
+          }
+        })
+      )
+
+    setProdutos(
+      produtosFormatados
+    )
+  }
+
+  useEffect(() => {
+
+    buscarProdutos()
+
+    const handleFocus = () => {
+
+      buscarProdutos()
+    }
+
+    window.addEventListener(
+      "focus",
+      handleFocus
+    )
+
+    const cartStorage =
+      localStorage.getItem("cart")
+
+    if (cartStorage) {
+
+      setCart(
+        JSON.parse(cartStorage)
+      )
+    }
+
+    const channelProdutos =
+      supabase
+
+        .channel(
+          "realtime-produtos"
+        )
+
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "produtos",
+          },
+          () => {
+
+            buscarProdutos()
+          }
+        )
+
+        .subscribe()
+
+    const channelAdicionais =
+      supabase
+
+        .channel(
+          "realtime-adicionais"
+        )
+
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "adicionais",
+          },
+          () => {
+
+            buscarProdutos()
+          }
+        )
+
+        .subscribe()
+
+    return () => {
+
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      )
+
+      supabase.removeChannel(
+        channelProdutos
+      )
+
+      supabase.removeChannel(
+        channelAdicionais
+      )
+    }
 
   }, [])
 
-  function generateUniqueId(item: CartItem) {
+  useEffect(() => {
 
-    return JSON.stringify({
-      id: item.id,
-      observation: item.observation || "",
-      adicionais: item.adicionais || []
-    })
+    localStorage.setItem(
+      "cart",
+      JSON.stringify(cart)
+    )
+
+  }, [cart])
+
+  function openProductModal(
+    produto: ProdutoFormatado
+  ) {
+
+    setSelectedProduct(
+      produto
+    )
+
+    setOpenModal(true)
   }
 
-  function addToCart(item: CartItem) {
+  function addToCart(
+    produto: ProdutoFormatado,
+    observation?: string,
+    adicionaisSelecionados?: Adicional[]
+  ) {
 
-    const itemWithId = {
-      ...item,
-      uniqueId: generateUniqueId(item)
+    const totalAdicionais =
+      adicionaisSelecionados?.reduce(
+        (acc, item) => {
+
+          return (
+            acc +
+            Number(item.preco)
+          )
+
+        },
+        0
+      ) || 0
+
+    const novoItem: CartItem = {
+
+      ...produto,
+
+      uniqueId:
+        crypto.randomUUID(),
+
+      quantity: 1,
+
+      observation,
+
+      adicionaisSelecionados:
+        adicionaisSelecionados || [],
+
+      price:
+        Number(produto.price) +
+        totalAdicionais,
     }
 
-    setCart((prev) => {
+    setCart((prev) => [
+      ...prev,
+      novoItem,
+    ])
 
-      const existingItem = prev.find(
-        (product) => product.uniqueId === itemWithId.uniqueId
-      )
-
-      if (existingItem) {
-
-        return prev.map((product) =>
-          product.uniqueId === itemWithId.uniqueId
-            ? {
-                ...product,
-                quantity: product.quantity + item.quantity,
-              }
-            : product
-        )
-      }
-
-      return [...prev, itemWithId]
-    })
+    setOpenModal(false)
   }
 
-  function increaseQuantity(uniqueId: string) {
+  function increaseQuantity(
+    uniqueId: string
+  ) {
 
     setCart((prev) =>
+
       prev.map((item) =>
+
         item.uniqueId === uniqueId
+
           ? {
               ...item,
-              quantity: item.quantity + 1,
+              quantity:
+                item.quantity + 1,
             }
+
           : item
       )
     )
   }
 
-  function decreaseQuantity(uniqueId: string) {
+  function decreaseQuantity(
+    uniqueId: string
+  ) {
 
     setCart((prev) =>
+
       prev
         .map((item) =>
+
           item.uniqueId === uniqueId
+
             ? {
                 ...item,
-                quantity: item.quantity - 1,
+                quantity:
+                  item.quantity - 1,
               }
+
             : item
         )
-        .filter((item) => item.quantity > 0)
+
+        .filter(
+          (item) =>
+            item.quantity > 0
+        )
     )
   }
 
-  if (!mounted) {
-    return null
-  }
+  const total = cart.reduce(
+
+    (acc, item) =>
+
+      acc +
+      Number(item.price) *
+        item.quantity,
+
+    0
+  )
 
   return (
 
-    <main className="bg-black min-h-screen text-white">
+    <main className="min-h-screen bg-black text-white">
 
-      <Header cart={cart.length} />
+      <Header
+        cart={cart}
+        openCart={() => {
+
+          const carrinho =
+            document.getElementById(
+              "cart-section"
+            )
+
+          carrinho?.scrollIntoView({
+            behavior: "smooth",
+          })
+        }}
+      />
 
       <Hero />
 
       <Benefits />
 
-      <section className="max-w-7xl mx-auto px-3 md:px-6 py-8 md:py-10">
+      <section className="max-w-7xl mx-auto px-5 py-12">
 
-        <div className="flex items-center justify-between mb-5 md:mb-6">
+        <div className="flex items-center justify-between mb-8">
 
-          <h2 className="text-2xl md:text-4xl font-bold leading-tight">
-            Cardápio Popular
-          </h2>
+          <div>
 
-          <button className="bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm rounded-xl hover:bg-zinc-800 transition">
-            Ver Tudo
-          </button>
+            <h2 className="text-4xl font-black">
+              Cardápio
+            </h2>
 
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
-
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-
-            {produtos.map((produto) => (
-
-              <ProductCard
-                key={produto.id}
-                product={{
-                  id: produto.id,
-                  name: produto.nome,
-                  description: produto.descricao,
-                  price: Number(produto.preco),
-                  image: produto.imagem,
-                }}
-                onAdd={() => {
-                  setSelectedProduct(produto)
-                  setOpenModal(true)
-                }}
-              />
-
-            ))}
+            <p className="text-zinc-400 mt-2">
+              Escolha seus produtos
+            </p>
 
           </div>
 
-          <Cart
-            cart={cart}
-            increaseQuantity={increaseQuantity}
-            decreaseQuantity={decreaseQuantity}
-            onCheckout={() => setOpenCheckout(true)}
-          />
+          <div className="bg-zinc-900 border border-zinc-800 px-5 py-3 rounded-2xl">
+
+            <span className="text-zinc-400">
+              Produtos:
+            </span>
+
+            <span className="ml-2 font-bold text-green-400">
+              {produtos.length}
+            </span>
+
+          </div>
 
         </div>
 
+        {produtos.length === 0 ? (
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-10 text-center text-zinc-400">
+
+            Nenhum produto encontrado
+
+          </div>
+
+        ) : (
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            {produtos.map(
+              (produto) => (
+
+                <ProductCard
+                  key={produto.id}
+                  product={produto}
+                  onAdd={() =>
+                    openProductModal(
+                      produto
+                    )
+                  }
+                />
+
+              )
+            )}
+
+          </div>
+
+        )}
+
       </section>
 
-      {openModal && selectedProduct && (
+      <section
+        id="cart-section"
+        className="max-w-7xl mx-auto px-5 pb-10"
+      >
 
-        <ProductModal
-          produto={selectedProduct}
-          onClose={() => setOpenModal(false)}
-          onAddToCart={(item: CartItem) => {
-
-            addToCart(item)
-
-            setOpenModal(false)
-          }}
+        <Cart
+          cart={cart}
+          increaseQuantity={
+            increaseQuantity
+          }
+          decreaseQuantity={
+            decreaseQuantity
+          }
+          onCheckout={() =>
+            setOpenCheckout(true)
+          }
         />
 
-      )}
+      </section>
 
-      {openCheckout && (
-        <CheckoutModal
-          total={cart.reduce(
-            (acc, item) => acc + item.price * item.quantity,
-            0
-          )}
-          onClose={() => setOpenCheckout(false)}
-          onConfirm={async (data) => {
+      <ProductModal
+        open={openModal}
+        onClose={() =>
+          setOpenModal(false)
+        }
+        product={selectedProduct}
+        onAdd={addToCart}
+      />
 
-            const total = cart.reduce(
-              (acc, item) => acc + item.price * item.quantity,
-              0
-            )
+      <CheckoutModal
 
-            const { error } = await supabase
-              .from("pedidos")
-              .insert([
-                {
-                  cliente: data.nome,
-                  telefone: data.telefone,
-                  endereco: data.endereco,
-                  pagamento: data.pagamento,
-                  itens: cart,
-                  total,
-                  status: "pendente"
-                }
-              ])
+        open={openCheckout}
 
-            if (error) {
-              console.log(error)
-              alert("Erro ao enviar pedido")
-              return
-            }
+        onClose={() =>
+          setOpenCheckout(false)
+        }
 
-            alert("Pedido enviado com sucesso!")
+        cart={cart}
 
-            setCart([])
+        total={total}
 
-            localStorage.removeItem("cart")
+        clearCart={() => {
 
-            setOpenCheckout(false)
+          setCart([])
 
-          }}
-        />
-      )}
+          localStorage.removeItem(
+            "cart"
+          )
+        }}
+      />
 
     </main>
   )
