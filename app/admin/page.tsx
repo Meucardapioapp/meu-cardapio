@@ -2,525 +2,607 @@
 
 import { useEffect, useState } from "react"
 
-import { supabase } from "@/utils/supabase/client"
+import { supabase } from "@/lib/supabase"
 
-import { motion } from "framer-motion"
+import { StatusBadge } from "@/app/components/StatusBadge"
 
-import {
-  Clock3,
-  ChefHat,
-  Bike,
-  CheckCircle2,
-  Trash2,
-} from "lucide-react"
+import { Button } from "@/components/ui/button"
 
-interface Adicional {
-  nome: string
-  preco: number
-}
-
-interface ItemPedido {
-  name: string
-  image: string
-  quantity: number
-  price: number
-  observation?: string
-
-  adicionaisSelecionados?: Adicional[]
-}
-
-interface Pedido {
-  id: number
-
+type Pedido = {
+  id: string
   cliente: string
-
-  telefone: string
-
-  endereco: string
-
-  pagamento: string
-
-  itens: ItemPedido[]
-
   total: number
-
   status: string
+  created_at: string
+  items: any[]
 }
 
-export default function AdminPage() {
+export default function DashboardPage() {
 
-  const [pedidos, setPedidos] =
+  const [loading, setLoading] =
+    useState(true)
+
+  const [faturamentoHoje, setFaturamentoHoje] =
+    useState(0)
+
+  const [pedidosHoje, setPedidosHoje] =
+    useState(0)
+
+  const [produtosTotal, setProdutosTotal] =
+    useState(0)
+
+  const [pedidosPendentes, setPedidosPendentes] =
+    useState(0)
+
+  const [ultimosPedidos, setUltimosPedidos] =
     useState<Pedido[]>([])
 
-  const [novoPedido, setNovoPedido] =
-    useState(false)
+  useEffect(() => {
+    carregarDashboard()
+  }, [])
 
-  async function buscarPedidos() {
+  async function carregarDashboard() {
 
-    const { data, error } =
-      await supabase
+    try {
+
+      const restauranteId =
+        localStorage.getItem(
+          "restaurante_id"
+        )
+
+      if (!restauranteId) {
+
+        window.location.href =
+          "/login"
+
+        return
+      }
+
+      // PEDIDOS
+
+      const {
+        data: pedidos,
+      } = await supabase
+
         .from("pedidos")
-        .select("*")
-        .order("id", {
-          ascending: false,
-        })
 
-    if (error) {
+        .select("*")
+
+        .eq(
+          "restaurante_id",
+          restauranteId
+        )
+
+      // PRODUTOS
+
+      const {
+        data: produtos,
+      } = await supabase
+
+        .from("produtos")
+
+        .select("*")
+
+        .eq(
+          "restaurante_id",
+          restauranteId
+        )
+
+      if (produtos) {
+
+        setProdutosTotal(
+          produtos.length
+        )
+      }
+
+      if (pedidos) {
+
+        // PEDIDOS HOJE
+
+        const hoje = new Date()
+
+        const pedidosDoDia =
+          pedidos.filter(
+            (pedido) => {
+
+              const dataPedido =
+                new Date(
+                  pedido.created_at
+                )
+
+              return (
+                dataPedido.toDateString()
+                ===
+                hoje.toDateString()
+              )
+            }
+          )
+
+        setPedidosHoje(
+          pedidosDoDia.length
+        )
+
+        // FATURAMENTO
+
+        const total =
+          pedidosDoDia.reduce(
+            (
+              acc,
+              pedido
+            ) => {
+
+              return (
+                acc +
+                Number(
+                  pedido.total
+                )
+              )
+            },
+            0
+          )
+
+        setFaturamentoHoje(total)
+
+        // PENDENTES
+
+        const pendentes =
+          pedidos.filter(
+            (pedido) =>
+              pedido.status ===
+              "pendente"
+          )
+
+        setPedidosPendentes(
+          pendentes.length
+        )
+
+        // ÚLTIMOS PEDIDOS
+
+        const ultimos =
+          pedidos
+
+            .sort(
+              (
+                a,
+                b
+              ) =>
+                new Date(
+                  b.created_at
+                ).getTime()
+                -
+                new Date(
+                  a.created_at
+                ).getTime()
+            )
+
+            .slice(0, 5)
+
+        setUltimosPedidos(
+          ultimos
+        )
+      }
+
+    } catch (error) {
 
       console.log(error)
 
-      return
-    }
+    } finally {
 
-    if (data) {
-
-      setPedidos(data)
+      setLoading(false)
     }
   }
 
-  useEffect(() => {
+  function formatarTempo(
+    data: string
+  ) {
 
-    buscarPedidos()
+    const agora =
+      new Date().getTime()
 
-    const audio = new Audio(
-      "/notification.mp3"
+    const pedido =
+      new Date(data).getTime()
+
+    const diff =
+      Math.floor(
+        (agora - pedido)
+        / 60000
+      )
+
+    if (diff < 1)
+      return "agora"
+
+    if (diff < 60)
+      return `há ${diff} min`
+
+    const horas =
+      Math.floor(diff / 60)
+
+    return `há ${horas}h`
+  }
+
+  if (loading) {
+
+    return (
+
+      <div className="
+        min-h-screen
+        bg-zinc-50
+        flex
+        items-center
+        justify-center
+      ">
+
+        <p className="
+          text-zinc-500
+          text-lg
+          font-medium
+        ">
+          Carregando dashboard...
+        </p>
+
+      </div>
     )
-
-    const channel = supabase
-      .channel("admin-pedidos")
-
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "pedidos",
-        },
-        (payload) => {
-
-          buscarPedidos()
-
-          if (
-            payload.eventType ===
-            "INSERT"
-          ) {
-
-            audio.play()
-
-            setNovoPedido(true)
-
-            setTimeout(() => {
-
-              setNovoPedido(false)
-
-            }, 3000)
-          }
-        }
-      )
-
-      .subscribe()
-
-    return () => {
-
-      supabase.removeChannel(
-        channel
-      )
-    }
-
-  }, [])
-
-  async function alterarStatus(
-    id: number,
-    status: string
-  ) {
-
-    await supabase
-      .from("pedidos")
-      .update({ status })
-      .eq("id", id)
-
-    buscarPedidos()
   }
-
-  async function deletarPedido(
-    id: number
-  ) {
-
-    await supabase
-      .from("pedidos")
-      .delete()
-      .eq("id", id)
-
-    buscarPedidos()
-  }
-
-  const pendentes = pedidos.filter(
-    (pedido) =>
-      pedido.status === "pendente"
-  )
-
-  const preparando = pedidos.filter(
-    (pedido) =>
-      pedido.status ===
-      "preparando"
-  )
-
-  const entrega = pedidos.filter(
-    (pedido) =>
-      pedido.status === "entrega"
-  )
-
-  const concluidos = pedidos.filter(
-    (pedido) =>
-      pedido.status ===
-      "concluido"
-  )
 
   return (
 
-    <div className="min-h-screen bg-zinc-950 text-white p-5">
+    <div className="
+      space-y-8
+      bg-zinc-50
+      min-h-screen
+      p-6
+    ">
 
-      <div className="max-w-7xl mx-auto">
+      <div className="
+        flex
+        flex-col
+        md:flex-row
+        md:items-center
+        md:justify-between
+        gap-4
+      ">
 
-        <div className="flex items-center justify-between mb-8">
+        <div>
+
+          <h1 className="
+            text-4xl
+            font-black
+            text-zinc-900
+          ">
+            Dashboard
+          </h1>
+
+          <p className="
+            text-zinc-500
+            mt-2
+          ">
+            Visão geral do restaurante
+          </p>
+
+        </div>
+
+        <Button className="
+          rounded-2xl
+          h-11
+          px-6
+        ">
+          Novo Pedido
+        </Button>
+
+      </div>
+
+      <div className="
+        flex
+        flex-wrap
+        gap-2
+      ">
+
+        <StatusBadge status="pendente" />
+
+        <StatusBadge status="preparando" />
+
+        <StatusBadge status="entrega" />
+
+        <StatusBadge status="concluido" />
+
+      </div>
+
+      <div className="
+        grid
+        grid-cols-1
+        md:grid-cols-2
+        xl:grid-cols-4
+        gap-4
+      ">
+
+        <div className="
+          bg-white
+          border
+          border-zinc-200
+          rounded-3xl
+          p-6
+          shadow-sm
+          hover:shadow-md
+          transition-all
+        ">
+
+          <p className="
+            text-zinc-500
+            text-sm
+            font-medium
+          ">
+            Faturamento Hoje
+          </p>
+
+          <h2 className="
+            text-3xl
+            font-black
+            mt-3
+            text-emerald-600
+          ">
+            R$ {
+              faturamentoHoje.toFixed(2)
+            }
+          </h2>
+
+        </div>
+
+        <div className="
+          bg-white
+          border
+          border-zinc-200
+          rounded-3xl
+          p-6
+          shadow-sm
+          hover:shadow-md
+          transition-all
+        ">
+
+          <p className="
+            text-zinc-500
+            text-sm
+            font-medium
+          ">
+            Pedidos Hoje
+          </p>
+
+          <h2 className="
+            text-3xl
+            font-black
+            mt-3
+            text-zinc-900
+          ">
+            {pedidosHoje}
+          </h2>
+
+        </div>
+
+        <div className="
+          bg-white
+          border
+          border-zinc-200
+          rounded-3xl
+          p-6
+          shadow-sm
+          hover:shadow-md
+          transition-all
+        ">
+
+          <p className="
+            text-zinc-500
+            text-sm
+            font-medium
+          ">
+            Produtos
+          </p>
+
+          <h2 className="
+            text-3xl
+            font-black
+            mt-3
+            text-zinc-900
+          ">
+            {produtosTotal}
+          </h2>
+
+        </div>
+
+        <div className="
+          bg-white
+          border
+          border-zinc-200
+          rounded-3xl
+          p-6
+          shadow-sm
+          hover:shadow-md
+          transition-all
+        ">
+
+          <p className="
+            text-zinc-500
+            text-sm
+            font-medium
+          ">
+            Pedidos Pendentes
+          </p>
+
+          <h2 className="
+            text-3xl
+            font-black
+            mt-3
+            text-amber-500
+          ">
+            {pedidosPendentes}
+          </h2>
+
+        </div>
+
+      </div>
+
+      <div className="
+        bg-white
+        border
+        border-zinc-200
+        rounded-3xl
+        p-8
+        shadow-sm
+      ">
+
+        <div className="
+          flex
+          flex-col
+          md:flex-row
+          md:items-center
+          md:justify-between
+          gap-4
+          mb-8
+        ">
 
           <div>
 
-            <h1 className="text-4xl font-black">
-              Painel Admin
-            </h1>
+            <h2 className="
+              text-2xl
+              font-black
+              text-zinc-900
+            ">
+              Últimos pedidos
+            </h2>
 
-            <p className="text-zinc-400 mt-2">
-              MeuCardapioApp
+            <p className="
+              text-zinc-500
+              mt-1
+            ">
+              Pedidos recebidos recentemente
             </p>
 
           </div>
 
-          <motion.div
-            animate={{
-              scale:
-                novoPedido
-                  ? [1, 1.1, 1]
-                  : 1,
-            }}
-            className={`px-5 py-3 rounded-2xl font-bold ${
-              novoPedido
-                ? "bg-red-500"
-                : "bg-zinc-800"
-            }`}
+          <Button
+            variant="outline"
+            className="
+              rounded-2xl
+            "
           >
-
-            {pedidos.length} pedidos
-
-          </motion.div>
+            Ver todos
+          </Button>
 
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        <div className="
+          space-y-4
+        ">
 
-          <Coluna
-            titulo="Pendentes"
-            icon={<Clock3 />}
-            pedidos={pendentes}
-            cor="border-yellow-500"
-            alterarStatus={
-              alterarStatus
-            }
-            deletarPedido={
-              deletarPedido
-            }
-          />
+          {ultimosPedidos.map(
+            (pedido) => (
 
-          <Coluna
-            titulo="Preparando"
-            icon={<ChefHat />}
-            pedidos={preparando}
-            cor="border-blue-500"
-            alterarStatus={
-              alterarStatus
-            }
-            deletarPedido={
-              deletarPedido
-            }
-          />
+              <div
+                key={pedido.id}
+                className="
+                  bg-zinc-50
+                  border
+                  border-zinc-200
+                  rounded-3xl
+                  p-5
+                  flex
+                  flex-col
+                  md:flex-row
+                  md:items-center
+                  md:justify-between
+                  gap-4
+                  hover:bg-zinc-100
+                  transition-all
+                  cursor-pointer
+                "
+              >
 
-          <Coluna
-            titulo="Entrega"
-            icon={<Bike />}
-            pedidos={entrega}
-            cor="border-orange-500"
-            alterarStatus={
-              alterarStatus
-            }
-            deletarPedido={
-              deletarPedido
-            }
-          />
+                <div className="
+                  space-y-3
+                ">
 
-          <Coluna
-            titulo="Concluídos"
-            icon={<CheckCircle2 />}
-            pedidos={concluidos}
-            cor="border-green-500"
-            alterarStatus={
-              alterarStatus
-            }
-            deletarPedido={
-              deletarPedido
-            }
-          />
+                  <div className="
+                    flex
+                    items-center
+                    gap-3
+                    flex-wrap
+                  ">
 
-        </div>
+                    <p className="
+                      font-bold
+                      text-zinc-900
+                    ">
+                      Pedido #
+                      {pedido.id}
+                    </p>
 
-      </div>
+                    <StatusBadge
+                      status={
+                        pedido.status
+                      }
+                    />
 
-    </div>
-  )
-}
+                  </div>
 
-function Coluna({
-  titulo,
-  icon,
-  pedidos,
-  cor,
-  alterarStatus,
-  deletarPedido,
-}: any) {
+                  <div className="
+                    space-y-1
+                  ">
 
-  return (
+                    <p className="
+                      text-zinc-600
+                      text-sm
+                      font-medium
+                    ">
+                      {pedido.cliente}
+                    </p>
 
-    <div
-      className={`bg-zinc-900 border ${cor} rounded-3xl p-4`}
-    >
+                    <p className="
+                      text-zinc-500
+                      text-sm
+                    ">
+                      {
+                        pedido.items?.length
+                      } itens
+                    </p>
 
-      <div className="flex items-center gap-2 mb-5">
+                  </div>
 
-        {icon}
+                </div>
 
-        <h2 className="text-xl font-bold">
-          {titulo}
-        </h2>
+                <div className="
+                  text-left
+                  md:text-right
+                ">
 
-        <div className="ml-auto bg-zinc-800 px-3 py-1 rounded-full text-sm">
+                  <p className="
+                    text-emerald-600
+                    font-black
+                    text-xl
+                  ">
+                    R$ {
+                      Number(
+                        pedido.total
+                      ).toFixed(2)
+                    }
+                  </p>
 
-          {pedidos.length}
-
-        </div>
-
-      </div>
-
-      <div className="space-y-4">
-
-        {pedidos.map(
-          (pedido: Pedido) => (
-
-            <motion.div
-              key={pedido.id}
-              initial={{
-                opacity: 0,
-                y: 20,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              className="bg-zinc-800 border border-zinc-700 rounded-2xl p-4"
-            >
-
-              <div className="flex items-start justify-between">
-
-                <div>
-
-                  <h3 className="font-bold text-lg">
-                    {pedido.cliente}
-                  </h3>
-
-                  <p className="text-sm text-zinc-400">
-                    Pedido #{pedido.id}
+                  <p className="
+                    text-zinc-500
+                    text-sm
+                    mt-1
+                  ">
+                    {
+                      formatarTempo(
+                        pedido.created_at
+                      )
+                    }
                   </p>
 
                 </div>
 
-                <button
-                  onClick={() =>
-                    deletarPedido(
-                      pedido.id
-                    )
-                  }
-                  className="text-red-500"
-                >
-
-                  <Trash2 size={18} />
-
-                </button>
-
               </div>
+            )
+          )}
 
-              <div className="mt-4 space-y-2 text-sm text-zinc-300">
-
-                <p>
-                  📞 {pedido.telefone}
-                </p>
-
-                <p>
-                  📍 {pedido.endereco}
-                </p>
-
-                <p>
-                  💳 {pedido.pagamento}
-                </p>
-
-              </div>
-
-              <div className="mt-5">
-
-                <h4 className="font-bold mb-3">
-                  Itens do pedido
-                </h4>
-
-                <div className="space-y-4">
-
-                  {pedido.itens?.map(
-                    (
-                      item,
-                      index
-                    ) => (
-
-                      <div
-                        key={index}
-                        className="bg-zinc-900 rounded-2xl p-3 border border-zinc-700"
-                      >
-
-                        <div className="flex gap-3">
-
-                          <img
-                            src={
-                              item.image
-                            }
-                            alt={
-                              item.name
-                            }
-                            className="w-20 h-20 rounded-xl object-cover"
-                          />
-
-                          <div className="flex-1">
-
-                            <div className="flex items-center justify-between">
-
-                              <h5 className="font-bold">
-                                {item.quantity}x {item.name}
-                              </h5>
-
-                              <span className="text-green-400 font-bold">
-                                R$ {" "}
-                                {(
-                                  Number(
-                                    item.price || 0
-                                  ) *
-                                  Number(
-                                    item.quantity || 1
-                                  )
-                                ).toFixed(2)}
-                              </span>
-
-                            </div>
-
-                            {item.adicionaisSelecionados &&
-                              item.adicionaisSelecionados.length > 0 && (
-
-                                <div className="mt-2 space-y-1">
-
-                                  {item.adicionaisSelecionados.map(
-                                    (
-                                      extra,
-                                      idx
-                                    ) => (
-
-                                      <div
-                                        key={idx}
-                                        className="text-sm text-green-400"
-                                      >
-                                        + {extra.nome}
-                                      </div>
-
-                                    )
-                                  )}
-
-                                </div>
-
-                              )}
-
-                            {item.observation && (
-
-                              <div className="mt-2 text-sm text-yellow-400">
-
-                                Obs: {item.observation}
-
-                              </div>
-
-                            )}
-
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                    )
-                  )}
-
-                </div>
-
-              </div>
-
-              <div className="mt-5 flex items-center justify-between">
-
-                <span className="text-2xl font-black text-green-400">
-
-                  R$ {" "}
-                  {Number(
-                    pedido.total || 0
-                  ).toFixed(2)}
-
-                </span>
-
-                <select
-                  value={
-                    pedido.status
-                  }
-                  onChange={(e) =>
-                    alterarStatus(
-                      pedido.id,
-                      e.target.value
-                    )
-                  }
-                  className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2"
-                >
-
-                  <option value="pendente">
-                    Pendente
-                  </option>
-
-                  <option value="preparando">
-                    Preparando
-                  </option>
-
-                  <option value="entrega">
-                    Entrega
-                  </option>
-
-                  <option value="concluido">
-                    Concluído
-                  </option>
-
-                </select>
-
-              </div>
-
-            </motion.div>
-
-          )
-        )}
+        </div>
 
       </div>
 

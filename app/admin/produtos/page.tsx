@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/utils/supabase/client"
+import { supabase } from "@/lib/supabase"
+
 import {
   Plus,
   Trash2,
@@ -24,6 +25,8 @@ type Produto = {
   preco: number
   imagem: string
   destaque: string
+  categoria: string
+  restaurante_id: string
   adicionais?: Extra[]
 }
 
@@ -33,21 +36,33 @@ export default function ProdutosPage() {
 
   const [loading, setLoading] = useState(false)
 
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingId, setEditingId] =
+    useState<string | null>(null)
 
-  const [deleteModal, setDeleteModal] = useState<string | null>(null)
+  const [deleteModal, setDeleteModal] =
+    useState<string | null>(null)
 
   const [nome, setNome] = useState("")
-  const [descricao, setDescricao] = useState("")
+  const [descricao, setDescricao] =
+    useState("")
   const [preco, setPreco] = useState("")
-  const [destaque, setDestaque] = useState("normal")
+  const [destaque, setDestaque] =
+    useState("normal")
+  const [categoria, setCategoria] =
+    useState("")
 
-  const [imagem, setImagem] = useState<File | null>(null)
+  const [imagem, setImagem] =
+    useState<File | null>(null)
 
-  const [extras, setExtras] = useState<Extra[]>([])
+  const [extras, setExtras] = useState<
+    Extra[]
+  >([])
 
-  const [extraNome, setExtraNome] = useState("")
-  const [extraPreco, setExtraPreco] = useState("")
+  const [extraNome, setExtraNome] =
+    useState("")
+
+  const [extraPreco, setExtraPreco] =
+    useState("")
 
   useEffect(() => {
     fetchProdutos()
@@ -55,30 +70,57 @@ export default function ProdutosPage() {
 
   async function fetchProdutos() {
 
+    const restauranteId =
+      localStorage.getItem(
+        "restaurante_id"
+      )
+
+    if (!restauranteId) {
+
+      window.location.href = "/login"
+
+      return
+    }
+
     const { data } = await supabase
       .from("produtos")
       .select("*")
-      .order("created_at", { ascending: false })
+      .eq(
+        "restaurante_id",
+        restauranteId
+      )
+      .order("created_at", {
+        ascending: false,
+      })
 
     if (!data) return
 
-    const produtosComExtras = await Promise.all(
+    const produtosComExtras =
+      await Promise.all(
 
-      data.map(async (produto) => {
+        data.map(async (produto) => {
 
-        const { data: adicionais } = await supabase
-          .from("adicionais")
-          .select("*")
-          .eq("produto_id", produto.id)
+          const {
+            data: adicionais,
+          } = await supabase
+            .from("adicionais")
+            .select("*")
+            .eq(
+              "produto_id",
+              produto.id
+            )
 
-        return {
-          ...produto,
-          adicionais: adicionais || [],
-        }
-      })
+          return {
+            ...produto,
+            adicionais:
+              adicionais || [],
+          }
+        })
+      )
+
+    setProdutos(
+      produtosComExtras as Produto[]
     )
-
-    setProdutos(produtosComExtras as Produto[])
   }
 
   function resetForm() {
@@ -89,12 +131,17 @@ export default function ProdutosPage() {
     setImagem(null)
     setExtras([])
     setDestaque("normal")
+    setCategoria("")
     setEditingId(null)
   }
 
   function adicionarExtra() {
 
-    if (!extraNome || !extraPreco) return
+    if (
+      !extraNome ||
+      !extraPreco
+    )
+      return
 
     setExtras([
       ...extras,
@@ -108,13 +155,16 @@ export default function ProdutosPage() {
     setExtraPreco("")
   }
 
-  async function uploadImagem(file: File) {
+  async function uploadImagem(
+    file: File
+  ) {
 
     const fileName = `${Date.now()}-${file.name}`
 
-    const { error } = await supabase.storage
-      .from("products")
-      .upload(fileName, file)
+    const { error } =
+      await supabase.storage
+        .from("products")
+        .upload(fileName, file)
 
     if (error) {
 
@@ -123,9 +173,10 @@ export default function ProdutosPage() {
       return null
     }
 
-    const { data } = supabase.storage
-      .from("products")
-      .getPublicUrl(fileName)
+    const { data } =
+      supabase.storage
+        .from("products")
+        .getPublicUrl(fileName)
 
     return data.publicUrl
   }
@@ -136,11 +187,28 @@ export default function ProdutosPage() {
 
       setLoading(true)
 
+      const restauranteId =
+        localStorage.getItem(
+          "restaurante_id"
+        )
+
+      if (!restauranteId) {
+
+        alert(
+          "Restaurante não encontrado"
+        )
+
+        return
+      }
+
       let imageUrl = ""
 
       if (imagem) {
 
-        const uploaded = await uploadImagem(imagem)
+        const uploaded =
+          await uploadImagem(
+            imagem
+          )
 
         if (!uploaded) {
 
@@ -152,7 +220,10 @@ export default function ProdutosPage() {
         imageUrl = uploaded
       }
 
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      } = await supabase
         .from("produtos")
         .insert([
           {
@@ -161,6 +232,9 @@ export default function ProdutosPage() {
             preco: Number(preco),
             imagem: imageUrl,
             destaque,
+            categoria,
+            restaurante_id:
+              restauranteId,
           },
         ])
         .select()
@@ -170,18 +244,21 @@ export default function ProdutosPage() {
 
         console.log(error)
 
-        alert("Erro ao criar produto")
+        alert(
+          "Erro ao criar produto"
+        )
 
         return
       }
 
       if (extras.length > 0) {
 
-        const extrasInsert = extras.map((extra) => ({
-          produto_id: data.id,
-          nome: extra.nome,
-          preco: extra.preco,
-        }))
+        const extrasInsert =
+          extras.map((extra) => ({
+            produto_id: data.id,
+            nome: extra.nome,
+            preco: extra.preco,
+          }))
 
         await supabase
           .from("adicionais")
@@ -204,16 +281,33 @@ export default function ProdutosPage() {
     }
   }
 
-  function editarProduto(produto: Produto) {
+  function editarProduto(
+    produto: Produto
+  ) {
 
     setEditingId(produto.id)
 
     setNome(produto.nome)
-    setDescricao(produto.descricao)
-    setPreco(String(produto.preco))
-    setDestaque(produto.destaque)
 
-    setExtras(produto.adicionais || [])
+    setDescricao(
+      produto.descricao
+    )
+
+    setPreco(
+      String(produto.preco)
+    )
+
+    setDestaque(
+      produto.destaque
+    )
+
+    setCategoria(
+      produto.categoria || ""
+    )
+
+    setExtras(
+      produto.adicionais || []
+    )
   }
 
   async function salvarEdicao() {
@@ -224,11 +318,19 @@ export default function ProdutosPage() {
 
       setLoading(true)
 
-      let imageUrl: string | undefined = undefined
+      let imageUrl:
+        | string
+        | undefined =
+        undefined
 
-      if (imagem instanceof File) {
+      if (
+        imagem instanceof File
+      ) {
 
-        const uploaded = await uploadImagem(imagem)
+        const uploaded =
+          await uploadImagem(
+            imagem
+          )
 
         if (!uploaded) {
 
@@ -245,16 +347,20 @@ export default function ProdutosPage() {
         descricao,
         preco: Number(preco),
         destaque,
+        categoria,
       }
 
       if (imageUrl) {
-        updateData.imagem = imageUrl
+
+        updateData.imagem =
+          imageUrl
       }
 
-      const { error } = await supabase
-        .from("produtos")
-        .update(updateData)
-        .eq("id", editingId)
+      const { error } =
+        await supabase
+          .from("produtos")
+          .update(updateData)
+          .eq("id", editingId)
 
       if (error) {
 
@@ -268,15 +374,20 @@ export default function ProdutosPage() {
       await supabase
         .from("adicionais")
         .delete()
-        .eq("produto_id", editingId)
+        .eq(
+          "produto_id",
+          editingId
+        )
 
       if (extras.length > 0) {
 
-        const extrasInsert = extras.map((extra) => ({
-          produto_id: editingId,
-          nome: extra.nome,
-          preco: extra.preco,
-        }))
+        const extrasInsert =
+          extras.map((extra) => ({
+            produto_id:
+              editingId,
+            nome: extra.nome,
+            preco: extra.preco,
+          }))
 
         await supabase
           .from("adicionais")
@@ -287,7 +398,9 @@ export default function ProdutosPage() {
 
       resetForm()
 
-      alert("Produto atualizado")
+      alert(
+        "Produto atualizado"
+      )
 
     } catch (error) {
 
@@ -299,7 +412,9 @@ export default function ProdutosPage() {
     }
   }
 
-  async function excluirProduto(id: string) {
+  async function excluirProduto(
+    id: string
+  ) {
 
     try {
 
@@ -308,10 +423,11 @@ export default function ProdutosPage() {
         .delete()
         .eq("produto_id", id)
 
-      const { error } = await supabase
-        .from("produtos")
-        .delete()
-        .eq("id", id)
+      const { error } =
+        await supabase
+          .from("produtos")
+          .delete()
+          .eq("id", id)
 
       if (error) {
 
@@ -323,7 +439,10 @@ export default function ProdutosPage() {
       }
 
       setProdutos((prev) =>
-        prev.filter((item) => item.id !== id)
+        prev.filter(
+          (item) =>
+            item.id !== id
+        )
       )
 
       setDeleteModal(null)
@@ -334,6 +453,18 @@ export default function ProdutosPage() {
     }
   }
 
+  async function sair() {
+
+    await supabase.auth.signOut()
+
+    localStorage.removeItem(
+      "restaurante_id"
+    )
+
+    window.location.href =
+      "/login"
+  }
+
   return (
 
     <main className="min-h-screen bg-black text-white p-6">
@@ -342,33 +473,56 @@ export default function ProdutosPage() {
 
         <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 mb-8">
 
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center justify-between mb-6">
 
-            <Plus className="text-green-400" />
+            <div className="flex items-center gap-3">
 
-            <div>
-              <h1 className="text-3xl font-bold">
-                {editingId ? "Editar Produto" : "Novo Produto"}
-              </h1>
+              <Plus className="text-green-400" />
 
-              <p className="text-zinc-400">
-                Sistema profissional SaaS
-              </p>
+              <div>
+
+                <h1 className="text-3xl font-bold">
+
+                  {editingId
+                    ? "Editar Produto"
+                    : "Novo Produto"}
+
+                </h1>
+
+                <p className="text-zinc-400">
+                  Sistema profissional SaaS
+                </p>
+              </div>
             </div>
+
+            <button
+              onClick={sair}
+              className="bg-red-500 hover:bg-red-400 transition px-5 py-3 rounded-2xl font-bold"
+            >
+              Sair
+            </button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 mb-4">
 
             <input
               value={nome}
-              onChange={(e) => setNome(e.target.value)}
+              onChange={(e) =>
+                setNome(
+                  e.target.value
+                )
+              }
               placeholder="Nome do produto"
               className="bg-zinc-900 border border-zinc-800 rounded-xl p-4"
             />
 
             <input
               value={preco}
-              onChange={(e) => setPreco(e.target.value)}
+              onChange={(e) =>
+                setPreco(
+                  e.target.value
+                )
+              }
               placeholder="Preço"
               className="bg-zinc-900 border border-zinc-800 rounded-xl p-4"
             />
@@ -386,27 +540,82 @@ export default function ProdutosPage() {
                 hidden
                 onChange={(e) =>
                   setImagem(
-                    e.target.files?.[0] || null
+                    e.target
+                      .files?.[0] ||
+                      null
                   )
                 }
               />
             </label>
 
             <select
-              value={destaque}
-              onChange={(e) => setDestaque(e.target.value)}
+              value={categoria}
+              onChange={(e) =>
+                setCategoria(
+                  e.target.value
+                )
+              }
               className="bg-zinc-900 border border-zinc-800 rounded-xl p-4"
             >
-              <option value="normal">Normal</option>
-              <option value="destaque">Destaque</option>
-              <option value="promocao">Promoção</option>
-              <option value="mais vendido">Mais vendido</option>
+              <option value="">
+                Categoria
+              </option>
+
+              <option value="Pizza">
+                Pizza
+              </option>
+
+              <option value="Hamburguer">
+                Hamburguer
+              </option>
+
+              <option value="Sushi">
+                Sushi
+              </option>
+
+              <option value="Açai">
+                Açai
+              </option>
+
+              <option value="Bebidas">
+                Bebidas
+              </option>
+            </select>
+
+            <select
+              value={destaque}
+              onChange={(e) =>
+                setDestaque(
+                  e.target.value
+                )
+              }
+              className="bg-zinc-900 border border-zinc-800 rounded-xl p-4"
+            >
+              <option value="normal">
+                Normal
+              </option>
+
+              <option value="destaque">
+                Destaque
+              </option>
+
+              <option value="promocao">
+                Promoção
+              </option>
+
+              <option value="mais vendido">
+                Mais vendido
+              </option>
             </select>
           </div>
 
           <textarea
             value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
+            onChange={(e) =>
+              setDescricao(
+                e.target.value
+              )
+            }
             placeholder="Descrição"
             className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-full h-32 mb-6"
           />
@@ -422,7 +631,9 @@ export default function ProdutosPage() {
               <input
                 value={extraNome}
                 onChange={(e) =>
-                  setExtraNome(e.target.value)
+                  setExtraNome(
+                    e.target.value
+                  )
                 }
                 placeholder="Nome do adicional"
                 className="bg-black border border-zinc-800 rounded-xl p-4"
@@ -431,14 +642,18 @@ export default function ProdutosPage() {
               <input
                 value={extraPreco}
                 onChange={(e) =>
-                  setExtraPreco(e.target.value)
+                  setExtraPreco(
+                    e.target.value
+                  )
                 }
                 placeholder="Preço"
                 className="bg-black border border-zinc-800 rounded-xl p-4"
               />
 
               <button
-                onClick={adicionarExtra}
+                onClick={
+                  adicionarExtra
+                }
                 className="bg-green-500 hover:bg-green-400 transition rounded-xl font-bold"
               >
                 Adicionar Extra
@@ -447,31 +662,43 @@ export default function ProdutosPage() {
 
             <div className="flex flex-wrap gap-3 mt-4">
 
-              {extras.map((extra, index) => (
+              {extras.map(
+                (
+                  extra,
+                  index
+                ) => (
 
-                <div
-                  key={index}
-                  className="bg-black border border-zinc-800 rounded-xl px-4 py-2 flex items-center gap-2"
-                >
-                  <span>
-                    {extra.nome}
-                  </span>
-
-                  <span className="text-green-400">
-                    R$ {extra.preco}
-                  </span>
-
-                  <button
-                    onClick={() =>
-                      setExtras(
-                        extras.filter((_, i) => i !== index)
-                      )
-                    }
+                  <div
+                    key={index}
+                    className="bg-black border border-zinc-800 rounded-xl px-4 py-2 flex items-center gap-2"
                   >
-                    <X size={16} />
-                  </button>
-                </div>
-              ))}
+                    <span>
+                      {extra.nome}
+                    </span>
+
+                    <span className="text-green-400">
+                      R$ {extra.preco}
+                    </span>
+
+                    <button
+                      onClick={() =>
+                        setExtras(
+                          extras.filter(
+                            (
+                              _,
+                              i
+                            ) =>
+                              i !==
+                              index
+                          )
+                        )
+                      }
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )
+              )}
             </div>
           </div>
 
@@ -480,7 +707,9 @@ export default function ProdutosPage() {
             <div className="flex gap-4">
 
               <button
-                onClick={salvarEdicao}
+                onClick={
+                  salvarEdicao
+                }
                 disabled={loading}
                 className="bg-green-500 hover:bg-green-400 transition px-8 py-4 rounded-2xl font-bold flex items-center gap-2"
               >
@@ -499,7 +728,9 @@ export default function ProdutosPage() {
           ) : (
 
             <button
-              onClick={criarProduto}
+              onClick={
+                criarProduto
+              }
               disabled={loading}
               className="bg-green-500 hover:bg-green-400 transition px-8 py-4 rounded-2xl font-bold"
             >
@@ -510,136 +741,179 @@ export default function ProdutosPage() {
 
         <div className="grid md:grid-cols-3 gap-6">
 
-          {produtos.map((produto) => (
+          {produtos.map(
+            (produto) => (
 
-            <div
-              key={produto.id}
-              className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden"
-            >
-              <div className="h-72 bg-zinc-900">
+              <div
+                key={produto.id}
+                className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden"
+              >
+                <div className="h-72 bg-zinc-900">
 
-                {produto.imagem ? (
+                  {produto.imagem ? (
 
-                  <img
-                    src={produto.imagem}
-                    className="w-full h-full object-cover"
-                  />
+                    <img
+                      src={
+                        produto.imagem
+                      }
+                      className="w-full h-full object-cover"
+                    />
 
-                ) : (
+                  ) : (
 
-                  <div className="w-full h-full flex items-center justify-center text-6xl text-zinc-500">
-                    Produto
+                    <div className="w-full h-full flex items-center justify-center text-6xl text-zinc-500">
+                      Produto
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4">
+
+                  <div className="flex justify-between mb-2">
+
+                    <div>
+
+                      <h2 className="text-3xl font-bold">
+                        {
+                          produto.nome
+                        }
+                      </h2>
+
+                      <span className="text-sm text-zinc-500">
+                        {
+                          produto.categoria
+                        }
+                      </span>
+                    </div>
+
+                    <span className="text-green-400 text-2xl font-bold">
+                      R$ {
+                        produto.preco
+                      }
+                    </span>
+                  </div>
+
+                  <p className="text-zinc-400 mb-4">
+                    {
+                      produto.descricao
+                    }
+                  </p>
+
+                  <div className="space-y-2 mb-4">
+
+                    {produto.adicionais?.map(
+                      (
+                        extra,
+                        index
+                      ) => (
+
+                        <div
+                          key={index}
+                          className="bg-black border border-zinc-800 rounded-xl px-3 py-2 flex justify-between"
+                        >
+                          <span>
+                            +{" "}
+                            {
+                              extra.nome
+                            }
+                          </span>
+
+                          <span className="text-green-400">
+                            R${" "}
+                            {
+                              extra.preco
+                            }
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+
+                    <button
+                      onClick={() =>
+                        editarProduto(
+                          produto
+                        )
+                      }
+                      className="flex-1 bg-yellow-500 hover:bg-yellow-400 transition rounded-xl py-3 font-bold flex items-center justify-center gap-2"
+                    >
+                      <Pencil size={16} />
+                      Editar
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setDeleteModal(
+                          produto.id
+                        )
+                      }
+                      className="flex-1 bg-red-500 hover:bg-red-400 transition rounded-xl py-3 font-bold flex items-center justify-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+
+                {deleteModal ===
+                  produto.id && (
+
+                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+
+                    <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 w-full max-w-md">
+
+                      <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-6">
+
+                        <Trash2
+                          size={40}
+                          className="text-red-500"
+                        />
+                      </div>
+
+                      <h2 className="text-3xl font-bold text-center mb-4">
+                        Excluir
+                        Produto
+                      </h2>
+
+                      <p className="text-zinc-400 text-center mb-8">
+                        Essa ação
+                        não poderá
+                        ser
+                        desfeita.
+                      </p>
+
+                      <div className="flex gap-4">
+
+                        <button
+                          onClick={() =>
+                            setDeleteModal(
+                              null
+                            )
+                          }
+                          className="flex-1 bg-zinc-800 hover:bg-zinc-700 transition rounded-2xl py-4 font-bold"
+                        >
+                          Cancelar
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            excluirProduto(
+                              produto.id
+                            )
+                          }
+                          className="flex-1 bg-red-500 hover:bg-red-400 transition rounded-2xl py-4 font-bold"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
-
-              <div className="p-4">
-
-                <div className="flex justify-between mb-2">
-
-                  <h2 className="text-3xl font-bold">
-                    {produto.nome}
-                  </h2>
-
-                  <span className="text-green-400 text-2xl font-bold">
-                    R$ {produto.preco}
-                  </span>
-                </div>
-
-                <p className="text-zinc-400 mb-4">
-                  {produto.descricao}
-                </p>
-
-                <div className="space-y-2 mb-4">
-
-                  {produto.adicionais?.map((extra, index) => (
-
-                    <div
-                      key={index}
-                      className="bg-black border border-zinc-800 rounded-xl px-3 py-2 flex justify-between"
-                    >
-                      <span>
-                        + {extra.nome}
-                      </span>
-
-                      <span className="text-green-400">
-                        R$ {extra.preco}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-3">
-
-                  <button
-                    onClick={() =>
-                      editarProduto(produto)
-                    }
-                    className="flex-1 bg-yellow-500 hover:bg-yellow-400 transition rounded-xl py-3 font-bold flex items-center justify-center gap-2"
-                  >
-                    <Pencil size={16} />
-                    Editar
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setDeleteModal(produto.id)
-                    }
-                    className="flex-1 bg-red-500 hover:bg-red-400 transition rounded-xl py-3 font-bold flex items-center justify-center gap-2"
-                  >
-                    <Trash2 size={16} />
-                    Excluir
-                  </button>
-                </div>
-              </div>
-
-              {deleteModal === produto.id && (
-
-                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-
-                  <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 w-full max-w-md">
-
-                    <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-6">
-
-                      <Trash2
-                        size={40}
-                        className="text-red-500"
-                      />
-                    </div>
-
-                    <h2 className="text-3xl font-bold text-center mb-4">
-                      Excluir Produto
-                    </h2>
-
-                    <p className="text-zinc-400 text-center mb-8">
-                      Essa ação não poderá ser desfeita.
-                    </p>
-
-                    <div className="flex gap-4">
-
-                      <button
-                        onClick={() =>
-                          setDeleteModal(null)
-                        }
-                        className="flex-1 bg-zinc-800 hover:bg-zinc-700 transition rounded-2xl py-4 font-bold"
-                      >
-                        Cancelar
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          excluirProduto(produto.id)
-                        }
-                        className="flex-1 bg-red-500 hover:bg-red-400 transition rounded-2xl py-4 font-bold"
-                      >
-                        Excluir
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          )}
         </div>
       </div>
     </main>

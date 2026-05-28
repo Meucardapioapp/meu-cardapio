@@ -2,16 +2,17 @@
 
 import { useState } from "react"
 
-import { supabase } from "../../utils/supabase/client"
+import { supabase } from "@/lib/supabase"
+
+import { getThemeSettings } from "../lib/theme"
 
 type Props = {
   open: boolean
   onClose: () => void
-
   cart: any[]
-
   total: number
-
+  slug: string
+  restaurantId: string
   clearCart: () => void
 }
 
@@ -20,8 +21,35 @@ export default function CheckoutModal({
   onClose,
   cart,
   total,
+  slug,
+  restaurantId,
   clearCart,
 }: Props) {
+
+  const {
+    lightMode,
+    selectedColor,
+  } = getThemeSettings()
+
+  const bgCard = lightMode
+    ? "bg-[#F6F1E7] border border-zinc-200"
+    : "bg-zinc-950 border border-zinc-800"
+
+  const inputBg = lightMode
+    ? "bg-white border-zinc-300 text-zinc-900"
+    : "bg-zinc-900 border-zinc-800 text-white"
+
+  const textPrimary = lightMode
+    ? "text-zinc-900"
+    : "text-white"
+
+  const textSecondary = lightMode
+    ? "text-zinc-500"
+    : "text-zinc-400"
+
+  const overlayBg = lightMode
+    ? "bg-black/40"
+    : "bg-black/80"
 
   const [cliente, setCliente] =
     useState("")
@@ -60,7 +88,16 @@ export default function CheckoutModal({
     ) {
 
       alert(
-        "Preencha os campos obrigatórios"
+        "Preencha todos os campos"
+      )
+
+      return
+    }
+
+    if (!restaurantId) {
+
+      alert(
+        "Restaurante não identificado"
       )
 
       return
@@ -70,50 +107,79 @@ export default function CheckoutModal({
 
       setLoading(true)
 
-      const endereco = `
-${bairro},
-${rua},
-${numero}
-      `
-
       const pedido = {
 
         cliente,
 
         telefone,
 
-        endereco,
+        endereco:
+          `${rua}, ${numero}`,
 
-        pagamento,
+        bairro,
+
+        rua,
+
+        numero,
 
         observacoes,
 
-        itens: cart,
+        pagamento,
+
+        items: cart,
 
         total,
 
         status: "pendente",
+
+        slug,
+
+        restaurante_id:
+          restaurantId,
       }
 
-      const { data, error } =
-        await supabase
-          .from("pedidos")
-          .insert([pedido])
-          .select()
-          .single()
+      console.log(
+        "PEDIDO ENVIADO:",
+        pedido
+      )
+
+      const {
+        data,
+        error,
+      } = await supabase
+
+        .from("pedidos")
+
+        .insert([pedido])
+
+        .select()
+
+        .single()
 
       if (error) {
 
-        console.log(error)
+        console.log(
+          "ERRO PEDIDO:",
+          error
+        )
 
         alert(
-          "Erro ao finalizar pedido"
+          JSON.stringify(error)
         )
 
         return
       }
 
+      localStorage.setItem(
+        "lastSlug",
+        slug
+      )
+
       clearCart()
+
+      alert(
+        "Pedido realizado com sucesso!"
+      )
 
       window.location.href =
         `/pedido/${data.id}`
@@ -121,6 +187,10 @@ ${numero}
     } catch (error) {
 
       console.log(error)
+
+      alert(
+        "Erro ao finalizar pedido"
+      )
 
     } finally {
 
@@ -130,19 +200,62 @@ ${numero}
 
   return (
 
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5">
+    <div className={`
+      fixed
+      inset-0
+      ${overlayBg}
+      z-50
+      flex
+      items-center
+      justify-center
+      p-4
+      backdrop-blur-sm
+    `}>
 
-      <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-xl p-6">
+      <div className={`
+        ${bgCard}
+        rounded-3xl
+        w-full
+        max-w-xl
+        p-6
+        shadow-2xl
+      `}>
 
-        <div className="flex items-center justify-between mb-6">
+        <div className="
+          flex
+          items-center
+          justify-between
+          mb-6
+        ">
 
-          <h2 className="text-3xl font-black">
-            Finalizar Pedido
-          </h2>
+          <div>
+
+            <h2 className={`
+              text-3xl
+              font-black
+              ${textPrimary}
+            `}>
+              Finalizar Pedido
+            </h2>
+
+            <p className={`
+              mt-1
+              text-sm
+              ${textSecondary}
+            `}>
+              Confira seus dados antes de confirmar
+            </p>
+
+          </div>
 
           <button
             onClick={onClose}
-            className="text-zinc-500 text-2xl"
+            className={`
+              text-2xl
+              transition
+              hover:scale-110
+              ${textSecondary}
+            `}
           >
             ×
           </button>
@@ -159,7 +272,19 @@ ${numero}
               )
             }
             placeholder="Seu nome"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+            className={`
+              ${inputBg}
+              border
+              rounded-2xl
+              p-4
+              outline-none
+              transition-all
+              focus:ring-2
+            `}
+            style={{
+              borderColor:
+                selectedColor + "30",
+            }}
           />
 
           <input
@@ -170,10 +295,26 @@ ${numero}
               )
             }
             placeholder="Telefone"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+            className={`
+              ${inputBg}
+              border
+              rounded-2xl
+              p-4
+              outline-none
+              transition-all
+              focus:ring-2
+            `}
+            style={{
+              borderColor:
+                selectedColor + "30",
+            }}
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="
+            grid
+            grid-cols-2
+            gap-4
+          ">
 
             <input
               value={bairro}
@@ -183,7 +324,19 @@ ${numero}
                 )
               }
               placeholder="Bairro"
-              className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+              className={`
+                ${inputBg}
+                border
+                rounded-2xl
+                p-4
+                outline-none
+                transition-all
+                focus:ring-2
+              `}
+              style={{
+                borderColor:
+                  selectedColor + "30",
+              }}
             />
 
             <input
@@ -194,7 +347,19 @@ ${numero}
                 )
               }
               placeholder="Número"
-              className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+              className={`
+                ${inputBg}
+                border
+                rounded-2xl
+                p-4
+                outline-none
+                transition-all
+                focus:ring-2
+              `}
+              style={{
+                borderColor:
+                  selectedColor + "30",
+              }}
             />
 
           </div>
@@ -207,7 +372,19 @@ ${numero}
               )
             }
             placeholder="Rua"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+            className={`
+              ${inputBg}
+              border
+              rounded-2xl
+              p-4
+              outline-none
+              transition-all
+              focus:ring-2
+            `}
+            style={{
+              borderColor:
+                selectedColor + "30",
+            }}
           />
 
           <textarea
@@ -217,8 +394,22 @@ ${numero}
                 e.target.value
               )
             }
-            placeholder="Observações do pedido"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 h-28 resize-none"
+            placeholder="Observações"
+            className={`
+              ${inputBg}
+              border
+              rounded-2xl
+              p-4
+              h-28
+              resize-none
+              outline-none
+              transition-all
+              focus:ring-2
+            `}
+            style={{
+              borderColor:
+                selectedColor + "30",
+            }}
           />
 
           <select
@@ -228,17 +419,30 @@ ${numero}
                 e.target.value
               )
             }
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+            className={`
+              ${inputBg}
+              border
+              rounded-2xl
+              p-4
+              outline-none
+              transition-all
+              focus:ring-2
+            `}
+            style={{
+              borderColor:
+                selectedColor + "30",
+            }}
           >
-            <option>
+
+            <option value="Pix">
               Pix
             </option>
 
-            <option>
+            <option value="Dinheiro">
               Dinheiro
             </option>
 
-            <option>
+            <option value="Cartão">
               Cartão
             </option>
 
@@ -246,15 +450,32 @@ ${numero}
 
         </div>
 
-        <div className="mt-8 flex items-center justify-between">
+        <div className="
+          mt-8
+          flex
+          items-center
+          justify-between
+          gap-6
+        ">
 
           <div>
 
-            <p className="text-zinc-400">
+            <p className={`
+              text-sm
+              ${textSecondary}
+            `}>
               Total
             </p>
 
-            <h3 className="text-4xl font-black text-green-400">
+            <h3
+              className="
+                text-4xl
+                font-black
+              "
+              style={{
+                color: selectedColor,
+              }}
+            >
               R$ {total.toFixed(2)}
             </h3>
 
@@ -263,11 +484,27 @@ ${numero}
           <button
             onClick={finalizarPedido}
             disabled={loading}
-            className="bg-green-500 hover:bg-green-400 transition px-8 py-4 rounded-2xl font-bold text-lg"
+            className="
+              px-8
+              py-4
+              rounded-2xl
+              font-bold
+              text-lg
+              text-white
+              transition-all
+              hover:scale-[1.02]
+              disabled:opacity-50
+            "
+            style={{
+              backgroundColor:
+                selectedColor,
+            }}
           >
+
             {loading
               ? "Enviando..."
               : "Confirmar Pedido"}
+
           </button>
 
         </div>

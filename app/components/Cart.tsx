@@ -1,5 +1,7 @@
 "use client"
 
+import { getThemeSettings } from "../lib/theme"
+
 type Adicional = {
   nome: string
   preco: number
@@ -28,21 +30,73 @@ export default function Cart({
   onCheckout,
 }: Props) {
 
+  const {
+    lightMode,
+    selectedColor,
+  } = getThemeSettings()
+
   const total = cart.reduce(
-    (acc, item) => acc + item.price * item.quantity,
+    (acc, item) =>
+      acc + item.price * item.quantity,
     0
   )
 
-  return (
-    <div className="bg-zinc-950 border border-zinc-900 rounded-3xl p-6">
+  const cartBg = lightMode
+    ? "bg-[#F5F1EA]"
+    : "bg-zinc-950"
 
-      <h2 className="text-3xl font-bold mb-6">
+  const cardBg = lightMode
+    ? "bg-white"
+    : "bg-zinc-900"
+
+  const borderColor = lightMode
+    ? "border-[#DDD6CC]"
+    : "border-zinc-800"
+
+  const textPrimary = lightMode
+    ? "text-zinc-900"
+    : "text-white"
+
+  const textSecondary = lightMode
+    ? "text-zinc-500"
+    : "text-zinc-400"
+
+  return (
+
+    <div
+      className={`
+        ${cartBg}
+        ${borderColor}
+        border
+        rounded-3xl
+        p-6
+        transition-all
+      `}
+    >
+
+      <h2
+        className={`
+          text-3xl
+          font-black
+          mb-6
+          ${textPrimary}
+        `}
+      >
         Carrinho
       </h2>
 
       {cart.length === 0 ? (
 
-        <div className="border border-zinc-800 rounded-2xl p-10 text-center text-zinc-500">
+        <div
+          className={`
+            ${borderColor}
+            border
+            rounded-2xl
+            p-10
+            text-center
+            ${textSecondary}
+          `}
+        >
           Seu carrinho está vazio.
         </div>
 
@@ -54,7 +108,11 @@ export default function Cart({
 
             <div
               key={item.uniqueId}
-              className="border-b border-zinc-800 pb-5"
+              className={`
+                border-b
+                ${borderColor}
+                pb-5
+              `}
             >
 
               <div className="flex justify-between items-start gap-4">
@@ -66,17 +124,41 @@ export default function Cart({
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="w-20 h-20 rounded-xl object-cover"
+                      className="
+                        w-20
+                        h-20
+                        rounded-2xl
+                        object-cover
+                      "
+                      onError={(e) => {
+                        e.currentTarget.src =
+                          "https://placehold.co/200x200/png"
+                      }}
                     />
                   )}
 
                   <div className="flex-1">
 
-                    <h3 className="font-bold text-lg">
+                    <h3
+                      className={`
+                        font-black
+                        text-lg
+                        ${textPrimary}
+                      `}
+                    >
                       {item.name}
                     </h3>
 
-                    <p className="text-green-400 font-bold mt-1">
+                    <p
+                      className="
+                        font-black
+                        mt-1
+                        text-lg
+                      "
+                      style={{
+                        color: selectedColor,
+                      }}
+                    >
                       R$ {Number(item.price).toFixed(2)}
                     </p>
 
@@ -90,7 +172,12 @@ export default function Cart({
 
                             <div
                               key={index}
-                              className="flex justify-between text-sm text-green-400"
+                              className={`
+                                flex
+                                justify-between
+                                text-sm
+                                ${textSecondary}
+                              `}
                             >
 
                               <span>
@@ -109,6 +196,7 @@ export default function Cart({
                     )}
 
                   </div>
+
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -117,12 +205,29 @@ export default function Cart({
                     onClick={() =>
                       decreaseQuantity(item.uniqueId)
                     }
-                    className="w-8 h-8 rounded-lg bg-zinc-900 hover:bg-zinc-800"
+                    className={`
+                      w-9
+                      h-9
+                      rounded-xl
+                      transition-all
+                      font-bold
+                      ${cardBg}
+                      ${borderColor}
+                      border
+                      ${textPrimary}
+                    `}
                   >
                     -
                   </button>
 
-                  <span className="w-5 text-center">
+                  <span
+                    className={`
+                      w-5
+                      text-center
+                      font-bold
+                      ${textPrimary}
+                    `}
+                  >
                     {item.quantity}
                   </span>
 
@@ -130,24 +235,56 @@ export default function Cart({
                     onClick={() =>
                       increaseQuantity(item.uniqueId)
                     }
-                    className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-400 text-black font-bold"
+                    className="
+                      w-9
+                      h-9
+                      rounded-xl
+                      text-white
+                      font-black
+                      transition-all
+                      hover:scale-105
+                    "
+                    style={{
+                      backgroundColor:
+                        selectedColor,
+                    }}
                   >
                     +
                   </button>
 
                 </div>
+
               </div>
 
             </div>
           ))}
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="
+            flex
+            items-center
+            justify-between
+            pt-2
+          ">
 
-            <span className="text-2xl font-bold">
+            <span
+              className={`
+                text-2xl
+                font-black
+                ${textPrimary}
+              `}
+            >
               Total
             </span>
 
-            <span className="text-4xl font-bold text-green-400">
+            <span
+              className="
+                text-4xl
+                font-black
+              "
+              style={{
+                color: selectedColor,
+              }}
+            >
               R$ {total.toFixed(2)}
             </span>
 
@@ -155,13 +292,26 @@ export default function Cart({
 
           <button
             onClick={onCheckout}
-            className="w-full bg-green-500 hover:bg-green-400 text-black font-bold py-4 rounded-2xl transition"
+            className="
+              w-full
+              text-white
+              font-black
+              py-4
+              rounded-2xl
+              transition-all
+              hover:scale-[1.01]
+            "
+            style={{
+              backgroundColor:
+                selectedColor,
+            }}
           >
             Finalizar Pedido
           </button>
 
         </div>
       )}
+
     </div>
   )
 }

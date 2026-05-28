@@ -2,58 +2,75 @@
 
 import { useEffect, useState } from "react"
 
-import {
-  useParams,
-} from "next/navigation"
-
-import { supabase } from "@/utils/supabase/client"
+import { useParams, useRouter } from "next/navigation"
 
 import { motion } from "framer-motion"
 
 import {
-  Clock3,
+  CheckCircle,
+  Clock,
   ChefHat,
   Bike,
-  CheckCircle2,
-  House,
+  Home,
+  Loader2,
 } from "lucide-react"
 
-interface Adicional {
-  nome: string
-  preco: number
-}
+import { supabase } from "../../lib/supabase"
+
+import { getThemeSettings } from "../../lib/theme"
 
 interface ItemPedido {
-  name: string
-  image: string
-  quantity: number
-  price: number
-  observation?: string
-
-  adicionaisSelecionados?: Adicional[]
+  nome: string
+  quantidade: number
+  preco: number
+  imagem?: string
 }
 
 interface Pedido {
   id: number
-
-  cliente: string
-
-  telefone: string
-
+  cliente_nome: string
+  cliente_telefone: string
   endereco: string
-
-  pagamento: string
-
-  itens: ItemPedido[]
-
-  total: number
-
   status: string
+  total: number
+  itens: ItemPedido[]
+  created_at: string
 }
 
 export default function PedidoPage() {
 
   const params = useParams()
+
+  const router = useRouter()
+
+  const {
+    lightMode,
+    selectedColor,
+  } = getThemeSettings()
+
+  const bgPage = lightMode
+    ? "bg-[#F6F1E7]"
+    : "bg-black"
+
+  const cardBg = lightMode
+    ? "bg-white border border-zinc-200"
+    : "bg-zinc-900 border border-zinc-800"
+
+  const innerCard = lightMode
+    ? "bg-zinc-100"
+    : "bg-zinc-800"
+
+  const textPrimary = lightMode
+    ? "text-zinc-900"
+    : "text-white"
+
+  const textSecondary = lightMode
+    ? "text-zinc-500"
+    : "text-zinc-400"
+
+  const borderColor = lightMode
+    ? "border-zinc-200"
+    : "border-zinc-700"
 
   const [pedido, setPedido] =
     useState<Pedido | null>(null)
@@ -63,31 +80,57 @@ export default function PedidoPage() {
 
   async function buscarPedido() {
 
-    const { data, error } =
-      await supabase
-        .from("pedidos")
-        .select("*")
-        .eq("id", params.id)
-        .single()
+    try {
 
-    if (error) {
+      console.log(
+        "BUSCANDO PEDIDO:",
+        params.id
+      )
 
-      console.log(error)
+      const { data, error } =
+        await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", Number(params.id))
+          .single()
 
-      return
+      if (error) {
+
+        console.log(
+          "ERRO AO BUSCAR:",
+          error
+        )
+
+        return
+      }
+
+      console.log(
+        "PEDIDO ENCONTRADO:",
+        data
+      )
+
+      setPedido(data)
+
+    } catch (error) {
+
+      console.log(
+        "ERRO GERAL:",
+        error
+      )
+
+    } finally {
+
+      setLoading(false)
     }
-
-    setPedido(data)
-
-    setLoading(false)
   }
 
   useEffect(() => {
 
+    if (!params.id) return
+
     buscarPedido()
 
     const channel = supabase
-
       .channel(
         `pedido-${params.id}`
       )
@@ -95,18 +138,44 @@ export default function PedidoPage() {
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "UPDATE",
           schema: "public",
-          table: "pedidos",
-          filter: `id=eq.${params.id}`,
+          table: "orders",
         },
-        () => {
+        async (payload) => {
 
-          buscarPedido()
+          console.log(
+            "REALTIME RECEBIDO:",
+            payload
+          )
+
+          const novoPedido =
+            payload.new as Pedido
+
+          if (
+            Number(novoPedido.id) ===
+            Number(params.id)
+          ) {
+
+            console.log(
+              "ATUALIZANDO CLIENTE:",
+              novoPedido.status
+            )
+
+            setPedido({
+              ...novoPedido,
+            })
+          }
         }
       )
 
-      .subscribe()
+      .subscribe((status) => {
+
+        console.log(
+          "STATUS REALTIME:",
+          status
+        )
+      })
 
     return () => {
 
@@ -115,13 +184,84 @@ export default function PedidoPage() {
       )
     }
 
-  }, [])
+  }, [params.id])
+
+  const etapas = [
+    {
+      nome: "Pedido",
+      status: "pendente",
+      icon: Clock,
+    },
+    {
+      nome: "Preparando",
+      status: "preparando",
+      icon: ChefHat,
+    },
+    {
+      nome: "Entrega",
+      status: "entrega",
+      icon: Bike,
+    },
+    {
+      nome: "Concluído",
+      status: "concluido",
+      icon: CheckCircle,
+    },
+  ]
+
+  function etapaAtiva(
+    statusEtapa: string
+  ) {
+
+    const ordem = [
+      "pendente",
+      "preparando",
+      "entrega",
+      "concluido",
+    ]
+
+    const atual = ordem.indexOf(
+      pedido?.status || "pendente"
+    )
+
+    const etapa =
+      ordem.indexOf(statusEtapa)
+
+    return etapa <= atual
+  }
+
+  function corStatus(status: string) {
+
+    switch (status) {
+
+      case "pendente":
+        return "bg-yellow-500"
+
+      case "preparando":
+        return "bg-orange-500"
+
+      case "entrega":
+        return "bg-blue-500"
+
+      case "concluido":
+        return "bg-green-500"
+
+      default:
+        return "bg-zinc-500"
+    }
+  }
 
   if (loading) {
 
     return (
 
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className={`
+        min-h-screen
+        ${bgPage}
+        flex
+        items-center
+        justify-center
+      `}>
 
         <motion.div
           animate={{
@@ -132,8 +272,16 @@ export default function PedidoPage() {
             duration: 1,
             ease: "linear",
           }}
-          className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full"
-        />
+        >
+
+          <Loader2
+            size={60}
+            style={{
+              color: selectedColor,
+            }}
+          />
+
+        </motion.div>
 
       </div>
     )
@@ -143,7 +291,14 @@ export default function PedidoPage() {
 
     return (
 
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">
+      <div className={`
+        min-h-screen
+        ${bgPage}
+        flex
+        items-center
+        justify-center
+        ${textPrimary}
+      `}>
 
         Pedido não encontrado
 
@@ -151,367 +306,433 @@ export default function PedidoPage() {
     )
   }
 
-  const etapas = [
-
-    {
-      nome: "Pedido recebido",
-      status: "pendente",
-      icon: Clock3,
-    },
-
-    {
-      nome: "Preparando",
-      status: "preparando",
-      icon: ChefHat,
-    },
-
-    {
-      nome: "Entrega",
-      status: "entrega",
-      icon: Bike,
-    },
-
-    {
-      nome: "Concluído",
-      status: "concluido",
-      icon: CheckCircle2,
-    },
-  ]
-
-  const etapaAtual =
-    etapas.findIndex(
-      (etapa) =>
-        etapa.status === pedido.status
-    )
-
   return (
 
-    <div className="min-h-screen bg-zinc-950 text-white px-5 py-10">
+    <div className={`
+      min-h-screen
+      ${bgPage}
+      flex
+      items-center
+      justify-center
+      p-6
+    `}>
 
-      <div className="max-w-md mx-auto">
+      <motion.div
+        initial={{
+          opacity: 0,
+          y: 30,
+        }}
+        animate={{
+          opacity: 1,
+          y: 0,
+        }}
+        className={`
+          w-full
+          max-w-md
+          ${cardBg}
+          rounded-3xl
+          p-6
+        `}
+      >
 
-        <motion.div
-          initial={{
-            opacity: 0,
-            y: 30,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
-          className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6"
-        >
+        <div className="
+          flex
+          flex-col
+          items-center
+        ">
 
-          <div className="text-center">
+          <div
+            className="
+              w-16
+              h-16
+              rounded-full
+              flex
+              items-center
+              justify-center
+              mb-4
+            "
+            style={{
+              backgroundColor:
+                `${selectedColor}20`,
+            }}
+          >
 
-            <motion.div
-              animate={{
-                scale: [1, 1.05, 1],
+            <CheckCircle
+              size={34}
+              style={{
+                color: selectedColor,
               }}
-              transition={{
-                repeat: Infinity,
-                duration: 2,
-              }}
-              className="w-24 h-24 rounded-full bg-green-500/20 border border-green-500 flex items-center justify-center mx-auto mb-5"
+            />
+
+          </div>
+
+          <h1 className={`
+            text-4xl
+            font-bold
+            text-center
+            ${textPrimary}
+          `}>
+            Pedido Confirmado
+          </h1>
+
+          <p className={`
+            text-center
+            mt-2
+            ${textSecondary}
+          `}>
+            Acompanhe seu pedido
+          </p>
+
+        </div>
+
+        <div className={`
+          mt-8
+          ${innerCard}
+          rounded-2xl
+          p-5
+        `}>
+
+          <div className="
+            flex
+            justify-between
+            items-start
+          ">
+
+            <div>
+
+              <p className={`
+                text-sm
+                ${textSecondary}
+              `}>
+                Pedido
+              </p>
+
+              <h2 className={`
+                text-4xl
+                font-bold
+                ${textPrimary}
+              `}>
+                #{pedido.id}
+              </h2>
+
+            </div>
+
+            <div
+              className={`
+                px-4
+                py-1
+                rounded-full
+                text-sm
+                font-bold
+                text-white
+                ${corStatus(
+                  pedido.status
+                )}
+              `}
             >
+              {pedido.status}
+            </div>
 
-              <CheckCircle2
-                size={50}
-                className="text-green-400"
-              />
+          </div>
 
-            </motion.div>
+          <div className={`
+            mt-5
+            space-y-2
+            text-sm
+            ${textSecondary}
+          `}>
 
-            <h1 className="text-3xl font-bold">
-              Pedido Confirmado
-            </h1>
+            <p>
+              <strong>
+                Cliente:
+              </strong>{" "}
+              {
+                pedido.cliente_nome
+              }
+            </p>
 
-            <p className="text-zinc-400 mt-2">
-              Acompanhe seu pedido
+            <p>
+              <strong>
+                Telefone:
+              </strong>{" "}
+              {
+                pedido.cliente_telefone
+              }
+            </p>
+
+            <p>
+              <strong>
+                Endereço:
+              </strong>{" "}
+              {pedido.endereco}
             </p>
 
           </div>
 
-          <div className="mt-8 bg-zinc-800 rounded-2xl p-5">
+        </div>
 
-            <div className="flex items-center justify-between">
+        <div className="mt-8">
 
-              <div>
+          <div className="
+            flex
+            justify-between
+          ">
 
-                <p className="text-zinc-400 text-sm">
-                  Pedido
-                </p>
+            {etapas.map(
+              (
+                etapa,
+                index
+              ) => {
 
-                <h2 className="text-2xl font-bold">
-                  #{pedido.id}
-                </h2>
+                const Icon =
+                  etapa.icon
 
-              </div>
-
-              <motion.div
-                animate={{
-                  opacity: [1, 0.5, 1],
-                }}
-                transition={{
-                  repeat: Infinity,
-                  duration: 1.5,
-                }}
-                className="bg-green-500/20 text-green-400 px-4 py-2 rounded-full text-sm font-bold capitalize"
-              >
-                {pedido.status}
-              </motion.div>
-
-            </div>
-
-            <div className="mt-5 space-y-2 text-sm text-zinc-300">
-
-              <p>
-                👤 {pedido.cliente}
-              </p>
-
-              <p>
-                📞 {pedido.telefone}
-              </p>
-
-              <p>
-                📍 {pedido.endereco}
-              </p>
-
-              <p>
-                💳 {pedido.pagamento}
-              </p>
-
-            </div>
-
-          </div>
-
-          <div className="mt-8">
-
-            <div className="flex justify-between">
-
-              {etapas.map(
-                (
-                  etapa,
-                  index
-                ) => {
-
-                  const Icon =
-                    etapa.icon
-
-                  const ativo =
-                    index <=
-                    etapaAtual
-
-                  return (
-
-                    <div
-                      key={
-                        etapa.status
-                      }
-                      className="flex flex-col items-center flex-1 relative"
-                    >
-
-                      {index <
-                        etapas.length -
-                          1 && (
-
-                        <div className="absolute top-5 left-1/2 w-full h-1 bg-zinc-700">
-
-                          <motion.div
-                            initial={{
-                              width: 0,
-                            }}
-                            animate={{
-                              width:
-                                ativo
-                                  ? "100%"
-                                  : "0%",
-                            }}
-                            className="h-1 bg-green-500"
-                          />
-
-                        </div>
-                      )}
-
-                      <motion.div
-                        animate={{
-                          scale:
-                            ativo
-                              ? [1, 1.1, 1]
-                              : 1,
-                        }}
-                        transition={{
-                          repeat:
-                            ativo
-                              ? Infinity
-                              : 0,
-                          duration: 2,
-                        }}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center z-10 ${
-                          ativo
-                            ? "bg-green-500 text-white"
-                            : "bg-zinc-800 text-zinc-500"
-                        }`}
-                      >
-
-                        <Icon size={20} />
-
-                      </motion.div>
-
-                      <p
-                        className={`text-[10px] text-center mt-2 ${
-                          ativo
-                            ? "text-white"
-                            : "text-zinc-500"
-                        }`}
-                      >
-                        {etapa.nome}
-                      </p>
-
-                    </div>
+                const ativo =
+                  etapaAtiva(
+                    etapa.status
                   )
-                }
-              )}
 
-            </div>
-
-          </div>
-
-          <div className="mt-8 bg-zinc-800 rounded-2xl p-5">
-
-            <h3 className="font-bold text-lg mb-4">
-              Itens do pedido
-            </h3>
-
-            <div className="space-y-4">
-
-              {pedido.itens?.map(
-                (
-                  item,
-                  index
-                ) => (
+                return (
 
                   <div
                     key={index}
-                    className="border-b border-zinc-700 pb-4"
+                    className="
+                      flex
+                      flex-col
+                      items-center
+                      flex-1
+                    "
                   >
 
-                    <div className="flex gap-3">
+                    <div
+                      className={`
+                        w-12
+                        h-12
+                        rounded-full
+                        flex
+                        items-center
+                        justify-center
+                        border-2
+                        transition-all
+                      `}
+                      style={{
+                        backgroundColor:
+                          ativo
+                            ? selectedColor
+                            : lightMode
+                            ? "#E4E4E7"
+                            : "#27272A",
 
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-20 h-20 rounded-2xl object-cover"
+                        borderColor:
+                          ativo
+                            ? selectedColor
+                            : lightMode
+                            ? "#D4D4D8"
+                            : "#3F3F46",
+
+                        color:
+                          ativo
+                            ? "#FFFFFF"
+                            : lightMode
+                            ? "#71717A"
+                            : "#A1A1AA",
+                      }}
+                    >
+
+                      <Icon
+                        size={20}
                       />
-
-                      <div className="flex-1">
-
-                        <div className="flex items-center justify-between">
-
-                          <p className="font-semibold">
-                            {item.quantity}x {item.name}
-                          </p>
-
-                          <p className="font-bold text-green-400">
-                            R${" "}
-                            {(
-                              Number(item.price || 0) *
-                              Number(item.quantity || 1)
-                            ).toFixed(2)}
-                          </p>
-
-                        </div>
-
-                        {item.adicionaisSelecionados &&
-                          item.adicionaisSelecionados.length > 0 && (
-
-                            <div className="mt-2 space-y-1">
-
-                              {item.adicionaisSelecionados.map(
-                                (
-                                  extra,
-                                  idx
-                                ) => (
-
-                                  <div
-                                    key={idx}
-                                    className="text-sm text-green-400"
-                                  >
-                                    + {extra.nome}
-                                  </div>
-
-                                )
-                              )}
-
-                            </div>
-
-                          )}
-
-                        {item.observation && (
-
-                          <div className="mt-2 text-sm text-yellow-400">
-
-                            Obs: {item.observation}
-
-                          </div>
-
-                        )}
-
-                      </div>
 
                     </div>
 
+                    <p
+                      className="
+                        mt-2
+                        text-xs
+                        text-center
+                        font-medium
+                      "
+                      style={{
+                        color:
+                          ativo
+                            ? selectedColor
+                            : lightMode
+                            ? "#71717A"
+                            : "#A1A1AA",
+                      }}
+                    >
+                      {
+                        etapa.nome
+                      }
+                    </p>
+
                   </div>
-
                 )
-              )}
-
-            </div>
-
-            <div className="mt-5 flex items-center justify-between">
-
-              <span className="text-zinc-400">
-                Total
-              </span>
-
-              <span className="text-3xl font-bold text-green-400">
-                R$ {Number(pedido.total || 0).toFixed(2)}
-              </span>
-
-            </div>
+              }
+            )}
 
           </div>
 
-          <button
-            onClick={() => {
+        </div>
 
-              window.location.href = "/"
-            }}
-            className="w-full mt-6 bg-green-500 hover:bg-green-400 transition py-4 rounded-2xl font-bold flex items-center justify-center gap-2"
-          >
+        <div className={`
+          mt-8
+          ${innerCard}
+          rounded-2xl
+          p-5
+        `}>
 
-            <House size={20} />
+          <h3 className={`
+            font-bold
+            text-lg
+            mb-4
+            ${textPrimary}
+          `}>
+            Itens do pedido
+          </h3>
 
-            Voltar ao cardápio
+          <div className="space-y-4">
 
-          </button>
+            {pedido.itens?.map(
+              (
+                item,
+                index
+              ) => (
 
-          <motion.div
-            animate={{
-              opacity: [1, 0.6, 1],
-            }}
-            transition={{
-              repeat: Infinity,
-              duration: 2,
-            }}
-            className="mt-6 text-center text-sm text-zinc-500"
-          >
-            Atualizando em tempo real...
-          </motion.div>
+                <div
+                  key={index}
+                  className={`
+                    flex
+                    justify-between
+                    items-center
+                    border-b
+                    ${borderColor}
+                    pb-3
+                  `}
+                >
 
+                  <div>
+
+                    <p className={`
+                      font-semibold
+                      ${textPrimary}
+                    `}>
+                      {
+                        item.quantidade
+                      }
+                      x{" "}
+                      {
+                        item.nome
+                      }
+                    </p>
+
+                  </div>
+
+                  <p
+                    className="
+                      font-bold
+                    "
+                    style={{
+                      color:
+                        selectedColor,
+                    }}
+                  >
+                    R${" "}
+                    {(
+                      item.preco *
+                      item.quantidade
+                    ).toFixed(
+                      2
+                    )}
+                  </p>
+
+                </div>
+              )
+            )}
+
+          </div>
+
+          <div className="
+            flex
+            justify-between
+            items-center
+            mt-6
+          ">
+
+            <p className={`
+              ${textSecondary}
+            `}>
+              Total
+            </p>
+
+            <p
+              className="
+                text-4xl
+                font-bold
+              "
+              style={{
+                color:
+                  selectedColor,
+              }}
+            >
+              R${" "}
+              {pedido.total.toFixed(
+                2
+              )}
+            </p>
+
+          </div>
+
+        </div>
+
+<button
+  onClick={() =>
+    router.push(
+      `/${localStorage.getItem("cardapio-slug") || "jskburguer"}`
+    )
+  }
+  className="
+    mt-8
+    w-full
+    transition
+    rounded-2xl
+    py-4
+    font-bold
+    text-white
+    flex
+    items-center
+    justify-center
+    gap-2
+    hover:scale-[1.02]
+  "
+  style={{
+    backgroundColor: selectedColor,
+  }}
+>
+  <Home size={20} />
+
+  Voltar ao cardápio
+</button>
+
+        <motion.div
+          animate={{
+            opacity: [1, 0.5, 1],
+          }}
+          transition={{
+            repeat: Infinity,
+            duration: 2,
+          }}
+          className={`
+            mt-6
+            text-center
+            text-sm
+            ${textSecondary}
+          `}
+        >
+          Atualizando em tempo real...
         </motion.div>
 
-      </div>
+      </motion.div>
 
     </div>
   )
