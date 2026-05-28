@@ -354,8 +354,8 @@ const aparenciaData =
       adicionaisSelecionados:
         adicionaisSelecionados || [],
 
-      price:
-        Number(produto.price) +
+      preco:
+        Number(produto.preco) +
         totalAdicionais,
     }
 
