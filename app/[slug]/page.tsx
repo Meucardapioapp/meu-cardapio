@@ -22,7 +22,7 @@ import type {
   Adicional,
   ProdutoFormatado,
   CartItem
-} from "@/types/index"
+} from "../types"
 
 export default function CardapioPage() {
 
