@@ -15,7 +15,7 @@ import {
   Loader2,
 } from "lucide-react"
 
-import { supabase } from "../../lib/supabase"
+import { supabase } from "@/lib/supabase"
 
 import { getThemeSettings } from "../../lib/theme"
 
