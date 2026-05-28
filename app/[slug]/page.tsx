@@ -232,10 +232,14 @@ const aparenciaData =
     "Outros",
 
   adicionais:
-    adicionais || [],
+  adicionais || [],
 }
 
-      setProdutos(
+            }
+          )
+        )
+
+        setProdutos(
         produtosFormatados
       )
 
