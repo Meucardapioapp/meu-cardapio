@@ -420,7 +420,7 @@ const aparenciaData =
     (acc, item) =>
 
       acc +
-      Number(item.price) *
+      Number(item.preco) *
         item.quantity,
 
     0
