@@ -1,11 +1,6 @@
 "use client"
 
-type CartItem = {
-  uniqueId: string
-  name: string
-  price: number
-  quantity: number
-}
+import type { CartItem } from "../types"
 
 type Props = {
   cart: CartItem[]
