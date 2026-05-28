@@ -349,7 +349,7 @@ const aparenciaData =
 
       quantity: 1,
 
-      observation,
+      observacao,
 
       adicionaisSelecionados:
         adicionaisSelecionados || [],
