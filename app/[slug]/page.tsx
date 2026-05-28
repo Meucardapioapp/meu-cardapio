@@ -211,32 +211,29 @@ const aparenciaData =
                   produto.id
                 )
 
-              return {
+       return {
 
-                id: produto.id,
+  id: produto.id,
 
-                name: produto.nome,
+  nome: produto.nome,
 
-                description:
-                  produto.descricao,
+  descricao:
+    produto.descricao,
 
-                price: Number(
-                  produto.preco
-                ),
+  preco: Number(
+    produto.preco
+  ),
 
-                image:
-                  produto.imagem,
+  imagem:
+    produto.imagem,
 
-                categoria:
-                  produto.categoria ||
-                  "Outros",
+  categoria:
+    produto.categoria ||
+    "Outros",
 
-                adicionais:
-                  adicionais || [],
-              }
-            }
-          )
-        )
+  adicionais:
+    adicionais || [],
+}
 
       setProdutos(
         produtosFormatados
