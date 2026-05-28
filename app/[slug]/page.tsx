@@ -321,11 +321,11 @@ const aparenciaData =
     setOpenModal(true)
   }
 
-  function addToCart(
-    produto: ProdutoFormatado,
-    observation?: string,
-    adicionaisSelecionados?: Adicional[]
-  ) {
+ function addToCart(
+  produto: ProdutoFormatado,
+  observacao?: string,
+  adicionaisSelecionados?: Adicional[]
+) {
 
     const totalAdicionais =
       adicionaisSelecionados?.reduce(
