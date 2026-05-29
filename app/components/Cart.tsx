@@ -7,14 +7,7 @@ type Adicional = {
   preco: number
 }
 
-type CartItem = {
-  uniqueId: string
-  name: string
-  price: number
-  quantity: number
-  image?: string
-  adicionaisSelecionados?: Adicional[]
-}
+import type { CartItem } from "../types"
 
 type Props = {
   cart: CartItem[]
@@ -37,7 +30,7 @@ export default function Cart({
 
   const total = cart.reduce(
     (acc, item) =>
-      acc + item.price * item.quantity,
+      acc + item.preco * item.quantity,
     0
   )
 
@@ -119,11 +112,11 @@ export default function Cart({
 
                 <div className="flex gap-4 flex-1">
 
-                  {item.image && (
+                  {item.imagem && (
 
                     <img
-                      src={item.image}
-                      alt={item.name}
+                      src={item.imagem}
+                      alt={item.nome}
                       className="
                         w-20
                         h-20
@@ -146,7 +139,7 @@ export default function Cart({
                         ${textPrimary}
                       `}
                     >
-                      {item.name}
+                      {item.nome}
                     </h3>
 
                     <p
@@ -159,7 +152,7 @@ export default function Cart({
                         color: selectedColor,
                       }}
                     >
-                      R$ {Number(item.price).toFixed(2)}
+                      R$ {Number(item.preco).toFixed(2)}
                     </p>
 
                     {item.adicionaisSelecionados &&

@@ -12,24 +12,17 @@ type Adicional = {
   preco: number
 }
 
-type Produto = {
-  id: string
-  name: string
-  description: string
-  price: number
-  image: string
-  adicionais?: Adicional[]
-}
+import type { ProdutoFormatado } from "../types"
 
 type Props = {
   open: boolean
 
   onClose: () => void
 
-  product: Produto | null
+  product: ProdutoFormatado | null
 
   onAdd: (
-    produto: Produto,
+    produto: ProdutoFormatado,
     observation?: string,
     adicionaisSelecionados?: Adicional[]
   ) => void
@@ -107,7 +100,7 @@ export default function ProductModal({
     )
 
   const total =
-    Number(product.price) +
+    Number(product.preco) +
     totalAdicionais
 
   const bgMain = lightMode
@@ -132,11 +125,11 @@ export default function ProductModal({
 
       <div className={`${bgMain} rounded-3xl w-full max-w-lg overflow-hidden`}>
 
-        {product.image && (
+        {product.imagem && (
 
           <img
-            src={product.image}
-            alt={product.name}
+            src={product.imagem}
+            alt={product.nome}
             className="w-full h-60 object-cover"
           />
 
@@ -149,11 +142,11 @@ export default function ProductModal({
             <div>
 
               <h2 className={`text-3xl font-black ${textPrimary}`}>
-                {product.name}
+                {product.nome}
               </h2>
 
               <p className={`${textSecondary} mt-2`}>
-                {product.description}
+                {product.descricao}
               </p>
 
             </div>
