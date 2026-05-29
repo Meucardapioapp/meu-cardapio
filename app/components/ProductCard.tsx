@@ -1,15 +1,9 @@
 "use client"
 
-type Product = {
-  id: number
-  name: string
-  description: string
-  price: number
-  image: string
-}
+import type { ProdutoFormatado } from "../types"
 
 type Props = {
-  product: Product
+  product: ProdutoFormatado
   onAdd: () => void
 }
 
@@ -65,8 +59,8 @@ export default function ProductCard({
       <div className="relative h-56 overflow-hidden">
 
         <img
-          src={product.image}
-          alt={product.name}
+          src={product.imagem}
+          alt={product.nome}
           className="
             w-full
             h-full
@@ -85,7 +79,7 @@ export default function ProductCard({
             ${textPrimary}
           `}
         >
-          {product.name}
+          {product.nome}
         </h3>
 
         <p
@@ -95,7 +89,7 @@ export default function ProductCard({
             ${textSecondary}
           `}
         >
-          {product.description}
+          {product.descricao}
         </p>
 
         <div className="
@@ -114,7 +108,7 @@ export default function ProductCard({
               color: selectedColor,
             }}
           >
-            R$ {product.price}
+            R$ {product.preco}
           </span>
 
           <button
