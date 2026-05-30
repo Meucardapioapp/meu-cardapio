@@ -89,7 +89,7 @@ export default function PedidoPage() {
 
       const { data, error } =
         await supabase
-          .from("orders")
+          .from("pedidos")
           .select("*")
           .eq("id", Number(params.id))
           .single()
@@ -140,7 +140,7 @@ export default function PedidoPage() {
         {
           event: "UPDATE",
           schema: "public",
-          table: "orders",
+          table: "pedidos",
         },
         async (payload) => {
 
@@ -443,29 +443,19 @@ export default function PedidoPage() {
           `}>
 
             <p>
-              <strong>
-                Cliente:
-              </strong>{" "}
-              {
-                pedido.cliente_nome
-              }
-            </p>
+  <strong>Cliente:</strong>{" "}
+  {pedido.cliente}
+</p>
 
-            <p>
-              <strong>
-                Telefone:
-              </strong>{" "}
-              {
-                pedido.cliente_telefone
-              }
-            </p>
+<p>
+  <strong>Telefone:</strong>{" "}
+  {pedido.telefone}
+</p>
 
-            <p>
-              <strong>
-                Endereço:
-              </strong>{" "}
-              {pedido.endereco}
-            </p>
+<p>
+  <strong>Endereço:</strong>{" "}
+  {pedido.endereco}
+</p>
 
           </div>
 
@@ -618,7 +608,7 @@ export default function PedidoPage() {
                       ${textPrimary}
                     `}>
                       {
-                        item.quantidade
+                        item.quantity
                       }
                       x{" "}
                       {
@@ -628,23 +618,14 @@ export default function PedidoPage() {
 
                   </div>
 
-                  <p
-                    className="
-                      font-bold
-                    "
-                    style={{
-                      color:
-                        selectedColor,
-                    }}
-                  >
-                    R${" "}
-                    {(
-                      item.preco *
-                      item.quantidade
-                    ).toFixed(
-                      2
-                    )}
-                  </p>
+<p
+  className="font-bold"
+  style={{
+    color: selectedColor,
+  }}
+>
+  R$ {(item.preco * item.quantity).toFixed(2)}
+</p>
 
                 </div>
               )
@@ -666,20 +647,17 @@ export default function PedidoPage() {
             </p>
 
             <p
-              className="
-                text-4xl
-                font-bold
-              "
-              style={{
-                color:
-                  selectedColor,
-              }}
-            >
-              R${" "}
-              {pedido.total.toFixed(
-                2
-              )}
-            </p>
+  className="
+    text-4xl
+    font-bold
+  "
+  style={{
+    color: selectedColor,
+  }}
+>
+  R$ {Number(pedido.total).toFixed(2)}
+</p>
+
 
           </div>
 

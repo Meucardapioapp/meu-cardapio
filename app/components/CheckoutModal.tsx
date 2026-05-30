@@ -126,13 +126,11 @@ export default function CheckoutModal({
 
         pagamento,
 
-        items: cart,
+        itens: cart,
 
         total,
 
         status: "pendente",
-
-        slug,
 
         restaurante_id:
           restaurantId,

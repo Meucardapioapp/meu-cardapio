@@ -49,24 +49,39 @@ export default function ProductCard({
         ${cardBg}
         ${borderColor}
         border
-        rounded-3xl
+        rounded-[32px]
         overflow-hidden
         transition-all
         hover:scale-[1.02]
       `}
     >
 
-      <div className="relative h-56 overflow-hidden">
+      <div className="relative h-72 overflow-hidden">
 
-        <img
-          src={product.imagem}
-          alt={product.nome}
-          className="
-            w-full
-            h-full
-            object-cover
-          "
-        />
+        {product.imagem ? (
+  <img
+    src={product.imagem}
+    alt={product.nome}
+    className="
+      w-full
+      h-full
+      object-cover
+    "
+  />
+) : (
+  <div
+    className="
+      w-full
+      h-full
+      flex
+      items-center
+      justify-center
+      bg-zinc-200
+    "
+  >
+    Sem imagem
+  </div>
+)}
 
       </div>
 
@@ -74,7 +89,7 @@ export default function ProductCard({
 
         <h3
           className={`
-            text-xl
+            text-2xl
             font-black
             ${textPrimary}
           `}
@@ -101,7 +116,7 @@ export default function ProductCard({
 
           <span
             className="
-              text-3xl
+              text-4x1
               font-black
             "
             style={{

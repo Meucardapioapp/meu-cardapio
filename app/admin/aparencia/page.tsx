@@ -30,10 +30,28 @@ export default function AparenciaPage() {
     useState<string | null>(null)
 
   const [bannerPreview, setBannerPreview] =
-    useState<string | null>(null)
+  useState<string | null>(null)
 
-  const [savedMessage, setSavedMessage] =
-    useState(false)
+const [horarios, setHorarios] =
+  useState({
+    seg_inicio: "",
+    seg_fim: "",
+    ter_inicio: "",
+    ter_fim: "",
+    qua_inicio: "",
+    qua_fim: "",
+    qui_inicio: "",
+    qui_fim: "",
+    sex_inicio: "",
+    sex_fim: "",
+    sab_inicio: "",
+    sab_fim: "",
+    dom_inicio: "",
+    dom_fim: "",
+  })
+
+const [savedMessage, setSavedMessage] =
+  useState(false)
 
   const [loading, setLoading] =
     useState(true)
@@ -141,6 +159,28 @@ export default function AparenciaPage() {
           aparencia.banner_url ||
             null
         )
+        setHorarios({
+  seg_inicio: aparencia.horario_seg_inicio || "",
+  seg_fim: aparencia.horario_seg_fim || "",
+
+  ter_inicio: aparencia.horario_ter_inicio || "",
+  ter_fim: aparencia.horario_ter_fim || "",
+
+  qua_inicio: aparencia.horario_qua_inicio || "",
+  qua_fim: aparencia.horario_qua_fim || "",
+
+  qui_inicio: aparencia.horario_qui_inicio || "",
+  qui_fim: aparencia.horario_qui_fim || "",
+
+  sex_inicio: aparencia.horario_sex_inicio || "",
+  sex_fim: aparencia.horario_sex_fim || "",
+
+  sab_inicio: aparencia.horario_sab_inicio || "",
+  sab_fim: aparencia.horario_sab_fim || "",
+
+  dom_inicio: aparencia.horario_dom_inicio || "",
+  dom_fim: aparencia.horario_dom_fim || "",
+})
       }
 
     } catch (error) {
@@ -210,46 +250,104 @@ export default function AparenciaPage() {
 
       if (aparenciaExistente) {
 
-        const {
-          error: updateError,
-        } = await supabase
-          .from("aparencia")
-          .update({
+        console.log(
+  "HORARIOS SALVANDO:",
+  horarios
+)
 
-            tema,
+console.log(
+  "HORARIOS SALVANDO:",
+  horarios
+)
 
-            cor_primaria:
-              selectedColor,
+console.log("ENVIANDO PARA SUPABASE:", {
+  horario_seg_inicio: horarios.seg_inicio,
+  horario_seg_fim: horarios.seg_fim,
+})
 
-            logo_url:
-              logoPreview,
+const {
+  error: updateError,
+} = await supabase
+  .from("aparencia")
+  .update({
 
-            banner_url:
-              bannerPreview,
-          })
+    tema,
+
+    cor_primaria:
+      selectedColor,
+
+    logo_url:
+      logoPreview,
+
+    banner_url:
+      bannerPreview,
+
+    horario_seg_inicio:
+      horarios.seg_inicio,
+
+    horario_seg_fim:
+      horarios.seg_fim,
+
+    horario_ter_inicio:
+      horarios.ter_inicio,
+
+    horario_ter_fim:
+      horarios.ter_fim,
+
+    horario_qua_inicio:
+      horarios.qua_inicio,
+
+    horario_qua_fim:
+      horarios.qua_fim,
+
+    horario_qui_inicio:
+      horarios.qui_inicio,
+
+    horario_qui_fim:
+      horarios.qui_fim,
+
+    horario_sex_inicio:
+      horarios.sex_inicio,
+
+    horario_sex_fim:
+      horarios.sex_fim,
+
+    horario_sab_inicio:
+      horarios.sab_inicio,
+
+    horario_sab_fim:
+      horarios.sab_fim,
+
+    horario_dom_inicio:
+      horarios.dom_inicio,
+
+    horario_dom_fim:
+      horarios.dom_fim,
+
+  })
           .eq(
             "id",
             aparenciaExistente.id
           )
 
-        if (updateError) {
+      if (updateError) {
 
-          console.log(
-            updateError
-          )
+  console.log(updateError)
 
-          alert(
-            "Erro ao atualizar aparência"
-          )
+  alert(
+    "Erro ao atualizar aparência"
+  )
 
-          return
-        }
+  return
+}
 
-      } else {
+console.log("UPDATE OK")
 
-        /*
-          INSERT
-        */
+} else {
+
+/*
+  INSERT
+*/
 
         const {
           error: insertError,
@@ -257,20 +355,62 @@ export default function AparenciaPage() {
           .from("aparencia")
           .insert({
 
-            restaurante_id:
-              restauranteId,
+  restaurante_id:
+    restauranteId,
 
-            tema,
+  tema,
 
-            cor_primaria:
-              selectedColor,
+  cor_primaria:
+    selectedColor,
 
-            logo_url:
-              logoPreview,
+  logo_url:
+    logoPreview,
 
-            banner_url:
-              bannerPreview,
-          })
+  banner_url:
+    bannerPreview,
+
+  horario_seg_inicio:
+    horarios.seg_inicio,
+
+  horario_seg_fim:
+    horarios.seg_fim,
+
+  horario_ter_inicio:
+    horarios.ter_inicio,
+
+  horario_ter_fim:
+    horarios.ter_fim,
+
+  horario_qua_inicio:
+    horarios.qua_inicio,
+
+  horario_qua_fim:
+    horarios.qua_fim,
+
+  horario_qui_inicio:
+    horarios.qui_inicio,
+
+  horario_qui_fim:
+    horarios.qui_fim,
+
+  horario_sex_inicio:
+    horarios.sex_inicio,
+
+  horario_sex_fim:
+    horarios.sex_fim,
+
+  horario_sab_inicio:
+    horarios.sab_inicio,
+
+  horario_sab_fim:
+    horarios.sab_fim,
+
+  horario_dom_inicio:
+    horarios.dom_inicio,
+
+  horario_dom_fim:
+    horarios.dom_fim,
+})
 
         if (insertError) {
 
@@ -877,8 +1017,163 @@ export default function AparenciaPage() {
               }
             />
 
-          </div>
+                    </div>
         </div>
+
+        {/* HORÁRIO DE FUNCIONAMENTO */}
+
+        <div
+          className={`${cardBg} ${borderColor} border rounded-3xl p-6`}
+        >
+
+          <h2
+            className={`text-3xl font-black ${textPrimary}`}
+          >
+            Horário de Funcionamento
+          </h2>
+
+          <p
+            className={`${textSecondary} mt-2`}
+          >
+            Defina os horários de atendimento do restaurante
+          </p>
+
+          <div className="mt-8 space-y-4">
+
+            {[
+              "Segunda",
+              "Terça",
+              "Quarta",
+              "Quinta",
+              "Sexta",
+              "Sábado",
+              "Domingo",
+            ].map((dia) => (
+
+              <div
+                key={dia}
+                className="
+                  grid
+                  grid-cols-[120px_1fr]
+                  gap-4
+                  items-center
+                "
+              >
+
+                <span
+                  className={`font-semibold ${textPrimary}`}
+                >
+                  {dia}
+                </span>
+
+                <div className="flex items-center gap-3">
+
+                  <input
+  type="time"
+  value={
+    dia === "Segunda"
+      ? horarios.seg_inicio
+      : dia === "Terça"
+      ? horarios.ter_inicio
+      : dia === "Quarta"
+      ? horarios.qua_inicio
+      : dia === "Quinta"
+      ? horarios.qui_inicio
+      : dia === "Sexta"
+      ? horarios.sex_inicio
+      : dia === "Sábado"
+      ? horarios.sab_inicio
+      : horarios.dom_inicio
+  }
+  onChange={(e) =>
+    setHorarios({
+      ...horarios,
+      [dia === "Segunda"
+        ? "seg_inicio"
+        : dia === "Terça"
+        ? "ter_inicio"
+        : dia === "Quarta"
+        ? "qua_inicio"
+        : dia === "Quinta"
+        ? "qui_inicio"
+        : dia === "Sexta"
+        ? "sex_inicio"
+        : dia === "Sábado"
+        ? "sab_inicio"
+        : "dom_inicio"]: e.target.value,
+    })
+  }
+  className="
+    px-4
+    py-3
+    rounded-xl
+    bg-zinc-950
+    border
+    border-zinc-700
+    text-white
+  "
+/>
+
+<span className={textSecondary}>
+  até
+</span>
+
+<input
+  type="time"
+  value={
+    dia === "Segunda"
+      ? horarios.seg_fim
+      : dia === "Terça"
+      ? horarios.ter_fim
+      : dia === "Quarta"
+      ? horarios.qua_fim
+      : dia === "Quinta"
+      ? horarios.qui_fim
+      : dia === "Sexta"
+      ? horarios.sex_fim
+      : dia === "Sábado"
+      ? horarios.sab_fim
+      : horarios.dom_fim
+  }
+  onChange={(e) =>
+    setHorarios({
+      ...horarios,
+      [dia === "Segunda"
+        ? "seg_fim"
+        : dia === "Terça"
+        ? "ter_fim"
+        : dia === "Quarta"
+        ? "qua_fim"
+        : dia === "Quinta"
+        ? "qui_fim"
+        : dia === "Sexta"
+        ? "sex_fim"
+        : dia === "Sábado"
+        ? "sab_fim"
+        : "dom_fim"]: e.target.value,
+    })
+  }
+  className="
+    px-4
+    py-3
+    rounded-xl
+    bg-zinc-950
+    border
+    border-zinc-700
+    text-white
+  "
+/>
+
+                </div>
+
+              </div>
+
+            ))}
+
+          </div>
+
+        </div>
+
       </div>
     </main>
   )

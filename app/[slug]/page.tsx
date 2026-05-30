@@ -26,9 +26,16 @@ import type {
 
 export default function CardapioPage() {
 
-  const params = useParams()
+const params = useParams()
 
-  const slug = params.slug as string
+const slug = params.slug as string
+
+useEffect(() => {
+  localStorage.setItem(
+    "cardapio-slug",
+    slug
+  )
+}, [slug])
 
   const [produtos, setProdutos] =
     useState<ProdutoFormatado[]>([])
@@ -55,28 +62,31 @@ export default function CardapioPage() {
   const [categorias, setCategorias] =
     useState<string[]>([])
 
-  const [busca, setBusca] =
-    useState("")
+ const [busca, setBusca] =
+  useState("")
 
-  const [restaurante, setRestaurante] =
-    useState<any>(null)
+const [restaurante, setRestaurante] =
+  useState<any>(null)
 
-  /* APARÊNCIA */
+const [aparencia, setAparencia] =
+  useState<any>(null)
 
-  const [themeColor, setThemeColor] =
-    useState("#7F1D1D")
+/* APARÊNCIA */
 
-  const [logo, setLogo] =
-    useState<string>("")
+const [themeColor, setThemeColor] =
+  useState("#7F1D1D")
 
-  const [banner, setBanner] =
-    useState<string>("")
+const [logo, setLogo] =
+  useState<string>("")
 
-  const [lightMode, setLightMode] =
-    useState(true)
+const [banner, setBanner] =
+  useState<string>("")
 
-  const [loading, setLoading] =
-    useState(true)
+const [lightMode, setLightMode] =
+  useState(true)
+
+const [loading, setLoading] =
+  useState(true)
 
   async function buscarProdutos() {
 
@@ -129,10 +139,19 @@ export default function CardapioPage() {
 const aparenciaData =
   aparenciaArray?.[0]
 
-      if (
+   if (
   aparenciaData &&
   !aparenciaError
 ) {
+
+  setAparencia(
+  aparenciaData
+)
+
+console.log(
+  "APARENCIA:",
+  aparenciaData
+)
 
   setThemeColor(
     aparenciaData.cor_primaria ||
@@ -415,16 +434,13 @@ const aparenciaData =
     )
   }
 
-  const total = cart.reduce(
+const total = cart.reduce((acc, item) => {
+  console.log("ITEM DO CARRINHO:", item)
+  console.log("PRECO:", item.preco)
+  console.log("QUANTITY:", item.quantity)
 
-    (acc, item) =>
-
-      acc +
-      Number(item.preco) *
-        item.quantity,
-
-    0
-  )
+  return acc + Number(item.preco) * Number(item.quantity)
+}, 0)
 
   const produtosFiltrados =
     produtos.filter(
@@ -440,14 +456,10 @@ const aparenciaData =
             : produto.categoria ===
               categoriaSelecionada
 
-        const matchBusca =
-
-          produto.name
-            .toLowerCase()
-
-            .includes(
-              busca.toLowerCase()
-            )
+       const matchBusca =
+  String(produto.nome || "")
+    .toLowerCase()
+    .includes(String(busca || "").toLowerCase())
 
         return (
           matchCategoria &&
@@ -482,7 +494,64 @@ const aparenciaData =
     ? "bg-white"
     : "bg-zinc-900"
 
-  if (loading) {
+  function obterStatusLoja() {
+
+  if (!aparencia) {
+    return "Carregando..."
+  }
+
+  const agora = new Date()
+
+  const dias = [
+    "dom",
+    "seg",
+    "ter",
+    "qua",
+    "qui",
+    "sex",
+    "sab"
+  ]
+
+  const dia =
+    dias[agora.getDay()]
+
+  const inicio =
+    aparencia[`horario_${dia}_inicio`]
+
+  const fim =
+    aparencia[`horario_${dia}_fim`]
+
+  if (!inicio || !fim) {
+    return "🔴 Fechado"
+  }
+
+  const horaAtual =
+    agora.getHours() * 60 +
+    agora.getMinutes()
+
+  const [hInicio, mInicio] =
+    inicio.split(":").map(Number)
+
+  const [hFim, mFim] =
+    fim.split(":").map(Number)
+
+  const minutoInicio =
+    hInicio * 60 + mInicio
+
+  const minutoFim =
+    hFim * 60 + mFim
+
+  const aberto =
+    horaAtual >= minutoInicio &&
+    horaAtual <= minutoFim
+
+  if (aberto) {
+    return "🟢 Aberto Agora"
+  }
+
+  return `🔴 Fechado • Abre às ${inicio}`
+}
+    if (loading) {
 
     return (
 
@@ -561,7 +630,7 @@ const aparenciaData =
         <div className="
           backdrop-brightness-[0.55]
           px-6
-          py-20
+          py-32
         ">
 
           <div className="
@@ -617,26 +686,111 @@ const aparenciaData =
 
             </div>
 
-            <div>
+           <div>
 
-              <h1 className="
-                text-5xl
-                md:text-6xl
-                font-black
-                text-white
-              ">
-                {restaurante?.nome}
-              </h1>
+  <div className="
+    inline-flex
+    items-center
+    gap-2
+    bg-white/20
+    backdrop-blur-sm
+    px-4
+    py-2
+    rounded-full
+    text-white
+    font-semibold
+    text-sm
+    mb-4
+  ">
+    ⭐ 4.9 • Delivery Premium
+  </div>
 
-              <p className="
-                text-white/80
-                mt-3
-                text-lg
-              ">
-                O melhor delivery da cidade
-              </p>
+  <h1 className="
+  text-5xl
+  md:text-6xl
+  font-black
+  text-white
+  leading-tight
+">
+  {restaurante?.nome}
+</h1>
 
-            </div>
+<div className="
+  mt-4
+  inline-flex
+  items-center
+  gap-2
+  bg-white/15
+  backdrop-blur-sm
+  px-4
+  py-2
+  rounded-xl
+  text-white
+  font-semibold
+">
+  {obterStatusLoja()}
+</div>
+
+  <p className="
+    text-white/80
+    mt-4
+    text-lg
+    max-w-xl
+  ">
+    Experiência gastronômica com
+    entrega rápida e produtos
+    preparados com qualidade.
+  </p>
+
+  <div className="
+    flex
+    flex-wrap
+    gap-3
+    mt-6
+  ">
+
+    <div className="
+      bg-white/15
+      backdrop-blur-sm
+      px-4
+      py-2
+      rounded-xl
+      text-white
+      text-sm
+      font-medium
+    ">
+      🛵 Entrega rápida
+    </div>
+
+    <div className="
+      bg-white/15
+      backdrop-blur-sm
+      px-4
+      py-2
+      rounded-xl
+      text-white
+      text-sm
+      font-medium
+    ">
+      💳 Pix e Cartão
+    </div>
+
+    <div className="
+      bg-white/15
+      backdrop-blur-sm
+      px-4
+      py-2
+      rounded-xl
+      text-white
+      text-sm
+      font-medium
+    ">
+      ⭐ Atendimento Premium
+    </div>
+
+  </div>
+
+</div>
 
           </div>
 
@@ -719,45 +873,83 @@ const aparenciaData =
 
         </div>
 
-        <div className="
+        {categorias.map((categoria) => {
+
+  const produtosCategoria =
+    produtosFiltrados.filter(
+      (produto) =>
+        produto.categoria === categoria
+    )
+
+  if (
+    produtosCategoria.length === 0
+  ) {
+    return null
+  }
+
+  return (
+
+    <div
+      key={categoria}
+      className="mb-14"
+    >
+
+      <h3
+        className={`
+          text-3xl
+          font-black
+          mb-6
+          ${textPrimary}
+        `}
+      >
+        {categoria}
+      </h3>
+
+      <div
+        className="
           grid
           grid-cols-1
           sm:grid-cols-2
-          lg:grid-cols-3
-          gap-6
-        ">
+          gap-8
+        "
+      >
 
-          {produtosFiltrados.map(
-            (produto) => (
+        {produtosCategoria.map(
+          (produto) => (
 
-              <div
-                key={produto.id}
-                className={`
-                  ${cardBg}
-                  ${borderColor}
-                  border
-                  rounded-3xl
-                  overflow-hidden
-                  hover:scale-[1.02]
-                  transition-all
-                `}
-              >
+            <div
+              key={produto.id}
+              className={`
+                ${cardBg}
+                ${borderColor}
+                border
+                rounded-3xl
+                overflow-hidden
+                hover:scale-[1.02]
+                transition-all
+              `}
+            >
 
-                <ProductCard
-                  product={produto}
-                  onAdd={() =>
-                    openProductModal(
-                      produto
-                    )
-                  }
-                />
+              <ProductCard
+                product={produto}
+                onAdd={() =>
+                  openProductModal(
+                    produto
+                  )
+                }
+              />
 
-              </div>
+            </div>
 
-            )
-          )}
+          )
+        )}
 
-        </div>
+      </div>
+
+    </div>
+
+  )
+})}
 
       </section>
 
