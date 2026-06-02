@@ -12,7 +12,8 @@ type Props = {
   cart: any[]
   total: number
   slug: string
-  restaurantId: string
+  restauranteId: string
+  lojaAberta: boolean
   clearCart: () => void
 }
 
@@ -22,7 +23,8 @@ export default function CheckoutModal({
   cart,
   total,
   slug,
-  restaurantId,
+  restauranteId,
+  lojaAberta,
   clearCart,
 }: Props) {
 
@@ -79,29 +81,38 @@ export default function CheckoutModal({
 
   async function finalizarPedido() {
 
-    if (
-      !cliente ||
-      !telefone ||
-      !bairro ||
-      !rua ||
-      !numero
-    ) {
+  if (!lojaAberta) {
 
-      alert(
-        "Preencha todos os campos"
-      )
+    alert(
+      "Restaurante fechado no momento."
+    )
 
-      return
-    }
+    return
+  }
 
-    if (!restaurantId) {
+  if (
+    !cliente ||
+    !telefone ||
+    !bairro ||
+    !rua ||
+    !numero
+  ) {
 
-      alert(
-        "Restaurante não identificado"
-      )
+    alert(
+      "Preencha todos os campos"
+    )
 
-      return
-    }
+    return
+  }
+
+  if (!restauranteId) {
+
+    alert(
+      "Restaurante não identificado"
+    )
+
+    return
+  }
 
     try {
 

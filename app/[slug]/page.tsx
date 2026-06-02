@@ -512,44 +512,82 @@ const total = cart.reduce((acc, item) => {
     "sab"
   ]
 
-  const dia =
-    dias[agora.getDay()]
+  const nomesDias = [
+    "domingo",
+    "segunda",
+    "terça",
+    "quarta",
+    "quinta",
+    "sexta",
+    "sábado"
+  ]
+
+  const diaAtualIndex =
+    agora.getDay()
+
+  const diaAtual =
+    dias[diaAtualIndex]
 
   const inicio =
-    aparencia[`horario_${dia}_inicio`]
+    aparencia[`horario_${diaAtual}_inicio`]
 
   const fim =
-    aparencia[`horario_${dia}_fim`]
-
-  if (!inicio || !fim) {
-    return "🔴 Fechado"
-  }
+    aparencia[`horario_${diaAtual}_fim`]
 
   const horaAtual =
     agora.getHours() * 60 +
     agora.getMinutes()
 
-  const [hInicio, mInicio] =
-    inicio.split(":").map(Number)
+  if (inicio && fim) {
 
-  const [hFim, mFim] =
-    fim.split(":").map(Number)
+    const [hInicio, mInicio] =
+      inicio.split(":").map(Number)
 
-  const minutoInicio =
-    hInicio * 60 + mInicio
+    const [hFim, mFim] =
+      fim.split(":").map(Number)
 
-  const minutoFim =
-    hFim * 60 + mFim
+    const minutoInicio =
+      hInicio * 60 + mInicio
 
-  const aberto =
-    horaAtual >= minutoInicio &&
-    horaAtual <= minutoFim
+    const minutoFim =
+      hFim * 60 + mFim
 
-  if (aberto) {
-    return "🟢 Aberto Agora"
+    if (
+      horaAtual >= minutoInicio &&
+      horaAtual <= minutoFim
+    ) {
+      return "🟢 Aberto Agora"
+    }
+
+    if (horaAtual < minutoInicio) {
+      return `🔴 Fechado • Abre às ${inicio}`
+    }
   }
 
-  return `🔴 Fechado • Abre às ${inicio}`
+ for (let i = 1; i <= 7; i++) {
+
+  const proximoIndex =
+    (diaAtualIndex + i) % 7
+
+  const proximoDia =
+    dias[proximoIndex]
+
+  const proximoInicio =
+    aparencia[
+      `horario_${proximoDia}_inicio`
+    ]
+
+  if (proximoInicio) {
+
+    if (i === 1) {
+      return `🔴 Fechado • Abre amanhã às ${proximoInicio}`
+    }
+
+    return `🔴 Fechado • Abre ${nomesDias[proximoIndex]} às ${proximoInicio}`
+  }
+}
+
+return "🔴 Fechado"
 }
     if (loading) {
 
@@ -963,18 +1001,26 @@ const total = cart.reduce((acc, item) => {
         "
       >
 
-        <Cart
-          cart={cart}
-          increaseQuantity={
-            increaseQuantity
-          }
-          decreaseQuantity={
-            decreaseQuantity
-          }
-          onCheckout={() =>
-            setOpenCheckout(true)
-          }
-        />
+       <Cart
+  cart={cart}
+  increaseQuantity={increaseQuantity}
+  decreaseQuantity={decreaseQuantity}
+  onCheckout={() => {
+
+    if (
+      !obterStatusLoja().includes("Aberto")
+    ) {
+
+      alert(
+        "Restaurante fechado no momento."
+      )
+
+      return
+    }
+
+    setOpenCheckout(true)
+  }}
+/>
 
       </section>
 
@@ -987,24 +1033,19 @@ const total = cart.reduce((acc, item) => {
         onAdd={addToCart}
       />
 
-      <CheckoutModal
-        open={openCheckout}
-        onClose={() =>
-          setOpenCheckout(false)
-        }
-        cart={cart}
-        total={total}
-        slug={slug}
-        restaurantId={restaurante?.id}
-        clearCart={() => {
-
-          setCart([])
-
-          localStorage.removeItem(
-            "cart"
-          )
-        }}
-      />
+    <CheckoutModal
+  open={openCheckout}
+  onClose={() => setOpenCheckout(false)}
+  cart={cart}
+  total={total}
+  slug={slug}
+  restauranteId={restaurante?.id}
+  lojaAberta={obterStatusLoja().includes("Aberto")}
+  clearCart={() => {
+    setCart([])
+    localStorage.removeItem("cart")
+  }}
+/>
 
     </main>
   )

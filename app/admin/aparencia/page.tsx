@@ -6,6 +6,8 @@ import {
   useState,
 } from "react"
 
+import Link from "next/link"
+
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 
@@ -54,10 +56,16 @@ const [savedMessage, setSavedMessage] =
   useState(false)
 
   const [loading, setLoading] =
-    useState(true)
+  useState(true)
 
-  const [restauranteId, setRestauranteId] =
-    useState<string | null>(null)
+const [restauranteId, setRestauranteId] =
+  useState<string | null>(null)
+
+const [premium, setPremium] =
+  useState(false)
+
+const [statusAssinatura, setStatusAssinatura] =
+  useState("")
 
   const logoInputRef =
     useRef<HTMLInputElement>(null)
@@ -83,13 +91,17 @@ const [savedMessage, setSavedMessage] =
       }
 
       const {
-        data: restaurante,
-        error: restauranteError,
-      } = await supabase
-        .from("restaurantes")
-        .select("id")
-        .eq("auth_user_id", user.id)
-        .single()
+  data: restaurante,
+  error: restauranteError,
+} = await supabase
+  .from("restaurantes")
+  .select(`
+    id,
+    premium,
+    assinatura_status
+  `)
+  .eq("auth_user_id", user.id)
+  .single()
 
       if (
         restauranteError ||
@@ -103,9 +115,28 @@ const [savedMessage, setSavedMessage] =
         return
       }
 
-      setRestauranteId(
-        restaurante.id
-      )
+setRestauranteId(
+  restaurante.id
+)
+
+setPremium(
+  restaurante.premium
+)
+
+setStatusAssinatura(
+  restaurante.assinatura_status
+)
+
+console.log(
+  "Premium:",
+  restaurante.premium
+)
+
+console.log(
+  "Status:",
+  restaurante.assinatura_status
+)
+
 
       /*
         BUSCA APENAS O MAIS RECENTE
@@ -677,7 +708,68 @@ console.log("UPDATE OK")
 
           </div>
 
-          <div className="flex items-center gap-3">
+<div className="flex gap-3 mb-6">
+
+  <a href="/admin/aparencia/restaurante">
+    <Button variant="outline">
+      Restaurante
+    </Button>
+  </a>
+
+  <a href="/admin/aparencia/horarios">
+    <Button variant="outline">
+      Horários
+    </Button>
+  </a>
+
+</div>
+<div className="mb-6">
+
+  {premium ? (
+
+    <div
+      className="
+        inline-flex
+        items-center
+        gap-2
+        px-4
+        py-2
+        rounded-full
+        bg-green-500/20
+        border
+        border-green-500
+        text-green-400
+        font-semibold
+      "
+    >
+      🟢 Premium Ativo
+    </div>
+
+  ) : (
+
+    <div
+      className="
+        inline-flex
+        items-center
+        gap-2
+        px-4
+        py-2
+        rounded-full
+        bg-red-500/20
+        border
+        border-red-500
+        text-red-400
+        font-semibold
+      "
+    >
+      🔴 Plano Inativo
+    </div>
+
+  )}
+
+</div>
+
+<div className="flex items-center gap-3">
 
             <Button
               variant="outline"
@@ -1007,7 +1099,7 @@ console.log("UPDATE OK")
 
             </div>
 
-            <input
+                       <input
               type="file"
               accept="image/*"
               ref={bannerInputRef}
@@ -1017,161 +1109,7 @@ console.log("UPDATE OK")
               }
             />
 
-                    </div>
-        </div>
-
-        {/* HORÁRIO DE FUNCIONAMENTO */}
-
-        <div
-          className={`${cardBg} ${borderColor} border rounded-3xl p-6`}
-        >
-
-          <h2
-            className={`text-3xl font-black ${textPrimary}`}
-          >
-            Horário de Funcionamento
-          </h2>
-
-          <p
-            className={`${textSecondary} mt-2`}
-          >
-            Defina os horários de atendimento do restaurante
-          </p>
-
-          <div className="mt-8 space-y-4">
-
-            {[
-              "Segunda",
-              "Terça",
-              "Quarta",
-              "Quinta",
-              "Sexta",
-              "Sábado",
-              "Domingo",
-            ].map((dia) => (
-
-              <div
-                key={dia}
-                className="
-                  grid
-                  grid-cols-[120px_1fr]
-                  gap-4
-                  items-center
-                "
-              >
-
-                <span
-                  className={`font-semibold ${textPrimary}`}
-                >
-                  {dia}
-                </span>
-
-                <div className="flex items-center gap-3">
-
-                  <input
-  type="time"
-  value={
-    dia === "Segunda"
-      ? horarios.seg_inicio
-      : dia === "Terça"
-      ? horarios.ter_inicio
-      : dia === "Quarta"
-      ? horarios.qua_inicio
-      : dia === "Quinta"
-      ? horarios.qui_inicio
-      : dia === "Sexta"
-      ? horarios.sex_inicio
-      : dia === "Sábado"
-      ? horarios.sab_inicio
-      : horarios.dom_inicio
-  }
-  onChange={(e) =>
-    setHorarios({
-      ...horarios,
-      [dia === "Segunda"
-        ? "seg_inicio"
-        : dia === "Terça"
-        ? "ter_inicio"
-        : dia === "Quarta"
-        ? "qua_inicio"
-        : dia === "Quinta"
-        ? "qui_inicio"
-        : dia === "Sexta"
-        ? "sex_inicio"
-        : dia === "Sábado"
-        ? "sab_inicio"
-        : "dom_inicio"]: e.target.value,
-    })
-  }
-  className="
-    px-4
-    py-3
-    rounded-xl
-    bg-zinc-950
-    border
-    border-zinc-700
-    text-white
-  "
-/>
-
-<span className={textSecondary}>
-  até
-</span>
-
-<input
-  type="time"
-  value={
-    dia === "Segunda"
-      ? horarios.seg_fim
-      : dia === "Terça"
-      ? horarios.ter_fim
-      : dia === "Quarta"
-      ? horarios.qua_fim
-      : dia === "Quinta"
-      ? horarios.qui_fim
-      : dia === "Sexta"
-      ? horarios.sex_fim
-      : dia === "Sábado"
-      ? horarios.sab_fim
-      : horarios.dom_fim
-  }
-  onChange={(e) =>
-    setHorarios({
-      ...horarios,
-      [dia === "Segunda"
-        ? "seg_fim"
-        : dia === "Terça"
-        ? "ter_fim"
-        : dia === "Quarta"
-        ? "qua_fim"
-        : dia === "Quinta"
-        ? "qui_fim"
-        : dia === "Sexta"
-        ? "sex_fim"
-        : dia === "Sábado"
-        ? "sab_fim"
-        : "dom_fim"]: e.target.value,
-    })
-  }
-  className="
-    px-4
-    py-3
-    rounded-xl
-    bg-zinc-950
-    border
-    border-zinc-700
-    text-white
-  "
-/>
-
-                </div>
-
-              </div>
-
-            ))}
-
           </div>
-
         </div>
 
       </div>

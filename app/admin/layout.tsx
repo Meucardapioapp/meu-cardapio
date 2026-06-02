@@ -20,31 +20,39 @@ export default function AdminLayout({
   }
 
   const menus = [
-    {
-      nome: "Dashboard",
-      link: "/admin",
-    },
-    {
-      nome: "Produtos",
-      link: "/admin/produtos",
-    },
-    {
-      nome: "Pedidos",
-      link: "/admin/pedidos",
-    },
-    {
-      nome: "Aparência",
-      link: "/admin/aparencia",
-    },
-    {
-      nome: "Financeiro",
-      link: "/financeiro",
-    },
-    {
-      nome: "Configurações",
-      link: "/admin/configuracoes",
-    },
-  ]
+  {
+    nome: "Dashboard",
+    link: "/admin",
+  },
+  {
+    nome: "Produtos",
+    link: "/admin/produtos",
+  },
+  {
+    nome: "Pedidos",
+    link: "/admin/pedidos",
+  },
+  {
+    nome: "Aparência",
+    link: "/admin/aparencia",
+  },
+  {
+    nome: "Horários",
+    link: "/admin/horarios",
+  },
+  {
+    nome: "Link do Cardápio",
+    link: "/admin/link-cardapio",
+  },
+  {
+    nome: "Assinatura",
+    link: "/admin/assinatura",
+  },
+  {
+    nome: "Configurações",
+    link: "/admin/configuracoes",
+  },
+]
 
   return (
     <div className="min-h-screen bg-black text-white flex">
