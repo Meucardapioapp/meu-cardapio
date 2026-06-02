@@ -165,25 +165,34 @@ export default function AssinaturaPage() {
               por mês
             </p>
 
-            <div
-              className="
-                mt-8
-                bg-white/10
-                backdrop-blur-md
-                rounded-2xl
-                px-5
-                py-4
-              "
-            >
-              Economia de R$10 por mês
-            </div>
+          <div
+  className="
+    mt-8
+    bg-white/10
+    backdrop-blur-md
+    rounded-2xl
+    px-5
+    py-4
+  "
+>
+  Economia de R$10 por mês
+</div>
 
-          <button
+<button
   onClick={async () => {
+    const restauranteId =
+      localStorage.getItem("restaurante_id")
+
     const res = await fetch(
       "/api/mercadopago/criar-assinatura",
       {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          restauranteId,
+        }),
       }
     )
 
@@ -194,6 +203,7 @@ export default function AssinaturaPage() {
     }
   }}
   className="
+    mt-8
     flex
     items-center
     justify-center
@@ -211,10 +221,10 @@ export default function AssinaturaPage() {
   Assinar Agora
 </button>
 
-          </div>
-        </div>
+</div>
+</div>
 
-        {/* PIX */}
+{/* PIX */}
 
         <div
           className="
