@@ -9,6 +9,7 @@ export interface ProdutoFormatado {
   descricao: string
   imagem: string
   preco: number
+  categoria?: string
   adicionais?: Adicional[]
 }
 
