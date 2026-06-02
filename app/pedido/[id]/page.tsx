@@ -442,14 +442,14 @@ export default function PedidoPage() {
             ${textSecondary}
           `}>
 
-            <p>
+    <p>
   <strong>Cliente:</strong>{" "}
-  {pedido.cliente}
+  {pedido.cliente_nome}
 </p>
 
 <p>
   <strong>Telefone:</strong>{" "}
-  {pedido.telefone}
+  {pedido.cliente_telefone}
 </p>
 
 <p>
@@ -608,7 +608,7 @@ export default function PedidoPage() {
                       ${textPrimary}
                     `}>
                       {
-                        item.quantity
+                        item.quantidade
                       }
                       x{" "}
                       {
@@ -624,7 +624,7 @@ export default function PedidoPage() {
     color: selectedColor,
   }}
 >
-  R$ {(item.preco * item.quantity).toFixed(2)}
+  R$ {(item.preco * item.quantidade).toFixed(2)}
 </p>
 
                 </div>

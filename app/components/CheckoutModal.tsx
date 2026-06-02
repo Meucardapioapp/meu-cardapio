@@ -144,7 +144,7 @@ export default function CheckoutModal({
         status: "pendente",
 
         restaurante_id:
-          restaurantId,
+          restauranteId,
       }
 
       console.log(
