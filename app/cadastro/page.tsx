@@ -5,102 +5,133 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 
 import { supabase } from "@/lib/supabase"
+import Toast from "@/app/components/ui/toast"
+
+function gerarSlug(texto: string) {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+}
 
 export default function CadastroPage() {
-
   const router = useRouter()
 
-  const [loading, setLoading] =
-    useState(false)
+  const [loading, setLoading] = useState(false)
+  const [toast, setToast] = useState<{
+  tipo: "sucesso" | "erro" | "aviso"
+  titulo: string
+  mensagem: string
+} | null>(null)
 
-  const [nomeResponsavel, setNomeResponsavel] =
-    useState("")
-
-  const [nomeRestaurante, setNomeRestaurante] =
-    useState("")
-
-  const [telefone, setTelefone] =
-    useState("")
-
-  const [whatsapp, setWhatsapp] =
-    useState("")
-
-  const [cidade, setCidade] =
-    useState("")
-
-  const [slug, setSlug] =
-    useState("")
-
-  const [categoria, setCategoria] =
-    useState("Açaí")
-
-  const [email, setEmail] =
-    useState("")
-
-  const [senha, setSenha] =
-    useState("")
-
-  const [confirmarSenha, setConfirmarSenha] =
-    useState("")
+  const [nomeResponsavel, setNomeResponsavel] = useState("")
+  const [nomeRestaurante, setNomeRestaurante] = useState("")
+  const [telefone, setTelefone] = useState("")
+  const [whatsapp, setWhatsapp] = useState("")
+  const [cidade, setCidade] = useState("")
+  const [slug, setSlug] = useState("")
+  const [categoria, setCategoria] = useState("Açaí")
+  const [email, setEmail] = useState("")
+  const [senha, setSenha] = useState("")
+  const [confirmarSenha, setConfirmarSenha] = useState("")
 
   async function cadastrar() {
-
     try {
-
       setLoading(true)
 
       if (
-        !nomeResponsavel ||
-        !nomeRestaurante ||
-        !telefone ||
-        !whatsapp ||
-        !cidade ||
-        !slug ||
-        !email ||
-        !senha ||
-        !confirmarSenha
-      ) {
-        alert("Preencha todos os campos")
-        return
-      }
+  !nomeResponsavel ||
+  !nomeRestaurante ||
+  !telefone ||
+  !whatsapp ||
+  !cidade ||
+  !email ||
+  !senha ||
+  !confirmarSenha
+) {
+  setToast({
+    tipo: "aviso",
+    titulo: "Campos obrigatórios",
+    mensagem:
+      "Preencha todos os campos para continuar."
+  })
+
+  setTimeout(() => {
+    setToast(null)
+  }, 5000)
+
+  return
+}
 
       if (senha !== confirmarSenha) {
-        alert("As senhas não coincidem")
-        return
-      }
+  setToast({
+    tipo: "aviso",
+    titulo: "Senhas diferentes",
+    mensagem:
+      "Digite a mesma senha nos dois campos."
+  })
 
-      const { data, error } =
-        await supabase.auth.signUp({
-          email,
-          password: senha,
-        })
+  setTimeout(() => {
+    setToast(null)
+  }, 5000)
+
+  return
+}
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: senha,
+      })
 
       if (error) {
 
-        console.log(
-          "ERRO AUTH:",
-          JSON.stringify(
-            error,
-            null,
-            2
-          )
-        )
+  let mensagem =
+    "Não foi possível criar sua conta."
 
-        alert(error.message)
+  if (
+    error.message.includes(
+      "User already registered"
+    )
+  ) {
+    mensagem =
+      "Este e-mail já possui uma conta."
+  }
 
-        return
-      }
+  setToast({
+    tipo: "erro",
+    titulo: "Cadastro não realizado",
+    mensagem
+  })
+
+  setTimeout(() => {
+    setToast(null)
+  }, 5000)
+
+  return
+}
 
       const user = data.user
 
       if (!user) {
-        alert("Erro ao criar usuário")
-        return
-      }
+  setToast({
+    tipo: "erro",
+    titulo: "Erro ao criar conta",
+    mensagem:
+      "Não foi possível criar seu usuário."
+  })
+
+  setTimeout(() => {
+    setToast(null)
+  }, 5000)
+
+  return
+}
 
       const {
         data: restaurante,
-        error: restauranteError
+        error: restauranteError,
       } = await supabase
         .from("restaurantes")
         .insert({
@@ -118,198 +149,282 @@ export default function CadastroPage() {
         .single()
 
       if (restauranteError) {
+  setToast({
+    tipo: "erro",
+    titulo: "Erro ao salvar restaurante",
+    mensagem:
+      "Não foi possível concluir seu cadastro."
+  })
 
-        console.log(
-          "ERRO RESTAURANTE:",
-          JSON.stringify(
-            restauranteError,
-            null,
-            2
-          )
-        )
+  setTimeout(() => {
+    setToast(null)
+  }, 5000)
 
-        alert(
-          JSON.stringify(
-            restauranteError,
-            null,
-            2
-          )
-        )
-
-        return
-      }
+  return
+}
 
       localStorage.setItem(
         "restaurante_id",
         restaurante.id
       )
 
-      router.push("/admin")
+    router.push("/admin")
+} catch (error) {
+  console.error(error)
 
-    } catch (error) {
+  setToast({
+    tipo: "erro",
+    titulo: "Erro inesperado",
+    mensagem:
+      "Ocorreu um problema ao criar sua conta."
+  })
 
-      console.log(
-        "ERRO GERAL:",
-        JSON.stringify(
-          error,
-          null,
-          2
-        )
-      )
+  setTimeout(() => {
+    setToast(null)
+  }, 5000)
 
-      alert("Erro inesperado")
+} finally {
+  setLoading(false)
+}
 
-    } finally {
-
-      setLoading(false)
-
-    }
-  }
+}
 
   return (
-    <main className="min-h-screen bg-[#F8F6F4] flex items-center justify-center p-6">
+  <>
+    {toast && (
+      <Toast
+        tipo={toast.tipo}
+        titulo={toast.titulo}
+        mensagem={toast.mensagem}
+      />
+    )}
 
-      <div className="w-full max-w-3xl rounded-[32px] bg-white border border-[#ECE7E3] shadow-2xl p-8">
+    <main className="min-h-screen bg-[#F8F6F4] px-4 py-10">
 
-        <h1 className="text-5xl font-black text-black mb-2">
-          Criar Conta
-        </h1>
+      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[32px] border border-[#ECE7E3] bg-white shadow-2xl lg:grid-cols-2">
 
-        <p className="text-zinc-500 mb-8">
-          Crie sua loja profissional
-        </p>
+        {/* LADO ESQUERDO */}
+        <div className="hidden lg:flex flex-col justify-center bg-gradient-to-br from-[#6D1F2F] via-[#7B2335] to-[#43111B] p-12 text-white">
 
-        <div className="grid md:grid-cols-2 gap-4 mb-4">
+         <span className="inline-flex w-fit rounded-full bg-white/10 px-5 py-3 text-base font-black backdrop-blur">
+  🚀 TESTE GRÁTIS POR 7 DIAS
+</span>
 
-          <input
-            type="text"
-            placeholder="Nome responsável"
-            value={nomeResponsavel}
-            onChange={(e) =>
-              setNomeResponsavel(e.target.value)
-            }
-            className="bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none focus:border-[#6D1F2F]"
-          />
+          <h1 className="mt-6 text-6xl font-black leading-tight">
+  Comece a vender online ainda hoje
+</h1>
 
-          <input
-            type="text"
-            placeholder="Nome restaurante"
-            value={nomeRestaurante}
-            onChange={(e) =>
-              setNomeRestaurante(e.target.value)
-            }
-            className="bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none focus:border-[#6D1F2F]"
-          />
+        <p className="mt-6 text-lg leading-relaxed text-white/80">
+  Crie seu cardápio digital profissional, receba pedidos pelo WhatsApp,
+  aceite PIX e cartão e acompanhe tudo em um único painel.
+</p>  
 
-          <input
-            type="text"
-            placeholder="Telefone"
-            value={telefone}
-            onChange={(e) =>
-              setTelefone(e.target.value)
-            }
-            className="bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none focus:border-[#6D1F2F]"
-          />
+          <div className="mt-10 space-y-5">
 
-          <input
-            type="text"
-            placeholder="WhatsApp"
-            value={whatsapp}
-            onChange={(e) =>
-              setWhatsapp(e.target.value)
-            }
-            className="bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none focus:border-[#6D1F2F]"
-          />
+            <div className="flex items-center gap-3">
+              <span>✅</span>
+              <span>Cardápio Digital Ilimitado</span>
+            </div>
 
-          <input
-            type="text"
-            placeholder="Cidade"
-            value={cidade}
-            onChange={(e) =>
-              setCidade(e.target.value)
-            }
-            className="bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none focus:border-[#6D1F2F]"
-          />
+            <div className="flex items-center gap-3">
+              <span>✅</span>
+              <span>Pedidos Ilimitados</span>
+            </div>
 
-          <input
-            type="text"
-            placeholder="Slug do cardápio, ex: vyora-acai"
-            value={slug}
-            onChange={(e) =>
-              setSlug(e.target.value)
-            }
-            className="bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none focus:border-[#6D1F2F]"
-          />
+            <div className="flex items-center gap-3">
+              <span>✅</span>
+              <span>PIX e Cartão Integrados</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span>✅</span>
+              <span>Dashboard Financeiro</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span>✅</span>
+              <span>WhatsApp Integrado</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+ 
+  <span>✅</span>
+  <span>Suporte Premium</span>
+</div>
+
+<div className="mt-12 rounded-3xl border border-white/10 bg-white/5 p-6">
+  <p className="text-sm uppercase tracking-widest text-white/60">
+    TESTE GRATUITO
+  </p>
+
+  <p className="mt-3 text-4xl font-black">
+    7 Dias
+  </p>
+
+  <p className="mt-2 text-white/80">
+    Explore todos os recursos da plataforma
+    antes de assinar.
+  </p>
+</div>
+
+</div>
 
         </div>
 
-        <select
-          value={categoria}
-          onChange={(e) =>
-            setCategoria(e.target.value)
-          }
-          className="w-full bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none mb-4 focus:border-[#6D1F2F]"
-        >
-          <option>Açaí</option>
-          <option>Hamburguer</option>
-          <option>Pizza</option>
-          <option>Sushi</option>
-          <option>Outros</option>
-        </select>
+        {/* LADO DIREITO */}
+        <div className="flex flex-col justify-center p-8 md:p-12">
 
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) =>
-            setEmail(e.target.value)
-          }
-          className="w-full bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none mb-4 focus:border-[#6D1F2F]"
-        />
+        <h2 className="text-4xl font-black text-black">
+  Crie sua Conta
+</h2>
 
-        <input
-          type="password"
-          placeholder="Senha"
-          value={senha}
-          onChange={(e) =>
-            setSenha(e.target.value)
-          }
-          className="w-full bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none mb-6 focus:border-[#6D1F2F]"
-        />
+          <p className="mt-2 text-zinc-500">
+            Monte seu cardápio digital em menos de 5 minutos.
+          </p>
 
-        <input
-          type="password"
-          placeholder="Confirmar senha"
-          value={confirmarSenha}
-          onChange={(e) =>
-            setConfirmarSenha(e.target.value)
-          }
-          className="w-full bg-[#F8F6F4] border border-[#E7E5E4] text-black rounded-2xl p-4 outline-none mb-6 focus:border-[#6D1F2F]"
-        />
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
 
-        <button
-          onClick={cadastrar}
-          disabled={loading}
-          className="w-full bg-[#6D1F2F] hover:bg-[#531723] transition-all duration-300 rounded-2xl p-4 font-bold text-white shadow-lg disabled:opacity-50"
-        >
-          {loading
-            ? "Criando..."
-            : "Criar Conta"}
-        </button>
+            <input
+              type="text"
+              placeholder="Seu nome"
+              value={nomeResponsavel}
+              onChange={(e) =>
+                setNomeResponsavel(e.target.value)
+              }
+              className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+            />
 
-        <p className="text-zinc-500 text-center mt-6">
-          Já possui conta?{" "}
+            <div>
+  <input
+    type="text"
+    placeholder="Nome da sua empresa"
+    value={nomeRestaurante}
+    onChange={(e) => {
+      const valor = e.target.value
 
-          <Link
-            href="/login"
-            className="text-[#6D1F2F] font-bold"
+      setNomeRestaurante(valor)
+      setSlug(gerarSlug(valor))
+    }}
+    className="w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+  />
+
+<div className="mt-2 rounded-xl bg-[#F3F0EE] px-3 py-3 text-sm font-medium text-[#6D1F2F]">
+  meucardapio.app/{slug || "seu-restaurante"}
+</div>
+</div>
+
+            <input
+              type="text"
+              placeholder="Telefone"
+              value={telefone}
+              onChange={(e) =>
+                setTelefone(e.target.value)
+              }
+              className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+            />
+
+            <input
+              type="text"
+              placeholder="WhatsApp"
+              value={whatsapp}
+              onChange={(e) =>
+                setWhatsapp(e.target.value)
+              }
+              className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+            />
+
+      <input
+  type="text"
+  placeholder="Cidade / Estado"
+  value={cidade}
+  onChange={(e) =>
+    setCidade(e.target.value)
+  }
+  className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+/>
+
+<select
+  
+ value={categoria}
+  onChange={(e) =>
+    setCategoria(e.target.value)
+  }
+  className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+>
+  <option>Açaiteria</option>
+  <option>Hamburgueria</option>
+  <option>Pizzaria</option>
+  <option>Restaurante</option>
+  <option>Cafeteria</option>
+  <option>Sushi</option>
+  <option>Outros</option>
+</select>
+
+ 
+
+          </div>
+
+        
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) =>
+              setEmail(e.target.value)
+            }
+            className="mt-4 w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+          />
+
+          <input
+            type="password"
+            placeholder="Senha"
+            value={senha}
+            onChange={(e) =>
+              setSenha(e.target.value)
+            }
+            className="mt-4 w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+          />
+
+          <input
+            type="password"
+            placeholder="Confirmar senha"
+            value={confirmarSenha}
+            onChange={(e) =>
+              setConfirmarSenha(e.target.value)
+            }
+            className="mt-4 w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+          />
+
+          <button
+            onClick={cadastrar}
+            disabled={loading}
+            className="mt-6 w-full rounded-2xl bg-[#6D1F2F] p-4 font-bold text-white shadow-lg transition hover:bg-[#531723] disabled:opacity-50"
           >
-            Entrar
-          </Link>
-        </p>
+            {loading
+              ? "Criando conta..."
+              : "Criar Minha Conta Grátis"}
+          </button>
+
+          <p className="mt-4 text-center text-sm text-zinc-500">
+            7 dias grátis • Cancele quando quiser
+          </p>
+
+          <p className="mt-6 text-center text-zinc-500">
+            Já possui conta?{" "}
+
+            <Link
+              href="/login"
+              className="font-bold text-[#6D1F2F]"
+            >
+              Entrar
+            </Link>
+          </p>
+
+        </div>
 
       </div>
 
-    </main>
-  )
+        </main>
+  </>
+)
 }

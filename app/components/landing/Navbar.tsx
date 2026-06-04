@@ -65,13 +65,19 @@ export default function Navbar() {
 
         {/* AÇÕES */}
         <div className="flex items-center gap-3">
-          <button className="hidden text-sm font-semibold text-zinc-700 lg:block">
-            Entrar
-          </button>
+          <Link
+  href="/login"
+  className="hidden text-sm font-semibold text-zinc-700 transition hover:text-[#6D1F2F] lg:block"
+>
+  Entrar
+</Link>
 
-          <button className="rounded-xl bg-[#6D1F2F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:scale-105 hover:bg-[#531723]">
-            Criar Cardápio
-          </button>
+        <Link
+  href="/cadastro"
+  className="rounded-xl bg-[#6D1F2F] px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:scale-105 hover:bg-[#531723]"
+>
+  Criar Cardápio
+</Link> 
 
           {/* MOBILE */}
           <button className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 lg:hidden">

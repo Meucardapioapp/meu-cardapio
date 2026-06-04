@@ -1,5 +1,7 @@
 "use client"
 
+import Link from "next/link"
+
 import {
   Check,
   Crown,
@@ -140,9 +142,12 @@ export default function Pricing() {
                 ))}
               </div>
 
-              <button className="mt-10 w-full rounded-2xl bg-white py-5 text-lg font-black text-[#6D1F2F] transition hover:scale-[1.02]">
-                Criar Meu Cardápio
-              </button>
+              <Link
+  href="/cadastro"
+  className="mt-10 flex w-full items-center justify-center rounded-2xl bg-white py-5 text-lg font-black text-[#6D1F2F] transition hover:scale-[1.02]"
+>
+  Criar Meu Cardápio
+</Link>
 
               <p className="mt-5 text-center text-sm text-zinc-300">
                 Comece hoje mesmo seu delivery profissional.

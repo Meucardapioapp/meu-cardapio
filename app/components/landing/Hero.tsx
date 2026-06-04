@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import {
   CreditCard,
   Headphones,
@@ -65,13 +66,19 @@ export default function Hero() {
           {/* BOTÕES */}
           <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
 
-            <button className="rounded-2xl bg-[#6D1F2F] px-7 py-4 text-base font-bold text-white shadow-xl transition hover:scale-[1.02] hover:bg-[#531723]">
-              Criar Meu Cardápio
-            </button>
+            <Link
+  href="/cadastro"
+  className="rounded-2xl bg-[#6D1F2F] px-7 py-4 text-base font-bold text-white shadow-xl transition hover:scale-[1.02] hover:bg-[#531723]"
+>
+  Criar Meu Cardápio
+</Link>
 
-            <button className="rounded-2xl border border-zinc-200 bg-white px-7 py-4 text-base font-bold text-black shadow-sm transition hover:bg-zinc-100">
-              Ver Demonstração
-            </button>
+            <Link
+  href="/demo"
+  className="rounded-2xl border border-zinc-200 bg-white px-7 py-4 text-base font-bold text-black shadow-sm transition hover:bg-zinc-100"
+>
+  Ver Demonstração
+</Link>
 
           </div>
 
@@ -134,7 +141,7 @@ export default function Hero() {
         <div className="relative flex justify-center">
 
           {/* CELULAR */}
-          <div className="relative w-[280px] rounded-[3rem] border-[8px] border-black bg-black shadow-2xl md:w-[320px]">
+         <div className="relative w-[250px] rounded-[3rem] border-[8px] border-black bg-black shadow-2xl md:w-[280px]">
 
             {/* NOTCH */}
             <div className="absolute left-1/2 top-0 z-30 h-6 w-36 -translate-x-1/2 rounded-b-3xl bg-black" />

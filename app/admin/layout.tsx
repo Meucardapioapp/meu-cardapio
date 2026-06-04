@@ -40,6 +40,17 @@ export default function AdminLayout({
     nome: "Horários",
     link: "/admin/horarios",
   },
+
+  {
+  nome: "Endereço do Restaurante",
+  link: "/admin/restaurante",
+},
+
+{
+  nome: "Taxa de Entrega",
+  link: "/admin/entrega",
+},
+
   {
     nome: "Link do Cardápio",
     link: "/admin/link-cardapio",
@@ -55,11 +66,23 @@ export default function AdminLayout({
 ]
 
   return (
-    <div className="min-h-screen bg-black text-white flex">
-      <aside className="w-72 bg-zinc-950 border-r border-zinc-800 p-6 flex flex-col">
-        <h1 className="text-3xl font-black mb-10">
-          MeuCardapio
-        </h1>
+  <div className="min-h-screen bg-[#D1CBD0] flex">
+ <aside
+className="
+w-72
+bg-[#1F1C21]
+border-r
+border-[#332D35]
+p-6
+flex
+flex-col
+shadow-2xl
+rounded-r-3xl
+"
+>
+        <h1 className="text-3xl font-black mb-10 text-white">
+  MeuCardápio
+</h1>
 
         <nav className="flex flex-col gap-3">
           {menus.map((item) => (
@@ -68,8 +91,8 @@ export default function AdminLayout({
               href={item.link}
               className={`p-4 rounded-xl transition font-semibold ${
                 pathname === item.link
-                  ? "bg-green-500 text-black"
-                  : "bg-zinc-900 hover:bg-zinc-800"
+? "bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white shadow-lg"
+: "bg-[#2B2630] hover:bg-[#39323F] text-white"
               }`}
             >
               {item.nome}
@@ -79,13 +102,24 @@ export default function AdminLayout({
 
         <button
           onClick={sair}
-          className="mt-auto bg-red-500 hover:bg-red-400 transition p-4 rounded-xl font-bold"
+         className="
+mt-auto
+bg-gradient-to-r
+from-[#7A1F3D]
+to-[#542129]
+hover:opacity-90
+transition
+p-4
+rounded-xl
+font-bold
+text-white
+"
         >
           Sair
         </button>
       </aside>
 
-      <main className="flex-1 p-8">
+     <main className="flex-1 p-10 overflow-y-auto">
         {children}
       </main>
     </div>

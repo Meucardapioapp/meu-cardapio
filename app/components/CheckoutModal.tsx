@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase"
 
 import { getThemeSettings } from "../lib/theme"
 
+import Toast from "@/app/components/ui/toast"
+
 type Props = {
   open: boolean
   onClose: () => void
@@ -59,6 +61,9 @@ export default function CheckoutModal({
   const [telefone, setTelefone] =
     useState("")
 
+    const [cep, setCep] =
+  useState("")
+
   const [bairro, setBairro] =
     useState("")
 
@@ -67,6 +72,9 @@ export default function CheckoutModal({
 
   const [numero, setNumero] =
     useState("")
+
+    const [semNumero, setSemNumero] =
+  useState(false)
 
   const [observacoes, setObservacoes] =
     useState("")
@@ -77,39 +85,174 @@ export default function CheckoutModal({
   const [loading, setLoading] =
     useState(false)
 
+    const [frete, setFrete] =
+  useState(0)
+
+const [cidade, setCidade] =
+  useState("Manaus")
+
+const [estado, setEstado] =
+  useState("AM")
+
+    const [toast, setToast] = useState<{
+  tipo: "sucesso" | "erro" | "aviso"
+  titulo: string
+  mensagem: string
+} | null>(null)
+
   if (!open) return null
+
+  async function buscarCep(
+  valorCep: string
+) {
+  try {
+
+    const cepLimpo =
+      valorCep.replace(/\D/g, "")
+
+    if (cepLimpo.length !== 8)
+      return
+
+    const response =
+      await fetch(
+        `https://viacep.com.br/ws/${cepLimpo}/json/`
+      )
+
+    const data =
+      await response.json()
+
+    if (data.erro) return
+
+    setRua(data.logradouro)
+    setBairro(data.bairro)
+    setCidade(data.localidade)
+    setEstado(data.uf)
+    
+    setTimeout(() => {
+  calcularFrete()
+}, 500)
+
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+  async function calcularFrete() {
+
+    console.log("CALCULANDO FRETE")
+
+console.log({
+  rua,
+  numero,
+  bairro,
+  restauranteId
+})
+
+  if (
+    !rua ||
+    !numero ||
+    !bairro
+  ) {
+    return
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/calcular-frete",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            restauranteId,
+            rua,
+            numero,
+            bairro,
+            cidade,
+            estado,
+          }),
+        }
+      )
+
+    const data =
+      await response.json()
+
+    if (
+      data.sucesso &&
+      data.faixaFrete
+    ) {
+
+      setFrete(
+        data.faixaFrete.valor
+      )
+    }
+
+  } catch (error) {
+
+    console.log(
+      "Erro frete:",
+      error
+    )
+  }
+}
 
   async function finalizarPedido() {
 
   if (!lojaAberta) {
 
-    alert(
-      "Restaurante fechado no momento."
-    )
+    setToast({
+  tipo: "aviso",
+  titulo: "Loja fechada",
+  mensagem:
+    "O restaurante está fechado neste momento."
+})
+
+setTimeout(() => {
+  setToast(null)
+}, 5000)
 
     return
   }
 
   if (
-    !cliente ||
-    !telefone ||
-    !bairro ||
-    !rua ||
-    !numero
-  ) {
+  !cliente ||
+  !telefone ||
+  !cep ||
+  !bairro ||
+  !rua ||
+  !numero
+) {
 
-    alert(
-      "Preencha todos os campos"
-    )
+   setToast({
+  tipo: "erro",
+  titulo: "Campos obrigatórios",
+  mensagem:
+    "Preencha todos os campos para continuar."
+})
+
+setTimeout(() => {
+  setToast(null)
+}, 5000)
 
     return
   }
 
   if (!restauranteId) {
 
-    alert(
-      "Restaurante não identificado"
-    )
+    setToast({
+  tipo: "erro",
+  titulo: "Erro",
+  mensagem:
+    "Restaurante não identificado."
+})
+
+setTimeout(() => {
+  setToast(null)
+}, 5000)
 
     return
   }
@@ -123,6 +266,8 @@ export default function CheckoutModal({
         cliente,
 
         telefone,
+
+        cep,
 
         endereco:
           `${rua}, ${numero}`,
@@ -139,7 +284,11 @@ export default function CheckoutModal({
 
         itens: cart,
 
-        total,
+        subtotal: total,
+
+taxa_entrega: frete,
+
+total: total + frete,
 
         status: "pendente",
 
@@ -165,41 +314,60 @@ export default function CheckoutModal({
 
         .single()
 
-      if (error) {
+     if (error) {
 
-        console.log(
-          "ERRO PEDIDO:",
-          error
-        )
+  console.log(
+    "ERRO PEDIDO:",
+    error
+  )
 
-        alert(
-          JSON.stringify(error)
-        )
+  setToast({
+    tipo: "erro",
+    titulo: "Erro ao enviar pedido",
+    mensagem:
+      "Não foi possível concluir o pedido."
+  })
 
-        return
-      }
+  setTimeout(() => {
+    setToast(null)
+  }, 5000)
+
+  return
+}
 
       localStorage.setItem(
         "lastSlug",
         slug
       )
 
-      clearCart()
+     clearCart()
 
-      alert(
-        "Pedido realizado com sucesso!"
-      )
+setToast({
+  tipo: "sucesso",
+  titulo: "Pedido realizado",
+  mensagem:
+    "Seu pedido foi enviado com sucesso."
+})
 
-      window.location.href =
-        `/pedido/${data.id}`
+setTimeout(() => {
+  window.location.href =
+    `/pedido/${data.id}`
+}, 1500)
 
     } catch (error) {
 
       console.log(error)
 
-      alert(
-        "Erro ao finalizar pedido"
-      )
+      setToast({
+  tipo: "erro",
+  titulo: "Erro",
+  mensagem:
+    "Não foi possível finalizar o pedido."
+})
+
+setTimeout(() => {
+  setToast(null)
+}, 5000)
 
     } finally {
 
@@ -208,6 +376,14 @@ export default function CheckoutModal({
   }
 
   return (
+  <>
+    {toast && (
+      <Toast
+        tipo={toast.tipo}
+        titulo={toast.titulo}
+        mensagem={toast.mensagem}
+      />
+    )}
 
     <div className={`
       fixed
@@ -326,12 +502,46 @@ export default function CheckoutModal({
           ">
 
             <input
+  value={cep}
+  onChange={(e) => {
+
+    const valor =
+      e.target.value
+
+    setCep(valor)
+
+    if (
+      valor.replace(/\D/g, "")
+        .length === 8
+    ) {
+      buscarCep(valor)
+    }
+  }}
+  placeholder="CEP"
+  className={`
+    ${inputBg}
+    border
+    rounded-2xl
+    p-4
+    outline-none
+    transition-all
+    focus:ring-2
+  `}
+  style={{
+    borderColor:
+      selectedColor + "30",
+  }}
+/>
+
+            <input
               value={bairro}
-              onChange={(e) =>
-                setBairro(
-                  e.target.value
-                )
-              }
+             onChange={(e) => {
+  setBairro(e.target.value)
+
+  setTimeout(() => {
+    calcularFrete()
+  }, 500)
+}} 
               placeholder="Bairro"
               className={`
                 ${inputBg}
@@ -348,38 +558,75 @@ export default function CheckoutModal({
               }}
             />
 
-            <input
-              value={numero}
-              onChange={(e) =>
-                setNumero(
-                  e.target.value
-                )
-              }
-              placeholder="Número"
-              className={`
-                ${inputBg}
-                border
-                rounded-2xl
-                p-4
-                outline-none
-                transition-all
-                focus:ring-2
-              `}
-              style={{
-                borderColor:
-                  selectedColor + "30",
-              }}
-            />
+<div className="flex gap-2">
 
-          </div>
+  <input
+    value={numero}
+    disabled={semNumero}
+    onChange={(e) => {
 
-          <input
-            value={rua}
-            onChange={(e) =>
-              setRua(
-                e.target.value
-              )
-            }
+      setNumero(
+        e.target.value
+      )
+
+      setTimeout(() => {
+        calcularFrete()
+      }, 500)
+
+    }}
+    placeholder="Número"
+    className={`
+      ${inputBg}
+      border
+      rounded-2xl
+      p-4
+      flex-1
+      outline-none
+      transition-all
+      focus:ring-2
+    `}
+    style={{
+      borderColor:
+        selectedColor + "30",
+    }}
+  />
+
+  <button
+    type="button"
+    onClick={() => {
+
+      if (!semNumero) {
+        setNumero("S/N")
+      } else {
+        setNumero("")
+      }
+
+      setSemNumero(!semNumero)
+
+    }}
+    className="
+      px-4
+      rounded-2xl
+      border
+      text-sm
+      whitespace-nowrap
+    "
+  >
+    Sem nº
+  </button>
+
+</div>
+</div>
+
+<input
+  value={rua}
+            onChange={(e) => {
+  setRua(e.target.value)
+
+  setTimeout(() => {
+    calcularFrete()
+  }, 500)
+}}
             placeholder="Rua"
             className={`
               ${inputBg}
@@ -469,28 +716,42 @@ export default function CheckoutModal({
 
           <div>
 
-            <p className={`
-              text-sm
-              ${textSecondary}
-            `}>
-              Total
-            </p>
+           <div>
 
-            <h3
-              className="
-                text-4xl
-                font-black
-              "
-              style={{
-                color: selectedColor,
-              }}
-            >
-              R$ {total.toFixed(2)}
-            </h3>
+  <p className={textSecondary}>
+    Subtotal
+  </p>
 
-          </div>
+  <p className={textPrimary}>
+    R$ {total.toFixed(2)}
+  </p>
 
-          <button
+  <p className={`mt-2 ${textSecondary}`}>
+    Frete
+  </p>
+
+  <p className={textPrimary}>
+    R$ {frete.toFixed(2)}
+  </p>
+
+  <h3
+    className="
+      text-4xl
+      font-black
+      mt-2
+    "
+    style={{
+      color: selectedColor,
+    }}
+  >
+    R$ {(total + frete).toFixed(2)}
+  </h3>
+
+</div>
+
+</div>
+
+<button
             onClick={finalizarPedido}
             disabled={loading}
             className="
@@ -520,6 +781,8 @@ export default function CheckoutModal({
 
       </div>
 
-    </div>
+     </div>
+
+  </>
   )
 }

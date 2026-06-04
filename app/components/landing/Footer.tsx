@@ -1,5 +1,7 @@
 "use client"
 
+import Link from "next/link"
+
 import {
   Star,
   MessageCircle,
@@ -39,11 +41,14 @@ export default function Footer() {
 
             {/* BOTÃO */}
             <div>
-              <button className="flex items-center gap-3 rounded-2xl bg-white px-8 py-5 text-lg font-black text-[#6D1F2F] shadow-2xl transition hover:scale-[1.03]">
-                Criar Meu Cardápio
+              <Link
+  href="/cadastro"
+  className="flex items-center gap-3 rounded-2xl bg-white px-8 py-5 text-lg font-black text-[#6D1F2F] shadow-2xl transition hover:scale-[1.03]"
+>
+  Criar Meu Cardápio
 
-                <ArrowUpRight size={24} />
-              </button>
+  <ArrowUpRight size={24} />
+</Link>
             </div>
           </div>
         </div>
