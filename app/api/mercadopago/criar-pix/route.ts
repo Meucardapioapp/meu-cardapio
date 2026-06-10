@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Payment } from "mercadopago";
-
-console.log("CHEGOU NO CRIAR PIX");
-
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
-});
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(request: Request) {
-  throw new Error("TESTE VICTOR");
   try {
     const body = await request.json();
-console.log("BODY COMPLETO:", body);
-console.log("RESTAURANTE ID:", body.restauranteId);
 
-    console.log("BODY RECEBIDO:", body);
+    console.log("BODY COMPLETO:", body);
+    console.log("RESTAURANTE ID:", body.restauranteId);
 
     const totalRecebido = Number(body.total);
 
@@ -30,18 +23,51 @@ console.log("RESTAURANTE ID:", body.restauranteId);
       );
     }
 
+    const { data: restaurante, error: restauranteError } =
+      await supabaseAdmin
+        .from("restaurantes")
+        .select("*")
+        .eq("id", body.restauranteId)
+        .single();
+
+    if (restauranteError || !restaurante) {
+      console.error("RESTAURANTE NÃO ENCONTRADO");
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Restaurante não encontrado",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    console.log(
+      "TOKEN ENCONTRADO:",
+      !!restaurante.mercadopago_access_token
+    );
+
+    if (!restaurante.mercadopago_access_token) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Mercado Pago não conectado",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const client = new MercadoPagoConfig({
+      accessToken:
+        restaurante.mercadopago_access_token,
+    });
+
     const valorFinal = parseFloat(
       totalRecebido.toFixed(2)
-    );
-
-    console.log(
-      "TOTAL RECEBIDO:",
-      totalRecebido
-    );
-
-    console.log(
-      "VALOR FINAL PIX:",
-      valorFinal
     );
 
     const payment = new Payment(client);
@@ -50,20 +76,14 @@ console.log("RESTAURANTE ID:", body.restauranteId);
       body: {
         transaction_amount: valorFinal,
 
-        description:
-          "Pedido MeuCardápio",
+        description: "Pedido MeuCardápio",
 
         payment_method_id: "pix",
 
         payer: {
-          email:
-            "cliente@meucardapio.com",
-
-          first_name:
-            "Cliente",
-
-          last_name:
-            "MeuCardapio",
+          email: "cliente@meucardapio.com",
+          first_name: "Cliente",
+          last_name: "MeuCardapio",
         },
       },
     });
@@ -71,31 +91,6 @@ console.log("RESTAURANTE ID:", body.restauranteId);
     console.log(
       "PAGAMENTO CRIADO:",
       resultado.id
-    );
-
-    console.log(
-      "TEM QR BASE64?",
-      !!resultado
-        .point_of_interaction
-        ?.transaction_data
-        ?.qr_code_base64
-    );
-
-    console.log(
-      "TAMANHO BASE64:",
-      resultado
-        .point_of_interaction
-        ?.transaction_data
-        ?.qr_code_base64
-        ?.length
-    );
-
-    console.log(
-      "QR CODE:",
-      resultado
-        .point_of_interaction
-        ?.transaction_data
-        ?.qr_code
     );
 
     return NextResponse.json({
@@ -117,10 +112,6 @@ console.log("RESTAURANTE ID:", body.restauranteId);
     });
 
   } catch (error: any) {
-
-    console.error(
-      "ERRO MERCADO PAGO:"
-    );
 
     console.error(error);
 
