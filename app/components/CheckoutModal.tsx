@@ -79,11 +79,11 @@ export default function CheckoutModal({
   const [observacoes, setObservacoes] =
     useState("")
 
-  const [pagamento, setPagamento] =
-    useState("Pix")
-
   const [loading, setLoading] =
     useState(false)
+
+    const [formaPagamento, setFormaPagamento] =
+  useState<"pix" | "cartao">("pix")
 
     const [frete, setFrete] =
   useState(0)
@@ -158,25 +158,24 @@ console.log({
 
   try {
 
-    const response =
-      await fetch(
-        "/api/calcular-frete",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            restauranteId,
-            rua,
-            numero,
-            bairro,
-            cidade,
-            estado,
-          }),
-        }
-      )
+    const response = await fetch(
+  "/api/calcular-frete" ,
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+
+   body: JSON.stringify({
+  restauranteId,
+  rua,
+  numero,
+  bairro,
+  cidade,
+  estado,
+}),
+  }
+)
 
     const data =
       await response.json()
@@ -197,6 +196,196 @@ console.log({
       "Erro frete:",
       error
     )
+  }
+}
+
+async function continuarPagamento() {
+
+  if (
+    !cliente ||
+    !telefone ||
+    !cep ||
+    !bairro ||
+    !rua ||
+    !numero
+  ) {
+    setToast({
+      tipo: "erro",
+      titulo: "Campos obrigatórios",
+      mensagem:
+        "Preencha todos os campos para continuar."
+    })
+
+    return
+  }
+
+  try {
+
+    setLoading(true)
+
+    const response = await fetch(
+      "/api/stripe/create-checkout",
+     {
+  method: "POST",
+  headers: {
+    "Content-Type":
+      "application/json",
+  },
+
+  body: JSON.stringify({
+    total: total + frete,
+    telefone,
+  }),
+}
+    )
+
+    const data =
+      await response.json()
+
+    if (!data.url) {
+
+      setToast({
+        tipo: "erro",
+        titulo: "Erro",
+        mensagem:
+          "Não foi possível iniciar o pagamento."
+      })
+
+      return
+    }
+
+    localStorage.setItem(
+      "checkout-data",
+      JSON.stringify({
+        cliente,
+        telefone,
+        cep,
+        bairro,
+        rua,
+        numero,
+        observacoes,
+        subtotal: total,
+        frete,
+        total: total + frete,
+        restauranteId,
+        slug,
+        cart,
+      })
+    )
+
+    window.location.href =
+      data.url
+
+  } catch (error) {
+
+    console.log(error)
+
+    setToast({
+      tipo: "erro",
+      titulo: "Erro",
+      mensagem:
+        "Falha ao conectar com Stripe."
+    })
+
+  } finally {
+
+    setLoading(false)
+  }
+}
+
+async function pagarComPix() {
+
+  console.log("CLICOU PIX")
+
+  try {
+
+    setLoading(true)
+
+    const pedido = {
+      cliente,
+      telefone,
+      endereco: `${rua}, ${numero}`,
+      bairro,
+      rua,
+      numero,
+      observacoes,
+      itens: cart,
+      total: total + frete,
+      status: "pendente",
+      payment_status: "pending",
+      payment_method: "pix",
+      restaurante_id: restauranteId,
+    }
+
+    const {
+  data,
+  error,
+} = await supabase
+  .from("pedidos")
+  .insert([pedido])
+  .select()
+  .single()
+
+console.log(
+  "PEDIDO CRIADO:",
+  data
+)
+
+   if (error) {
+
+  console.log(
+    "ERRO SUPABASE:",
+    error
+  )
+
+  alert(
+    JSON.stringify(error)
+  )
+
+  return
+} 
+
+    const response =
+      await fetch(
+        "/api/mercadopago/criar-pix",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            total: total + frete,
+            pedidoId: data.id,
+          }),
+        }
+      )
+
+    const resultado =
+  await response.json()
+
+console.log(
+  "RESULTADO PIX:",
+  resultado
+)
+
+    if (!resultado.success) {
+      return
+    }
+
+    window.location.href =
+      `/pix?id=${data.id}&qr=${encodeURIComponent(
+        resultado.qr_code
+      )}&img=${resultado.qr_code_base64}`
+
+  } catch (error) {
+
+    console.log(error)
+
+  } finally {
+
+    setLoading(false)
+
   }
 }
 
@@ -279,8 +468,6 @@ setTimeout(() => {
         numero,
 
         observacoes,
-
-        pagamento,
 
         itens: cart,
 
@@ -446,6 +633,58 @@ setTimeout(() => {
           </button>
 
         </div>
+
+<div className="mb-4">
+
+  <p className={`mb-2 font-semibold ${textPrimary}`}>
+    Forma de pagamento
+  </p>
+
+  <div className="flex gap-3">
+
+    <button
+      type="button"
+      onClick={() =>
+        setFormaPagamento("pix")
+      }
+      className={`
+        px-4
+        py-3
+        rounded-xl
+        border
+        ${
+          formaPagamento === "pix"
+            ? "border-green-500 bg-green-500/10"
+            : ""
+        }
+      `}
+    >
+      PIX
+    </button>
+
+    <button
+      type="button"
+      onClick={() =>
+        setFormaPagamento("cartao")
+      }
+      className={`
+        px-4
+        py-3
+        rounded-xl
+        border
+        ${
+          formaPagamento === "cartao"
+            ? "border-blue-500 bg-blue-500/10"
+            : ""
+        }
+      `}
+    >
+      Cartão
+    </button>
+
+  </div>
+
+</div>
 
         <div className="grid gap-4">
 
@@ -668,42 +907,6 @@ setTimeout(() => {
             }}
           />
 
-          <select
-            value={pagamento}
-            onChange={(e) =>
-              setPagamento(
-                e.target.value
-              )
-            }
-            className={`
-              ${inputBg}
-              border
-              rounded-2xl
-              p-4
-              outline-none
-              transition-all
-              focus:ring-2
-            `}
-            style={{
-              borderColor:
-                selectedColor + "30",
-            }}
-          >
-
-            <option value="Pix">
-              Pix
-            </option>
-
-            <option value="Dinheiro">
-              Dinheiro
-            </option>
-
-            <option value="Cartão">
-              Cartão
-            </option>
-
-          </select>
-
         </div>
 
         <div className="
@@ -752,7 +955,17 @@ setTimeout(() => {
 </div>
 
 <button
-            onClick={finalizarPedido}
+            onClick={() => {
+
+  if (
+    formaPagamento === "pix"
+  ) {
+    pagarComPix()
+  } else {
+    continuarPagamento()
+  }
+
+}}
             disabled={loading}
             className="
               px-8

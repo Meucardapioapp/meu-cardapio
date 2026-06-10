@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 import {
   Plus,
@@ -11,6 +12,7 @@ import {
   Upload,
   Save,
 } from "lucide-react"
+import { FaLastfmSquare } from "react-icons/fa"
 
 type Extra = {
   id?: string
@@ -23,16 +25,26 @@ type Produto = {
   nome: string
   descricao: string
   preco: number
+  preco_antigo?: number
+promocao?: boolean
   imagem: string
   destaque: string
   categoria: string
   restaurante_id: string
+
+  ativo?: boolean
+  estoque?: number
+
   adicionais?: Extra[]
 }
 
 export default function ProdutosPage() {
 
   const [produtos, setProdutos] = useState<Produto[]>([])
+
+const [busca, setBusca] = useState("")
+const [filtroCategoria, setFiltroCategoria] = useState("")
+const [filtroStatus, setFiltroStatus] = useState("")
 
   const [loading, setLoading] = useState(false)
 
@@ -42,17 +54,29 @@ export default function ProdutosPage() {
   const [deleteModal, setDeleteModal] =
     useState<string | null>(null)
 
+    const [produtoModal, setProdutoModal] =
+  useState(false)
+
   const [nome, setNome] = useState("")
   const [descricao, setDescricao] =
     useState("")
   const [preco, setPreco] = useState("")
+  const [precoAntigo, setPrecoAntigo] =
+  useState("")
+
+const [promocao, setPromocao] =
+  useState(false)
   const [destaque, setDestaque] =
     useState("normal")
   const [categoria, setCategoria] =
     useState("")
+    const [categorias, setCategorias] =
+  useState<any[]>([])
 
   const [imagem, setImagem] =
     useState<File | null>(null)
+const [previewImagem, setPreviewImagem] =
+  useState("")
 
   const [extras, setExtras] = useState<
     Extra[]
@@ -64,9 +88,10 @@ export default function ProdutosPage() {
   const [extraPreco, setExtraPreco] =
     useState("")
 
-  useEffect(() => {
-    fetchProdutos()
-  }, [])
+ useEffect(() => {
+  fetchProdutos()
+  buscarCategorias()
+}, [])
 
   async function fetchProdutos() {
 
@@ -123,17 +148,67 @@ export default function ProdutosPage() {
     )
   }
 
+  async function buscarCategorias() {
+
+  const restauranteId =
+    localStorage.getItem(
+      "restaurante_id"
+    )
+
+  if (!restauranteId)
+    return
+
+  const { data, error } =
+    await supabase
+      .from("categorias")
+      .select("*")
+      .eq(
+        "restaurante_id",
+        restauranteId
+      )
+      .order("nome", {
+        ascending: true,
+      })
+
+  if (error) {
+
+    console.log(error)
+
+    return
+  }
+
+  setCategorias(data || [])
+}
+
   function resetForm() {
 
     setNome("")
     setDescricao("")
     setPreco("")
+    setPrecoAntigo("")
+setPromocao(false)
     setImagem(null)
+    setPreviewImagem("")
     setExtras([])
     setDestaque("normal")
     setCategoria("")
     setEditingId(null)
   }
+
+  function fecharModal() {
+
+  const confirmar =
+    window.confirm(
+      "Deseja fechar sem salvar?"
+    )
+
+  if (confirmar) {
+
+    setProdutoModal(false)
+
+  }
+
+}
 
   function adicionarExtra() {
 
@@ -147,7 +222,9 @@ export default function ProdutosPage() {
       ...extras,
       {
         nome: extraNome,
-        preco: Number(extraPreco),
+       preco: parseFloat(
+  extraPreco.replace(",", ".")
+)
       },
     ])
 
@@ -181,7 +258,7 @@ export default function ProdutosPage() {
     return data.publicUrl
   }
 
-  async function criarProduto() {
+  async function criarProduto(): Promise<boolean> {
 
     try {
 
@@ -192,13 +269,21 @@ export default function ProdutosPage() {
           "restaurante_id"
         )
 
+        if (!categoria) {
+
+  toast.error(
+    "Selecione uma categoria"
+  )
+
+  return false
+}
+
       if (!restauranteId) {
 
-        alert(
-          "Restaurante não encontrado"
-        )
+        
+toast.error("Restaurante não encontrado")
 
-        return
+return false
       }
 
       let imageUrl = ""
@@ -212,9 +297,9 @@ export default function ProdutosPage() {
 
         if (!uploaded) {
 
-          alert("Erro upload")
+          toast.error("Erro ao enviar imagem")
 
-          return
+          return false
         }
 
         imageUrl = uploaded
@@ -229,7 +314,19 @@ export default function ProdutosPage() {
           {
             nome,
             descricao,
-            preco: Number(preco),
+           preco: parseFloat(
+  preco.replace(",", ".")
+),
+
+preco_antigo:
+  precoAntigo
+    ? parseFloat(
+        precoAntigo.replace(",", ".")
+      )
+    : null,
+
+promocao,
+
             imagem: imageUrl,
             destaque,
             categoria,
@@ -244,11 +341,9 @@ export default function ProdutosPage() {
 
         console.log(error)
 
-        alert(
-          "Erro ao criar produto"
-        )
+        toast.error("Erro ao criar produto")
 
-        return
+        return false
       }
 
       if (extras.length > 0) {
@@ -269,16 +364,23 @@ export default function ProdutosPage() {
 
       resetForm()
 
-      alert("Produto criado")
+    toast.success("Produto criado com sucesso")
 
-    } catch (error) {
+return true
 
-      console.log(error)
+} catch (error) {
 
-    } finally {
+  console.log(error)
 
-      setLoading(false)
-    }
+  toast.error("Erro inesperado")
+
+  return false
+
+} finally {
+
+  setLoading(false)
+
+}
   }
 
   function editarProduto(
@@ -297,6 +399,16 @@ export default function ProdutosPage() {
       String(produto.preco)
     )
 
+    setPrecoAntigo(
+  String(
+    (produto as any).preco_antigo || ""
+  )
+)
+
+setPromocao(
+  (produto as any).promocao || false
+)
+
     setDestaque(
       produto.destaque
     )
@@ -308,13 +420,30 @@ export default function ProdutosPage() {
     setExtras(
       produto.adicionais || []
     )
+
+    setImagem(null)
+
+    setPreviewImagem(
+  produto.imagem
+)
+
+    setProdutoModal(true)
   }
 
-  async function salvarEdicao() {
+  async function salvarEdicao(): Promise<boolean> {
 
-    if (!editingId) return
+  if (!editingId) return false
 
-    try {
+  if (!categoria) {
+
+  toast.error(
+    "Selecione uma categoria"
+  )
+
+  return false
+}
+
+  try {
 
       setLoading(true)
 
@@ -334,20 +463,33 @@ export default function ProdutosPage() {
 
         if (!uploaded) {
 
-          alert("Erro upload")
+          toast.error("Erro ao enviar imagem")
 
-          return
+          return false
         }
 
         imageUrl = uploaded
       }
 
       const updateData: any = {
-        nome,
-        descricao,
-        preco: Number(preco),
-        destaque,
-        categoria,
+      nome,
+descricao,
+
+preco: parseFloat(
+  preco.replace(",", ".")
+),
+
+preco_antigo:
+  precoAntigo
+    ? parseFloat(
+        precoAntigo.replace(",", ".")
+      )
+    : null,
+
+promocao,
+
+destaque,
+categoria,
       }
 
       if (imageUrl) {
@@ -366,9 +508,9 @@ export default function ProdutosPage() {
 
         console.log(error)
 
-        alert("Erro edição")
+        toast.error("Erro ao editar produto")
 
-        return
+        return false
       }
 
       await supabase
@@ -398,21 +540,57 @@ export default function ProdutosPage() {
 
       resetForm()
 
-      alert(
-        "Produto atualizado"
-      )
+     toast.success("Produto atualizado com sucesso")
 
-    } catch (error) {
+return true
 
-      console.log(error)
+} catch (error) {
 
-    } finally {
+  console.log(error)
 
-      setLoading(false)
-    }
+  toast.error("Erro inesperado")
+
+  return false
+
+} finally {
+
+  setLoading(false)
+
+}
   }
 
+  async function toggleProduto(
+  produto: Produto
+) {
+
+  const { error } =
+    await supabase
+      .from("produtos")
+      .update({
+        ativo: !produto.ativo
+      })
+      .eq("id", produto.id)
+
+  if (error) {
+
+    toast.error(
+      "Erro ao atualizar produto"
+    )
+
+    return
+  }
+
+  toast.success(
+    produto.ativo
+      ? "Produto desativado"
+      : "Produto ativado"
+  )
+
+  fetchProdutos()
+}
+
   async function excluirProduto(
+    
     id: string
   ) {
 
@@ -433,7 +611,7 @@ export default function ProdutosPage() {
 
         console.log(error)
 
-        alert("Erro excluir")
+        toast.error("Erro ao excluir produto")
 
         return
       }
@@ -446,6 +624,7 @@ export default function ProdutosPage() {
       )
 
       setDeleteModal(null)
+      toast.success("Produto excluído com sucesso")
 
     } catch (error) {
 
@@ -465,457 +644,1206 @@ export default function ProdutosPage() {
       "/login"
   }
 
+  const produtosFiltrados = produtos.filter((produto) => {
+
+  const matchBusca =
+
+  produto.nome
+    .toLowerCase()
+    .includes(busca.toLowerCase())
+
+  ||
+
+  produto.descricao
+    .toLowerCase()
+    .includes(busca.toLowerCase())
+
+  ||
+
+  produto.categoria
+    .toLowerCase()
+    .includes(busca.toLowerCase())
+
+  const matchCategoria =
+    !filtroCategoria ||
+    produto.categoria === filtroCategoria
+
+  const matchStatus =
+    !filtroStatus ||
+    (
+      filtroStatus === "ativo"
+        ? produto.ativo
+        : !produto.ativo
+    )
+
+  return (
+    matchBusca &&
+    matchCategoria &&
+    matchStatus
+  )
+})
+
   return (
 
-    <main className="min-h-screen bg-black text-white p-6">
+  <main className="min-h-screen bg-[#F3F1F4] p-8">
 
-      <div className="max-w-5xl mx-auto">
+  <div className="max-w-7xl mx-auto space-y-8">
 
-        <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 mb-8">
+  {/* HEADER */}
 
-          <div className="flex items-center justify-between mb-6">
+<div className="flex items-center justify-between">
 
-            <div className="flex items-center gap-3">
+  <div>
+    <h1 className="text-5xl font-black text-[#1F1720]">
+      Produtos
+    </h1>
 
-              <Plus className="text-green-400" />
+    <p className="text-zinc-500 mt-2 text-lg">
+      Gerencie todos os produtos do seu cardápio
+    </p>
+  </div>
+
+  <button
+  onClick={() => {
+    resetForm()
+    setProdutoModal(true)
+  }}
+  className="
+bg-gradient-to-r
+from-[#7A1F3D]
+to-[#542129]
+text-white
+px-6
+py-4
+rounded-2xl
+font-bold
+shadow-lg
+hover:scale-105
+active:scale-95
+hover:shadow-2xl
+transition-all
+duration-300
+"
+>
+  + Novo Produto
+</button>
+
+</div>
+
+{/* MÉTRICAS */}
+
+<div className="grid xl:grid-cols-4 md:grid-cols-2 gap-5">
+
+  <div className="bg-white rounded-3xl p-6 border">
+    <p className="text-zinc-500">
+      Total Produtos
+    </p>
+
+    <h2 className="text-4xl font-black mt-3">
+      {produtos.length}
+    </h2>
+  </div>
+
+  <div className="bg-white rounded-3xl p-6 border">
+    <p className="text-zinc-500">
+      Produtos Ativos
+    </p>
+
+    <h2 className="text-4xl font-black mt-3">
+      {
+  produtos.filter(
+    (p:any) =>
+      p.ativo === true
+  ).length
+}
+    </h2>
+  </div>
+
+  <div className="bg-white rounded-3xl p-6 border">
+    <p className="text-zinc-500">
+      Categorias
+    </p>
+
+    <h2 className="text-4xl font-black mt-3">
+      {new Set(produtos.map((p:any) => p.categoria)).size}
+    </h2>
+  </div>
+
+  <div className="bg-white rounded-3xl p-6 border">
+
+  <p className="text-zinc-500">
+  Produtos Inativos
+</p>
+
+<h2 className="text-4xl font-black mt-3">
+{
+  produtos.filter(
+    (p) => p.ativo === false
+  ).length
+}
+</h2>
+
+</div>
+
+</div>
+
+{/* FILTROS */}
+
+<div className="bg-white rounded-3xl border p-6">
+
+  <div className="grid md:grid-cols-3 gap-4">
+
+    <input
+  value={busca}
+  onChange={(e) =>
+    setBusca(e.target.value)
+  }
+  placeholder="Buscar por nome, descrição ou categoria..."
+      className="
+      h-14
+      px-4
+      rounded-2xl
+      border
+      "
+    />
+
+    <select
+  value={filtroCategoria}
+  onChange={(e) =>
+    setFiltroCategoria(
+      e.target.value
+    )
+  }
+  className="
+  h-14
+  px-4
+  rounded-2xl
+  border
+  "
+>
+
+  <option value="">
+    Todas Categorias
+  </option>
+
+  {[...new Set(
+    produtos.map(
+      (p) => p.categoria
+    )
+  )].map((categoria) => (
+
+    <option
+      key={categoria}
+      value={categoria}
+    >
+      {categoria}
+    </option>
+
+  ))}
+
+</select>
+
+    <select
+  value={filtroStatus}
+  onChange={(e) =>
+    setFiltroStatus(
+      e.target.value
+    )
+  }
+  className="
+  h-14
+  px-4
+  rounded-2xl
+  border
+  "
+>
+
+  <option value="">
+    Todos Status
+  </option>
+
+  <option value="ativo">
+    Ativos
+  </option>
+
+  <option value="inativo">
+    Inativos
+  </option>
+
+</select>
+
+  </div>
+
+</div>
+
+<p className="
+text-sm
+text-zinc-500
+mt-4
+mb-4
+">
+
+  Mostrando
+
+{" "}
+
+{produtosFiltrados.length}
+
+{" "}de{" "}
+
+{produtos.length}
+
+{" "}produtos
+
+</p>
+
+<div className="bg-white rounded-[30px] border border-zinc-200 overflow-hidden">
+
+  <table className="w-full">
+
+    <thead>
+
+      <tr className="border-b border-zinc-200 bg-zinc-50">
+
+        <th className="text-left p-5 text-zinc-500 font-medium">
+          Produto
+        </th>
+
+        <th className="text-left p-5 text-zinc-500 font-medium">
+          Categoria
+        </th>
+
+        <th className="text-left p-5 text-zinc-500 font-medium">
+          Preço
+        </th>
+
+        <th className="text-left p-5 text-zinc-500 font-medium">
+          Status
+        </th>
+
+
+        <th className="text-right p-5 text-zinc-500 font-medium">
+          Ações
+        </th>
+
+      </tr>
+
+    </thead>
+
+    <tbody>
+
+      {produtosFiltrados.length === 0 ? (
+
+  <tr>
+
+    <td
+      colSpan={5}
+      className="
+      text-center
+      py-20
+      "
+    >
+
+      <div className="text-6xl">
+        🍔
+      </div>
+
+      <h2 className="
+      text-2xl
+      font-bold
+      mt-4
+      ">
+        Nenhum produto encontrado
+      </h2>
+      <p className="text-zinc-500 mt-2">
+  Tente mudar os filtros ou criar um novo produto.
+</p>
+
+    </td>
+
+  </tr>
+
+) : (
+
+  produtosFiltrados.map((produto) => (
+
+       <tr
+  key={produto.id}
+  className={`
+  border-b
+  border-zinc-100
+  hover:bg-zinc-50
+  hover:shadow-md
+  transition-all
+  duration-300
+
+  ${
+    produto.ativo
+      ? ""
+      : "opacity-60 bg-red-50"
+  }
+  `}
+>
+
+          <td className="p-5">
+
+            <div className="flex items-center gap-4">
+
+              <img
+                src={
+  produto.imagem
+    ? produto.imagem
+    : "/sem-imagem.png"
+}
+                alt={produto.nome}
+                className="
+                w-16
+                h-16
+                rounded-2xl
+                object-cover
+                border
+                "
+              />
 
               <div>
 
-                <h1 className="text-3xl font-bold">
+          <p className="font-bold text-[#1F1720] text-lg">
+  {produto.nome}
+</p>
 
-                  {editingId
-                    ? "Editar Produto"
-                    : "Novo Produto"}
+{produto.destaque === "destaque" && (
 
-                </h1>
+  <span
+    className="
+    inline-block
+    mt-1
+    mb-1
+    bg-yellow-100
+    text-yellow-700
+    px-2
+    py-1
+    rounded-full
+    text-xs
+    font-semibold
+    "
+  >
+    ⭐ Destaque
+  </span>
 
-                <p className="text-zinc-400">
-                  Sistema profissional SaaS
-                </p>
+)}
+
+{produto.destaque === "promocao" && (
+
+  <span
+    className="
+    inline-block
+    mt-1
+    mb-1
+    bg-green-100
+    text-green-700
+    px-2
+    py-1
+    rounded-full
+    text-xs
+    font-semibold
+    "
+  >
+    🔥 Promoção
+  </span>
+
+)}
+
+<p className="text-sm text-zinc-500 line-clamp-2">
+  {produto.descricao}
+</p>
+
+<p className="text-xs text-zinc-400 mt-1">
+
+  {produto.adicionais?.length || 0}
+  {" "}
+  adicional(is)
+
+</p>
+
               </div>
+
             </div>
 
-            <button
-              onClick={sair}
-              className="bg-red-500 hover:bg-red-400 transition px-5 py-3 rounded-2xl font-bold"
+          </td>
+
+          <td className="p-5">
+
+            <span
+              className="
+              px-3
+              py-1
+              rounded-full
+              text-sm
+              bg-purple-100
+              text-purple-700
+              "
             >
-              Sair
-            </button>
-          </div>
+              {produto.categoria || "Sem categoria"}
+            </span>
 
-          <div className="grid md:grid-cols-2 gap-4 mb-4">
+          </td>
 
-            <input
-              value={nome}
-              onChange={(e) =>
-                setNome(
-                  e.target.value
-                )
-              }
-              placeholder="Nome do produto"
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-4"
-            />
+         <td className="p-5">
 
-            <input
-              value={preco}
-              onChange={(e) =>
-                setPreco(
-                  e.target.value
-                )
-              }
-              placeholder="Preço"
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-4"
-            />
+  <div className="flex flex-col">
 
-            <label className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-3 cursor-pointer">
+    {(produto as any).preco_antigo &&
+     (produto as any).preco_antigo > produto.preco && (
 
-              <Upload size={18} />
+      <span
+        className="
+          text-xs
+          text-zinc-400
+          line-through
+        "
+      >
+        R$ {(produto as any)
+          .preco_antigo
+          .toFixed(2)
+          .replace(".", ",")}
+      </span>
 
-              <span>
-                Selecionar imagem
-              </span>
+    )}
 
-              <input
-                type="file"
-                hidden
-                onChange={(e) =>
-                  setImagem(
-                    e.target
-                      .files?.[0] ||
-                      null
-                  )
-                }
-              />
-            </label>
+    <span className="font-bold text-lg">
+      R$ {produto.preco
+        .toFixed(2)
+        .replace(".", ",")}
+    </span>
 
-            <select
-              value={categoria}
-              onChange={(e) =>
-                setCategoria(
-                  e.target.value
-                )
-              }
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-4"
-            >
-              <option value="">
-                Categoria
-              </option>
+    {(produto as any).preco_antigo &&
+     (produto as any).preco_antigo > produto.preco && (
 
-              <option value="Pizza">
-                Pizza
-              </option>
+      <span
+        className="
+          text-xs
+          text-green-600
+          font-bold
+        "
+      >
+        {Math.round(
+          (
+            (
+              (produto as any).preco_antigo -
+              produto.preco
+            ) /
+            (produto as any).preco_antigo
+          ) * 100
+        )}
+        % OFF
+      </span>
 
-              <option value="Hamburguer">
-                Hamburguer
-              </option>
+    )}
 
-              <option value="Sushi">
-                Sushi
-              </option>
+  </div>
 
-              <option value="Açai">
-                Açai
-              </option>
+</td>
 
-              <option value="Bebidas">
-                Bebidas
-              </option>
-            </select>
+        <td className="p-5">
 
-            <select
-              value={destaque}
-              onChange={(e) =>
-                setDestaque(
-                  e.target.value
-                )
-              }
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-4"
-            >
-              <option value="normal">
-                Normal
-              </option>
+  <div className="flex items-center gap-3">
 
-              <option value="destaque">
-                Destaque
-              </option>
+    <button
+      onClick={() =>
+        toggleProduto(produto)
+      }
+      className={`
+      relative
+      w-14
+      h-7
+      rounded-full
+      hover:scale-105
+      active:scale-95
+      transition-all
+      duration-300
 
-              <option value="promocao">
-                Promoção
-              </option>
+      ${
+        produto.ativo
+          ? "bg-green-500"
+          : "bg-red-500"
+      }
+      `}
+    >
 
-              <option value="mais vendido">
-                Mais vendido
-              </option>
-            </select>
-          </div>
+      <div
+        className={`
+        absolute
+        top-1
+        w-5
+        h-5
+        bg-white
+        rounded-full
+        transition-all
 
-          <textarea
-            value={descricao}
-            onChange={(e) =>
-              setDescricao(
-                e.target.value
-              )
-            }
-            placeholder="Descrição"
-            className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-full h-32 mb-6"
-          />
+        ${
+          produto.ativo
+            ? "left-8"
+            : "left-1"
+        }
+        `}
+      />
 
-          <div className="bg-zinc-900 rounded-2xl p-4 mb-6">
+    </button>
 
-            <h2 className="text-2xl font-bold mb-4">
-              Adicionais
-            </h2>
+    <div className="flex items-center gap-2">
 
-            <div className="grid md:grid-cols-3 gap-4">
+  <span
+    className={`
+    text-sm
+    font-semibold
 
-              <input
-                value={extraNome}
-                onChange={(e) =>
-                  setExtraNome(
-                    e.target.value
-                  )
-                }
-                placeholder="Nome do adicional"
-                className="bg-black border border-zinc-800 rounded-xl p-4"
-              />
+    ${
+      produto.ativo
+        ? "text-green-600"
+        : "text-red-600"
+    }
+    `}
+  >
+    {produto.ativo
+      ? "Ativo"
+      : "Inativo"}
+  </span>
 
-              <input
-                value={extraPreco}
-                onChange={(e) =>
-                  setExtraPreco(
-                    e.target.value
-                  )
-                }
-                placeholder="Preço"
-                className="bg-black border border-zinc-800 rounded-xl p-4"
-              />
+  {!produto.ativo && (
+
+    <span
+      className="
+      bg-red-100
+      text-red-600
+      px-2
+      py-1
+      rounded-full
+      text-xs
+      font-bold
+      "
+    >
+      Oculto
+    </span>
+
+  )}
+
+</div>
+
+  </div>
+
+</td>
+
+         
+
+          <td className="p-5">
+
+            <div className="flex justify-end gap-2">
 
               <button
-                onClick={
-                  adicionarExtra
+                onClick={() =>
+                  editarProduto(produto)
                 }
-                className="bg-green-500 hover:bg-green-400 transition rounded-xl font-bold"
+                className="
+                border
+                border-zinc-200
+                rounded-xl
+                px-4
+                py-2
+               hover:bg-zinc-100
+hover:scale-105
+active:scale-95
+transition-all
+duration-200
+                "
               >
-                Adicionar Extra
-              </button>
-            </div>
-
-            <div className="flex flex-wrap gap-3 mt-4">
-
-              {extras.map(
-                (
-                  extra,
-                  index
-                ) => (
-
-                  <div
-                    key={index}
-                    className="bg-black border border-zinc-800 rounded-xl px-4 py-2 flex items-center gap-2"
-                  >
-                    <span>
-                      {extra.nome}
-                    </span>
-
-                    <span className="text-green-400">
-                      R$ {extra.preco}
-                    </span>
-
-                    <button
-                      onClick={() =>
-                        setExtras(
-                          extras.filter(
-                            (
-                              _,
-                              i
-                            ) =>
-                              i !==
-                              index
-                          )
-                        )
-                      }
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-
-          {editingId ? (
-
-            <div className="flex gap-4">
-
-              <button
-                onClick={
-                  salvarEdicao
-                }
-                disabled={loading}
-                className="bg-green-500 hover:bg-green-400 transition px-8 py-4 rounded-2xl font-bold flex items-center gap-2"
-              >
-                <Save size={18} />
-                Salvar
+                ✏️ Editar
               </button>
 
               <button
-                onClick={resetForm}
-                className="bg-zinc-800 px-8 py-4 rounded-2xl font-bold"
-              >
-                Cancelar
-              </button>
-            </div>
+                onClick={() => {
 
-          ) : (
-
-            <button
-              onClick={
-                criarProduto
-              }
-              disabled={loading}
-              className="bg-green-500 hover:bg-green-400 transition px-8 py-4 rounded-2xl font-bold"
-            >
-              Criar Produto
-            </button>
-          )}
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-6">
-
-          {produtos.map(
-            (produto) => (
-
-              <div
-                key={produto.id}
-                className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden"
-              >
-                <div className="h-72 bg-zinc-900">
-
-                  {produto.imagem ? (
-
-                    <img
-                      src={
-                        produto.imagem
-                      }
-                      className="w-full h-full object-cover"
-                    />
-
-                  ) : (
-
-                    <div className="w-full h-full flex items-center justify-center text-6xl text-zinc-500">
-                      Produto
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-4">
-
-                  <div className="flex justify-between mb-2">
-
-                    <div>
-
-                      <h2 className="text-3xl font-bold">
-                        {
-                          produto.nome
-                        }
-                      </h2>
-
-                      <span className="text-sm text-zinc-500">
-                        {
-                          produto.categoria
-                        }
-                      </span>
-                    </div>
-
-                    <span className="text-green-400 text-2xl font-bold">
-                      R$ {
-                        produto.preco
-                      }
-                    </span>
-                  </div>
-
-                  <p className="text-zinc-400 mb-4">
-                    {
-                      produto.descricao
-                    }
-                  </p>
-
-                  <div className="space-y-2 mb-4">
-
-                    {produto.adicionais?.map(
-                      (
-                        extra,
-                        index
-                      ) => (
-
-                        <div
-                          key={index}
-                          className="bg-black border border-zinc-800 rounded-xl px-3 py-2 flex justify-between"
-                        >
-                          <span>
-                            +{" "}
-                            {
-                              extra.nome
-                            }
-                          </span>
-
-                          <span className="text-green-400">
-                            R${" "}
-                            {
-                              extra.preco
-                            }
-                          </span>
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  <div className="flex gap-3">
-
-                    <button
-                      onClick={() =>
-                        editarProduto(
-                          produto
-                        )
-                      }
-                      className="flex-1 bg-yellow-500 hover:bg-yellow-400 transition rounded-xl py-3 font-bold flex items-center justify-center gap-2"
-                    >
-                      <Pencil size={16} />
-                      Editar
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        setDeleteModal(
-                          produto.id
-                        )
-                      }
-                      className="flex-1 bg-red-500 hover:bg-red-400 transition rounded-xl py-3 font-bold flex items-center justify-center gap-2"
-                    >
-                      <Trash2 size={16} />
-                      Excluir
-                    </button>
-                  </div>
-                </div>
-
-                {deleteModal ===
-                  produto.id && (
-
-                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8 w-full max-w-md">
-
-                      <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-6">
-
-                        <Trash2
-                          size={40}
-                          className="text-red-500"
-                        />
-                      </div>
-
-                      <h2 className="text-3xl font-bold text-center mb-4">
-                        Excluir
-                        Produto
-                      </h2>
-
-                      <p className="text-zinc-400 text-center mb-8">
-                        Essa ação
-                        não poderá
-                        ser
-                        desfeita.
-                      </p>
-
-                      <div className="flex gap-4">
-
-                        <button
-                          onClick={() =>
-                            setDeleteModal(
-                              null
-                            )
-                          }
-                          className="flex-1 bg-zinc-800 hover:bg-zinc-700 transition rounded-2xl py-4 font-bold"
-                        >
-                          Cancelar
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            excluirProduto(
-                              produto.id
-                            )
-                          }
-                          className="flex-1 bg-red-500 hover:bg-red-400 transition rounded-2xl py-4 font-bold"
-                        >
-                          Excluir
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          )}
-        </div>
-      </div>
-    </main>
+  setDeleteModal(
+    produto.id
   )
+
+}}
+                className="
+                border
+                border-red-200
+                text-red-500
+                rounded-xl
+                px-4
+                py-2
+                hover:bg-red-50
+hover:scale-105
+active:scale-95
+transition-all
+duration-200
+                "
+              >
+                🗑️ Excluir
+              </button>
+
+            </div>
+
+          </td>
+
+        </tr>
+
+      ))
+)}
+
+    </tbody>
+
+  </table>
+
+</div>
+
+{produtoModal && (
+
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+
+    <div className="bg-white rounded-3xl w-full max-w-3xl p-8">
+
+      <div className="flex items-center justify-between mb-6">
+
+        <h2 className="text-3xl font-bold">
+
+          {editingId
+            ? "Editar Produto"
+            : "Novo Produto"}
+
+        </h2>
+
+        <button
+  onClick={fecharModal}
+        >
+          <X />
+        </button>
+
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4 mb-4">
+        <input
+          value={nome}
+          onChange={(e) =>
+            setNome(e.target.value)
+          }
+          placeholder="Nome do produto"
+          className="border rounded-2xl p-4"
+        />
+
+        <div className="relative">
+
+  <span
+    className="
+    absolute
+    left-4
+    top-1/2
+    -translate-y-1/2
+    text-zinc-500
+    font-medium
+    "
+  >
+    R$
+  </span>
+
+  <input
+    value={preco}
+    onChange={(e) =>
+      setPreco(e.target.value)
+    }
+    placeholder="Ex: 19,90"
+    className="
+    w-full
+    border
+    rounded-xl
+    p-4
+    pl-12
+    "
+  />
+
+</div>
+
+<div className="relative">
+
+  <span
+    className="
+    absolute
+    left-4
+    top-1/2
+    -translate-y-1/2
+    text-zinc-500
+    font-medium
+    "
+  >
+    R$
+  </span>
+
+  <input
+    value={precoAntigo}
+    onChange={(e) =>
+      setPrecoAntigo(e.target.value)
+    }
+    placeholder="Preço antigo"
+    className="
+    w-full
+    border
+    rounded-xl
+    p-4
+    pl-12
+    "
+  />
+<p className="text-xs text-zinc-500 mt-1">
+  Deixe vazio se não houver promoção
+</p>
+
+</div>
+
+    <select
+  value={categoria}
+  onChange={(e) =>
+    setCategoria(
+      e.target.value
+    )
+  }
+  className="
+    border
+    rounded-2xl
+    p-4
+    w-full
+  "
+>
+
+  <option value="">
+    Selecione uma categoria
+  </option>
+
+  {categorias.map(
+    (categoriaItem) => (
+
+      <option
+        key={categoriaItem.id}
+        value={categoriaItem.nome}
+      >
+        {categoriaItem.nome}
+      </option>
+
+    )
+  )}
+
+</select>
+
+        <select
+          value={destaque}
+          onChange={(e) =>
+            setDestaque(
+              e.target.value
+            )
+          }
+          className="border rounded-2xl p-4"
+        >
+          <option value="normal">
+            Normal
+          </option>
+
+          <option value="destaque">
+            Destaque
+          </option>
+
+          <option value="promocao">
+            Promoção
+          </option>
+        </select>
+
+      </div>
+
+      <label
+  className="
+  flex
+  items-center
+  gap-3
+  border
+  rounded-2xl
+  p-4
+  cursor-pointer
+  "
+>
+
+  <input
+    type="checkbox"
+    checked={promocao}
+    onChange={(e) =>
+      setPromocao(
+        e.target.checked
+      )
+    }
+  />
+
+  <span className="font-medium">
+    Produto em promoção
+  </span>
+
+</label>
+
+      <textarea
+  value={descricao}
+  onChange={(e) =>
+    setDescricao(
+      e.target.value
+    )
+  }
+  placeholder="Descrição"
+  className="border rounded-2xl p-4 w-full h-32 mb-4"
+/>
+
+<div className="mt-6">
+
+  <h3 className="font-bold text-lg mb-3">
+    Adicionais
+  </h3>
+
+  <div className="grid grid-cols-3 gap-3">
+
+    <input
+      value={extraNome}
+      onChange={(e) =>
+        setExtraNome(e.target.value)
+      }
+      placeholder="Nome"
+      className="
+      border
+      rounded-xl
+      p-3
+      "
+    />
+
+    <input
+      value={extraPreco}
+      onChange={(e) =>
+        setExtraPreco(e.target.value)
+      }
+      placeholder="R$: 0,00"
+      className="
+      border
+      rounded-xl
+      p-3
+      "
+    />
+
+    <button
+  type="button"
+  onClick={adicionarExtra}
+  className="
+  bg-[#7A1F3D]
+text-white
+rounded-xl
+font-semibold
+hover:scale-105
+active:scale-95
+transition-all
+duration-200
+  "
+>
+  Adicionar
+</button>
+
+</div>
+
+</div>
+
+<div className="mt-4 flex flex-wrap gap-2">
+
+  {extras.map((extra, index) => (
+
+    <div
+      key={index}
+      className="
+      bg-zinc-100
+      rounded-xl
+      px-3
+      py-2
+      flex
+      items-center
+      gap-2
+      "
+    >
+      <span>
+        {extra.nome}
+      </span>
+
+      <span className="font-semibold text-[#7A1F3D]">
+        R$ {extra.preco.toFixed(2).replace(".", ",")}
+      </span>
+
+      <button
+        type="button"
+        onClick={() =>
+          setExtras(
+            extras.filter(
+              (_, i) => i !== index
+            )
+          )
+        }
+      >
+        <X size={14} />
+      </button>
+
+    </div>
+
+  ))}
+
+</div>
+
+      <div className="space-y-3">
+
+  <label className="font-semibold text-[#1F1720]">
+    Imagem do Produto
+  </label>
+
+  <label
+    htmlFor="imagem"
+    className="
+    border-2
+    border-dashed
+    border-zinc-300
+    rounded-2xl
+    h-52
+    flex
+    flex-col
+    items-center
+    justify-center
+    cursor-pointer
+    hover:border-[#7A1F3D]
+    transition
+    bg-zinc-50
+    "
+  >
+
+    {imagem || previewImagem ? (
+
+  <img
+    src={
+      imagem
+        ? URL.createObjectURL(imagem)
+        : previewImagem
+    }
+    className="
+    w-full
+    h-full
+    object-cover
+    rounded-2xl
+    "
+  />
+
+) : (
+
+  <>
+    <div className="text-5xl">
+      📷
+    </div>
+
+    <p className="font-semibold mt-3">
+      Arraste uma imagem aqui
+    </p>
+
+    <span className="text-sm text-zinc-500">
+  ou clique para selecionar
+</span>
+
+<p className="text-xs text-zinc-400 mt-2">
+  Recomendado: 1000x1000 pixels
+</p>
+  </>
+)}
+
+  </label>
+
+  <input
+    id="imagem"
+    type="file"
+    accept="image/*"
+    className="hidden"
+    onChange={(e) => {
+
+  const file =
+    e.target.files?.[0]
+
+  if (!file) return
+
+  setImagem(file)
+
+  setPreviewImagem(
+    URL.createObjectURL(file)
+  )
+
+}}
+  />
+
+</div>
+
+      <div className="flex gap-4">
+
+        <button
+       onClick={fecharModal}
+         className="
+flex-1
+border
+rounded-2xl
+py-4
+hover:bg-zinc-100
+hover:scale-105
+active:scale-95
+transition-all
+duration-300
+"
+        >
+          Cancelar
+        </button>
+
+        {editingId ? (
+
+          <button
+           onClick={async () => {
+
+  const sucesso = await salvarEdicao()
+
+  if (sucesso) {
+    setProdutoModal(false)
+  }
+
+}}
+            className="
+flex-1
+bg-[#7A1F3D]
+text-white
+rounded-2xl
+py-4
+hover:scale-105
+active:scale-95
+hover:shadow-xl
+transition-all
+duration-300
+"
+          >
+            {loading ? "Salvando..." : "Salvar Alterações"}
+          </button>
+
+        ) : (
+
+          <button
+            onClick={async () => {
+
+  const sucesso = await criarProduto()
+
+  if (sucesso) {
+    setProdutoModal(false)
+  }
+
+}}
+            className="
+            flex-1
+            bg-[#7A1F3D]
+text-white
+rounded-2xl
+py-4
+hover:scale-105
+active:scale-95
+hover:shadow-xl
+transition-all
+duration-300
+            "
+          >
+           {loading ? "Criando..." : "Criar Produto"}
+          </button>
+
+        )}
+
+      </div>
+
+    </div>
+
+  </div>
+
+)}
+
+{deleteModal && (
+
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+
+    <div className="bg-white rounded-3xl p-8 w-full max-w-md">
+
+      <h2 className="text-2xl font-bold mb-4">
+
+        Excluir Produto
+
+      </h2>
+
+      <div className="mb-6">
+
+  <p className="text-zinc-500 mb-2">
+    Você está prestes a excluir:
+  </p>
+
+  <p className="font-bold text-lg mb-4">
+    {
+      produtos.find(
+        p => p.id === deleteModal
+      )?.nome
+    }
+  </p>
+
+  <p className="text-zinc-500">
+    Esta ação não poderá ser desfeita.
+  </p>
+
+</div>
+
+      <div className="flex gap-4">
+
+        <button
+          onClick={() =>
+            setDeleteModal(null)
+          }
+          className="
+          flex-1
+          border
+          rounded-xl
+          py-3
+          "
+        >
+          Cancelar
+        </button>
+
+        <button
+          onClick={() =>
+            excluirProduto(deleteModal)
+          }
+          className="
+flex-1
+bg-red-500
+text-white
+rounded-xl
+py-3
+hover:bg-red-600
+hover:scale-105
+active:scale-95
+transition-all
+duration-300
+"
+        >
+          🗑️ Excluir
+        </button>
+
+          </div>
+
+    </div>
+
+  </div>
+
+)}
+
+    </div>
+  </main>
+)
 }

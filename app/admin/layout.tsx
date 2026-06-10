@@ -24,6 +24,12 @@ export default function AdminLayout({
     nome: "Dashboard",
     link: "/admin",
   },
+
+  {
+    nome: "Categorias" ,
+    link: "/admin/categorias" ,
+  },
+
   {
     nome: "Produtos",
     link: "/admin/produtos",
@@ -49,6 +55,16 @@ export default function AdminLayout({
 {
   nome: "Taxa de Entrega",
   link: "/admin/entrega",
+},
+
+{
+  nome: "Pagamentos",
+  link: "/admin/pagamentos",
+},
+
+{
+  nome: "Mercado Pago",
+  link: "/admin/mercado-pago",
 },
 
   {

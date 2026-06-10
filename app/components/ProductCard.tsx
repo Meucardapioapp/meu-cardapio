@@ -42,6 +42,17 @@ export default function ProductCard({
     ? "text-zinc-500"
     : "text-zinc-400"
 
+    const percentualDesconto =
+  product.precoAntigo &&
+  product.precoAntigo > product.preco
+    ? Math.round(
+        (
+          (product.precoAntigo - product.preco) /
+          product.precoAntigo
+        ) * 100
+      )
+    : 0
+
   return (
 
     <div
@@ -57,6 +68,29 @@ export default function ProductCard({
     >
 
       <div className="relative h-72 overflow-hidden">
+        {product.promocao && (
+  <div
+  className="
+    absolute
+    top-4
+    left-4
+    z-20
+    bg-gradient-to-r
+    from-red-500
+    to-red-700
+    text-white
+    text-sm
+    font-black
+    px-4
+    py-2
+    rounded-full
+    shadow-xl
+    animate-pulse
+  "
+>
+ {percentualDesconto}% OFF
+</div>
+)}
 
         {product.imagem ? (
   <img
@@ -114,17 +148,62 @@ export default function ProductCard({
           mt-6
         ">
 
-          <span
-            className="
-              text-4x1
-              font-black
-            "
-            style={{
-              color: selectedColor,
-            }}
-          >
-            R$ {product.preco}
-          </span>
+          <div className="flex flex-col">
+
+  {product.precoAntigo &&
+    product.precoAntigo > product.preco && (
+
+    <span
+  className="
+    text-base
+    text-zinc-500
+    line-through
+    font-medium
+  "
+>
+ R$ {product.precoAntigo.toLocaleString("pt-BR", {
+  minimumFractionDigits: 2,
+})}
+</span>
+
+  )}
+
+ <span
+  className="
+    text-3xl
+    font-black
+  "
+  style={{
+    color: selectedColor,
+  }}
+>
+ R$ {product.preco.toLocaleString("pt-BR", {
+  minimumFractionDigits: 2,
+})}
+</span>
+
+{product.precoAntigo &&
+ product.precoAntigo > product.preco && (
+
+  <span
+    className="
+      text-sm
+      text-emerald-600
+      font-bold
+      mt-1
+    "
+  >
+    Economize R$ {(product.precoAntigo - product.preco).toLocaleString(
+  "pt-BR",
+  {
+    minimumFractionDigits: 2,
+  }
+)}
+  </span>
+
+)}
+
+</div>
 
           <button
             onClick={onAdd}

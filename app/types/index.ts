@@ -9,7 +9,9 @@ export interface ProdutoFormatado {
   descricao: string
   imagem: string
   preco: number
+  precoAntigo?: number
   categoria?: string
+  promocao?: boolean
   adicionais?: Adicional[]
 }
 

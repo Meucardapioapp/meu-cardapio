@@ -186,18 +186,22 @@ console.log(
       /* PRODUTOS */
 
       const {
-        data: produtosData,
-        error: produtosError,
-      } = await supabase
-        .from("produtos")
-        .select("*")
-        .eq(
-          "restaurante_id",
-          restauranteData.id
-        )
-        .order("created_at", {
-          ascending: false,
-        })
+  data: produtosData,
+  error: produtosError,
+} = await supabase
+  .from("produtos")
+  .select("*")
+  .eq(
+    "restaurante_id",
+    restauranteData.id
+  )
+  .eq(
+    "ativo",
+    true
+  )
+  .order("created_at", {
+    ascending: false,
+  })
 
       if (
         produtosError ||
@@ -229,6 +233,10 @@ console.log(
                   "produto_id",
                   produto.id
                 )
+console.log(
+  "SUPABASE PRODUTO:",
+  produto
+)
 
        return {
 
@@ -243,12 +251,17 @@ console.log(
     produto.preco
   ),
 
+  precoAntigo: Number(produto.preco_antigo || 0),
+
   imagem:
     produto.imagem,
 
   categoria:
     produto.categoria ||
     "Outros",
+
+    promocao:
+  produto.promocao === true,
 
   adicionais:
   adicionais || [],
@@ -261,6 +274,10 @@ console.log(
         setProdutos(
         produtosFormatados
       )
+      console.log(
+  "PRODUTOS:",
+  produtosFormatados
+)
 
       const categoriasUnicas = [
 
@@ -968,14 +985,18 @@ return "🔴 Fechado"
               `}
             >
 
-              <ProductCard
-                product={produto}
-                onAdd={() =>
-                  openProductModal(
-                    produto
-                  )
-                }
-              />
+              <div className="relative">
+
+  <ProductCard
+    product={produto}
+    onAdd={() =>
+      openProductModal(
+        produto
+      )
+    }
+  />
+
+</div>
 
             </div>
 
