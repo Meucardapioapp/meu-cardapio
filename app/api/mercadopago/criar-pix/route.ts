@@ -8,6 +8,8 @@ const client = new MercadoPagoConfig({
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+console.log("BODY COMPLETO:", body);
+console.log("RESTAURANTE ID:", body.restauranteId);
 
     console.log("BODY RECEBIDO:", body);
 
