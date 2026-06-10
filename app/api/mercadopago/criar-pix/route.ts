@@ -36,18 +36,14 @@ console.log(
         .single();
 
     if (restauranteError || !restaurante) {
-      console.error("RESTAURANTE NÃO ENCONTRADO");
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Restaurante não encontrado",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
+  throw new Error(
+    JSON.stringify({
+      body,
+      restauranteId: body.restauranteId,
+      restauranteError,
+    })
+  );
+}
 
     console.log(
       "TOKEN ENCONTRADO:",
