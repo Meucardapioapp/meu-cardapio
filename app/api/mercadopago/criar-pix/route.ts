@@ -4,11 +4,16 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
 
-    console.log("BODY COMPLETO:", body);
-    console.log("RESTAURANTE ID:", body.restauranteId);
+const body = await request.json();
 
+console.log("BODY COMPLETO:", body);
+console.log("RESTAURANTE ID:", body.restauranteId);
+
+console.log(
+  "TIPO RESTAURANTE ID:",
+  typeof body.restauranteId
+);
     const totalRecebido = Number(body.total);
 
     if (isNaN(totalRecebido) || totalRecebido <= 0) {
