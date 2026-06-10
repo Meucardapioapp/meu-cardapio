@@ -1,19 +1,16 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function PixPage() {
+function PixContent() {
   const searchParams = useSearchParams();
 
-  const qrCode =
-    searchParams.get("qr");
-
-  const qrCodeBase64 =
-    searchParams.get("img");
+  const qrCode = searchParams.get("qr");
+  const qrCodeBase64 = searchParams.get("img");
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
-
       <h1 className="text-2xl font-bold mb-6">
         Pagamento PIX
       </h1>
@@ -35,18 +32,20 @@ export default function PixPage() {
       <button
         className="mt-4 bg-green-600 text-white px-6 py-3 rounded-lg"
         onClick={() => {
-          navigator.clipboard.writeText(
-            qrCode || ""
-          );
-
-          alert(
-            "PIX copiado!"
-          );
+          navigator.clipboard.writeText(qrCode || "");
+          alert("PIX copiado!");
         }}
       >
         Copiar código PIX
       </button>
-
     </div>
+  );
+}
+
+export default function PixPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <PixContent />
+    </Suspense>
   );
 }
