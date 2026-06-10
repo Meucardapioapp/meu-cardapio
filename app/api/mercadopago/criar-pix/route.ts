@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-throw new Error("VERSAO NOVA 123456");
 
 export async function POST(request: Request) {
   try {
@@ -11,7 +10,12 @@ const body = await request.json();
 console.log("BODY COMPLETO:", body);
 
 console.log(
-  "RESTAURANTE ID RECEBIDO:",
+  "BODY STRING:",
+  JSON.stringify(body)
+);
+
+console.log(
+  "RESTAURANTE ID:",
   body.restauranteId
 );
 
@@ -20,11 +24,16 @@ console.log(
   typeof body.restauranteId
 );
 
+console.log(
+  "VALOR USADO NO SELECT:",
+  String(body.restauranteId)
+);
+
 const { data: restaurante, error: restauranteError } =
   await supabaseAdmin
     .from("restaurantes")
     .select("*")
-    .eq("id", body.restauranteId)
+    .eq("id", String(body.restauranteId))
     .single();
 
 console.log(
