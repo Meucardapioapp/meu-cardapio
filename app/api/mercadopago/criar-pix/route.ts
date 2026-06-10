@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+throw new Error("VERSAO NOVA 123456");
 
 export async function POST(request: Request) {
   try {
