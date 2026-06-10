@@ -8,6 +8,7 @@ const client = new MercadoPagoConfig({
 });
 
 export async function POST(request: Request) {
+  throw new Error("TESTE VICTOR");
   try {
     const body = await request.json();
 console.log("BODY COMPLETO:", body);
