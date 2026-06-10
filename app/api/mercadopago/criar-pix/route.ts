@@ -8,11 +8,32 @@ export async function POST(request: Request) {
 const body = await request.json();
 
 console.log("BODY COMPLETO:", body);
-console.log("RESTAURANTE ID:", body.restauranteId);
+
+console.log(
+  "RESTAURANTE ID RECEBIDO:",
+  body.restauranteId
+);
 
 console.log(
   "TIPO RESTAURANTE ID:",
   typeof body.restauranteId
+);
+
+const { data: restaurante, error: restauranteError } =
+  await supabaseAdmin
+    .from("restaurantes")
+    .select("*")
+    .eq("id", body.restauranteId)
+    .single();
+
+console.log(
+  "RESULTADO RESTAURANTE:",
+  restaurante
+);
+
+console.log(
+  "ERRO RESTAURANTE:",
+  restauranteError
 );
     const totalRecebido = Number(body.total);
 
@@ -28,12 +49,6 @@ console.log(
       );
     }
 
-    const { data: restaurante, error: restauranteError } =
-      await supabaseAdmin
-        .from("restaurantes")
-        .select("*")
-        .eq("id", body.restauranteId)
-        .single();
 
     if (restauranteError || !restaurante) {
   throw new Error(
