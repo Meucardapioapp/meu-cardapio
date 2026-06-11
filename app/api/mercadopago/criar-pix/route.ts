@@ -29,12 +29,12 @@ console.log(
   String(body.restauranteId)
 );
 
-const { data: restaurante, error: restauranteError } =
-  await supabaseAdmin
-    .from("restaurantes")
-    .select("*")
-    .eq("id", String(body.restauranteId))
-    .single();
+console.log(
+  "BODY RECEBIDO PIX:",
+  JSON.stringify(body)
+);
+
+
 
 console.log(
   "RESULTADO RESTAURANTE:",
@@ -98,21 +98,30 @@ console.log(
 
     const payment = new Payment(client);
 
-    const resultado = await payment.create({
-      body: {
-        transaction_amount: valorFinal,
+   const resultado = await payment.create({
+  body: {
+    transaction_amount: valorFinal,
 
-        description: "Pedido MeuCardápio",
+    application_fee: Number(
+      (valorFinal * 0.01).toFixed(2)
+    ),
 
-        payment_method_id: "pix",
+    description: "Pedido MeuCardápio",
 
-        payer: {
-          email: "cliente@meucardapio.com",
-          first_name: "Cliente",
-          last_name: "MeuCardapio",
-        },
-      },
-    });
+    payment_method_id: "pix",
+
+    payer: {
+      email: "cliente@meucardapio.com",
+      first_name: "Cliente",
+      last_name: "MeuCardapio",
+    },
+  },
+});
+
+console.log(
+  "RESPOSTA MP:",
+  JSON.stringify(resultado, null, 2)
+);
 
     console.log(
       "PAGAMENTO CRIADO:",
