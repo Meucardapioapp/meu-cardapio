@@ -37,6 +37,11 @@ async function carregarRestaurante() {
 
   if (!user) return
 
+  console.log(
+  "USER LOGADO:",
+  user.id
+)
+
   const {
     data: restaurante,
     error,
@@ -46,6 +51,16 @@ async function carregarRestaurante() {
     .eq("auth_user_id", user.id)
     .single()
 
+    console.log(
+  "RESTAURANTE ENCONTRADO:",
+  restaurante
+)
+
+console.log(
+  "ERRO RESTAURANTE:",
+  error
+)
+
   if (error) {
     console.log(error)
     return
@@ -54,11 +69,21 @@ async function carregarRestaurante() {
   if (restaurante) {
     setRestauranteId(restaurante.id)
   }
-  const { data: aparencia } = await supabase
+ const { data: aparencia } = await supabase
   .from("aparencia")
   .select("*")
   .eq("restaurante_id", restaurante.id)
   .single()
+
+console.log(
+  "RESTAURANTE ID CARREGADO:",
+  restaurante.id
+)
+
+console.log(
+  "APARENCIA CARREGADA:",
+  aparencia
+)
 
 if (aparencia) {
 
