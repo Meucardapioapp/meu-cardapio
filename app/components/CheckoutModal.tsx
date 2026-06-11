@@ -297,6 +297,16 @@ async function pagarComPix() {
 
   console.log("CLICOU PIX")
 
+  console.log(
+  "RESTAURANTE ID PIX:",
+  restauranteId
+)
+
+console.log(
+  "TIPO:",
+  typeof restauranteId
+)
+
   try {
 
     setLoading(true)
@@ -354,10 +364,11 @@ console.log(
             "Content-Type":
               "application/json",
           },
-          body: JSON.stringify({
-            total: total + frete,
-            pedidoId: data.id,
-          }),
+        body: JSON.stringify({
+  total: total + frete,
+  pedidoId: data.id,
+  restauranteId,
+}),
         }
       )
 
