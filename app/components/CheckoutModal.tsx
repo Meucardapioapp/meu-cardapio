@@ -385,9 +385,11 @@ console.log(
     }
 
     window.location.href =
-      `/pix?id=${data.id}&qr=${encodeURIComponent(
-        resultado.qr_code
-      )}&img=${resultado.qr_code_base64}`
+`/pix?id=${data.id}&qr=${encodeURIComponent(
+  resultado.qr_code
+)}&img=${encodeURIComponent(
+  resultado.qr_code_base64
+)}`
 
   } catch (error) {
 

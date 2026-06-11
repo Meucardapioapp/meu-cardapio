@@ -8,7 +8,6 @@ function PixContent() {
 
   const qrCode = searchParams.get("qr");
   const qrCodeBase64 = searchParams.get("img");
-  console.log(qrCodeBase64);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
@@ -16,24 +15,30 @@ function PixContent() {
         Pagamento PIX
       </h1>
 
-      {qrCodeBase64 && (
+      {qrCodeBase64 ? (
         <img
-          src={`data:image/png;base64,${qrCodeBase64}`}
+          src={`data:image/png;base64,${decodeURIComponent(
+            qrCodeBase64
+          )}`}
           alt="QR Code PIX"
           className="w-72 h-72 mb-6"
         />
+      ) : (
+        <p>QR Code não encontrado.</p>
       )}
 
       <textarea
         readOnly
-        value={qrCode || ""}
+        value={qrCode ? decodeURIComponent(qrCode) : ""}
         className="w-full max-w-xl border rounded-lg p-3 text-sm"
       />
 
       <button
         className="mt-4 bg-green-600 text-white px-6 py-3 rounded-lg"
         onClick={() => {
-          navigator.clipboard.writeText(qrCode || "");
+          navigator.clipboard.writeText(
+            qrCode ? decodeURIComponent(qrCode) : ""
+          );
           alert("PIX copiado!");
         }}
       >
