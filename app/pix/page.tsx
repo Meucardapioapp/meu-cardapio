@@ -16,11 +16,11 @@ function PixContent() {
       </h1>
 
       {qrCodeBase64 && (
-        <img
-          src={`data:image/png;base64,${qrCodeBase64}`}
-          alt="QR Code PIX"
-          className="w-72 h-72 mb-6"
-        />
+       <img
+  src={qrCodeBase64 || ""}
+  alt="QR Code PIX"
+  className="w-72 h-72 mb-6"
+/>
       )}
 
       <textarea
