@@ -112,6 +112,22 @@ console.log(
         restaurante.mercadopago_access_token,
     });
 
+    const usuarioResponse = await fetch(
+  "https://api.mercadopago.com/users/me",
+  {
+    headers: {
+      Authorization: `Bearer ${restaurante.mercadopago_access_token}`,
+    },
+  }
+);
+
+const usuario = await usuarioResponse.json();
+
+console.log(
+  "USUARIO TOKEN:",
+  JSON.stringify(usuario, null, 2)
+);
+
     const valorFinal = parseFloat(
       totalRecebido.toFixed(2)
     );
