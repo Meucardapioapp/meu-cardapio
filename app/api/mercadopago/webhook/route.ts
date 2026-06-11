@@ -1,25 +1,21 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  console.log("WEBHOOK GET");
+
+  return NextResponse.json({
+    ok: true,
+    method: "GET",
+  });
+}
 
 export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+  const body = await request.text();
 
-    console.log("WEBHOOK MP:")
-    console.log(body)
+  console.log("WEBHOOK POST");
+  console.log(body);
 
-    return NextResponse.json({
-      success: true,
-    })
-  } catch (error) {
-    console.log(error)
-
-    return NextResponse.json(
-      {
-        error: true,
-      },
-      {
-        status: 500,
-      }
-    )
-  }
+  return NextResponse.json({
+    success: true,
+  });
 }
