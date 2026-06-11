@@ -112,10 +112,6 @@ console.log(
   body: {
     transaction_amount: valorFinal,
 
-    application_fee: Number(
-      (valorFinal * 0.01).toFixed(2)
-    ),
-
     description: "Pedido MeuCardápio",
 
     payment_method_id: "pix",
