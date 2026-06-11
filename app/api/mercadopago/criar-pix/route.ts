@@ -174,6 +174,19 @@ console.log(
       resultado.id
     );
 
+    await supabaseAdmin
+  .from("pedidos")
+  .update({
+    mercadopago_payment_id: String(
+      resultado.id
+    ),
+
+    payment_method: "pix",
+
+    payment_status: "pending",
+  })
+  .eq("id", body.pedidoId);
+
     return NextResponse.json({
       success: true,
 
