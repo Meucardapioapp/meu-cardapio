@@ -34,7 +34,17 @@ console.log(
   JSON.stringify(body)
 );
 
-
+const {
+  data: restaurante,
+  error: restauranteError,
+} = await supabaseAdmin
+  .from("restaurantes")
+  .select("*")
+  .eq(
+    "id",
+    String(body.restauranteId)
+  )
+  .single();
 
 console.log(
   "RESULTADO RESTAURANTE:",
