@@ -97,6 +97,16 @@ console.log(
       );
     }
 
+    console.log(
+  "SELLER USER ID:",
+  restaurante.mercadopago_user_id
+);
+
+console.log(
+  "ACCESS TOKEN INICIO:",
+  restaurante.mercadopago_access_token?.substring(0, 20)
+);
+
     const client = new MercadoPagoConfig({
       accessToken:
         restaurante.mercadopago_access_token,
@@ -110,18 +120,22 @@ console.log(
 
    const resultado = await payment.create({
   body: {
-    transaction_amount: valorFinal,
+  transaction_amount: valorFinal,
 
-    description: "Pedido MeuCardápio",
+  application_fee: Number(
+    (valorFinal * 0.01).toFixed(2)
+  ),
 
-    payment_method_id: "pix",
+  description: "Pedido MeuCardápio",
 
-    payer: {
-      email: "cliente@meucardapio.com",
-      first_name: "Cliente",
-      last_name: "MeuCardapio",
-    },
+  payment_method_id: "pix",
+
+  payer: {
+    email: "cliente@meucardapio.com",
+    first_name: "Cliente",
+    last_name: "MeuCardapio",
   },
+},
 });
 
 console.log(
