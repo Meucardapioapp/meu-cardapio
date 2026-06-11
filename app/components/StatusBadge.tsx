@@ -6,8 +6,8 @@ const statusStyles = {
   pendente:
     "bg-amber-100 text-amber-700 border border-amber-200",
 
-  preparando:
-    "bg-blue-100 text-blue-700 border border-blue-200",
+  aceito:
+    "bg-green-100 text-green-700 border border-green-200",
 
   entrega:
     "bg-purple-100 text-purple-700 border border-purple-200",
@@ -18,8 +18,11 @@ const statusStyles = {
 
 const statusLabels = {
   pendente: "Pendente",
-  preparando: "Preparando",
+
+  aceito: "Aceito",
+
   entrega: "Entrega",
+
   concluido: "Concluído",
 }
 

@@ -193,10 +193,10 @@ export default function PedidoPage() {
       icon: Clock,
     },
     {
-      nome: "Preparando",
-      status: "preparando",
-      icon: ChefHat,
-    },
+  nome: "Aceito",
+  status: "aceito",
+  icon: ChefHat,
+},
     {
       nome: "Entrega",
       status: "entrega",
@@ -215,7 +215,7 @@ export default function PedidoPage() {
 
     const ordem = [
       "pendente",
-      "preparando",
+      "aceito",
       "entrega",
       "concluido",
     ]
@@ -230,21 +230,21 @@ export default function PedidoPage() {
     return etapa <= atual
   }
 
-  function corStatus(status: string) {
+ function corStatus(status: string) {
 
-    switch (status) {
+  switch (status) {
 
-      case "pendente":
-        return "bg-yellow-500"
+    case "pendente":
+      return "bg-yellow-500"
 
-      case "preparando":
-        return "bg-orange-500"
+    case "aceito":
+      return "bg-green-500"
 
-      case "entrega":
-        return "bg-blue-500"
+    case "entrega":
+      return "bg-blue-500"
 
-      case "concluido":
-        return "bg-green-500"
+    case "concluido":
+      return "bg-green-500"
 
       default:
         return "bg-zinc-500"

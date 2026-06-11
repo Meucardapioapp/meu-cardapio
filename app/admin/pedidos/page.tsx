@@ -510,24 +510,24 @@ export default function PedidosPage() {
                 ">
 
                   <button
-                    onClick={() =>
-                      atualizarStatus(
-                        pedido.id,
-                        "preparando"
-                      )
-                    }
-                    className="
-                      bg-yellow-500
-                      hover:bg-yellow-400
-                      text-black
-                      font-bold
-                      py-2
-                      rounded-xl
-                      transition-colors
-                    "
-                  >
-                    Preparando
-                  </button>
+  onClick={() =>
+    atualizarStatus(
+      pedido.id,
+      "aceito"
+    )
+  }
+  className="
+    bg-green-500
+    hover:bg-green-400
+    text-black
+    font-bold
+    py-2
+    rounded-xl
+    transition-colors
+  "
+>
+  Aceitar
+</button>
 
                   <button
                     onClick={() =>
