@@ -134,6 +134,11 @@ console.log(
 
     const payment = new Payment(client);
 
+    console.log(
+  "APPLICATION FEE:",
+  Number((valorFinal * 0.01).toFixed(2))
+);
+
    const resultado = await payment.create({
   body: {
   transaction_amount: valorFinal,
@@ -157,6 +162,11 @@ console.log(
 console.log(
   "RESPOSTA MP:",
   JSON.stringify(resultado, null, 2)
+);
+
+console.log(
+  "FEE DETAILS:",
+  resultado.fee_details
 );
 
     console.log(
