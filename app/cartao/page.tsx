@@ -2,9 +2,14 @@
 
 import { initMercadoPago, CardPayment } from "@mercadopago/sdk-react";
 
+console.log(
+  "PUBLIC KEY:",
+  process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
+)
+
 initMercadoPago(
-  process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY!
-);
+  "APP_USR-5d7cdd9b-818a-4645-b257-9a45c9f26141"
+)
 
 export default function CartaoPage() {
   return (

@@ -13,8 +13,8 @@ import { getThemeSettings } from "../lib/theme"
 import Toast from "@/app/components/ui/toast"
 
 initMercadoPago(
-  process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY!
-);
+  "APP_USR-5d7cdd9b-818a-4645-b257-9a45c9f26141"
+)
 
 type Props = {
   open: boolean
@@ -101,6 +101,21 @@ const [cidade, setCidade] =
 
 const [estado, setEstado] =
   useState("AM")
+
+  const [nomeTitular, setNomeTitular] =
+  useState("")
+
+const [cpfCartao, setCpfCartao] =
+  useState("")
+
+const [numeroCartao, setNumeroCartao] =
+  useState("")
+
+const [validadeCartao, setValidadeCartao] =
+  useState("")
+
+const [cvvCartao, setCvvCartao] =
+  useState("")
 
     const [toast, setToast] = useState<{
   tipo: "sucesso" | "erro" | "aviso"
@@ -787,6 +802,7 @@ setTimeout(() => {
 
 <input
   value={rua}
+  
             onChange={(e) => {
   setRua(e.target.value)
 
@@ -809,6 +825,88 @@ setTimeout(() => {
                 selectedColor + "30",
             }}
           />
+
+{formaPagamento === "cartao" && (
+
+  <div className="grid gap-4">
+
+    <input
+      value={nomeTitular}
+      onChange={(e) =>
+        setNomeTitular(e.target.value)
+      }
+      placeholder="Nome impresso no cartão"
+      className={`
+        ${inputBg}
+        border
+        rounded-2xl
+        p-4
+      `}
+    />
+
+    <input
+      value={cpfCartao}
+      onChange={(e) =>
+        setCpfCartao(e.target.value)
+      }
+      placeholder="CPF do titular"
+      className={`
+        ${inputBg}
+        border
+        rounded-2xl
+        p-4
+      `}
+    />
+
+    <input
+      value={numeroCartao}
+      onChange={(e) =>
+        setNumeroCartao(e.target.value)
+      }
+      placeholder="Número do cartão"
+      className={`
+        ${inputBg}
+        border
+        rounded-2xl
+        p-4
+      `}
+    />
+
+    <div className="grid grid-cols-2 gap-4">
+
+      <input
+        value={validadeCartao}
+        onChange={(e) =>
+          setValidadeCartao(e.target.value)
+        }
+        placeholder="MM/AA"
+        className={`
+          ${inputBg}
+          border
+          rounded-2xl
+          p-4
+        `}
+      />
+
+      <input
+        value={cvvCartao}
+        onChange={(e) =>
+          setCvvCartao(e.target.value)
+        }
+        placeholder="CVV"
+        className={`
+          ${inputBg}
+          border
+          rounded-2xl
+          p-4
+        `}
+      />
+
+    </div>
+
+  </div>
+
+)}
 
           <textarea
             value={observacoes}
@@ -888,15 +986,13 @@ setTimeout(() => {
  if (
   formaPagamento === "pix"
 ) {
+
   pagarComPix()
+
 } else {
 
-  setToast({
-    tipo: "aviso",
-    titulo: "Cartão",
-    mensagem:
-      "Pagamento com cartão em implementação."
-  })
+  window.location.href =
+    "/cartao"
 
 }
 
