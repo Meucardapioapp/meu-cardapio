@@ -2,11 +2,19 @@
 
 import { useState } from "react"
 
+import {
+  initMercadoPago,
+} from "@mercadopago/sdk-react";
+
 import { supabase } from "@/lib/supabase"
 
 import { getThemeSettings } from "../lib/theme"
 
 import Toast from "@/app/components/ui/toast"
+
+initMercadoPago(
+  process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY!
+);
 
 type Props = {
   open: boolean
@@ -199,99 +207,6 @@ console.log({
   }
 }
 
-async function continuarPagamento() {
-
-  if (
-    !cliente ||
-    !telefone ||
-    !cep ||
-    !bairro ||
-    !rua ||
-    !numero
-  ) {
-    setToast({
-      tipo: "erro",
-      titulo: "Campos obrigatórios",
-      mensagem:
-        "Preencha todos os campos para continuar."
-    })
-
-    return
-  }
-
-  try {
-
-    setLoading(true)
-
-    const response = await fetch(
-      "/api/stripe/create-checkout",
-     {
-  method: "POST",
-  headers: {
-    "Content-Type":
-      "application/json",
-  },
-
-  body: JSON.stringify({
-    total: total + frete,
-    telefone,
-  }),
-}
-    )
-
-    const data =
-      await response.json()
-
-    if (!data.url) {
-
-      setToast({
-        tipo: "erro",
-        titulo: "Erro",
-        mensagem:
-          "Não foi possível iniciar o pagamento."
-      })
-
-      return
-    }
-
-    localStorage.setItem(
-      "checkout-data",
-      JSON.stringify({
-        cliente,
-        telefone,
-        cep,
-        bairro,
-        rua,
-        numero,
-        observacoes,
-        subtotal: total,
-        frete,
-        total: total + frete,
-        restauranteId,
-        slug,
-        cart,
-      })
-    )
-
-    window.location.href =
-      data.url
-
-  } catch (error) {
-
-    console.log(error)
-
-    setToast({
-      tipo: "erro",
-      titulo: "Erro",
-      mensagem:
-        "Falha ao conectar com Stripe."
-    })
-
-  } finally {
-
-    setLoading(false)
-  }
-}
 
 async function pagarComPix() {
 
@@ -970,13 +885,20 @@ setTimeout(() => {
 <button
             onClick={() => {
 
-  if (
-    formaPagamento === "pix"
-  ) {
-    pagarComPix()
-  } else {
-    continuarPagamento()
-  }
+ if (
+  formaPagamento === "pix"
+) {
+  pagarComPix()
+} else {
+
+  setToast({
+    tipo: "aviso",
+    titulo: "Cartão",
+    mensagem:
+      "Pagamento com cartão em implementação."
+  })
+
+}
 
 }}
             disabled={loading}
