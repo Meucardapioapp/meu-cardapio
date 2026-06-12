@@ -102,21 +102,6 @@ const [cidade, setCidade] =
 const [estado, setEstado] =
   useState("AM")
 
-  const [nomeTitular, setNomeTitular] =
-  useState("")
-
-const [cpfCartao, setCpfCartao] =
-  useState("")
-
-const [numeroCartao, setNumeroCartao] =
-  useState("")
-
-const [validadeCartao, setValidadeCartao] =
-  useState("")
-
-const [cvvCartao, setCvvCartao] =
-  useState("")
-
     const [toast, setToast] = useState<{
   tipo: "sucesso" | "erro" | "aviso"
   titulo: string
@@ -575,61 +560,9 @@ setTimeout(() => {
             ×
           </button>
 
-        </div>
+               </div>
 
-<div className="mb-4">
-
-  <p className={`mb-2 font-semibold ${textPrimary}`}>
-    Forma de pagamento
-  </p>
-
-  <div className="flex gap-3">
-
-    <button
-      type="button"
-      onClick={() =>
-        setFormaPagamento("pix")
-      }
-      className={`
-        px-4
-        py-3
-        rounded-xl
-        border
-        ${
-          formaPagamento === "pix"
-            ? "border-green-500 bg-green-500/10"
-            : ""
-        }
-      `}
-    >
-      PIX
-    </button>
-
-    <button
-      type="button"
-      onClick={() =>
-        setFormaPagamento("cartao")
-      }
-      className={`
-        px-4
-        py-3
-        rounded-xl
-        border
-        ${
-          formaPagamento === "cartao"
-            ? "border-blue-500 bg-blue-500/10"
-            : ""
-        }
-      `}
-    >
-      Cartão
-    </button>
-
-  </div>
-
-</div>
-
-        <div className="grid gap-4">
+        <div className="grid gap-4"> 
 
           <input
             value={cliente}
@@ -826,88 +759,6 @@ setTimeout(() => {
             }}
           />
 
-{formaPagamento === "cartao" && (
-
-  <div className="grid gap-4">
-
-    <input
-      value={nomeTitular}
-      onChange={(e) =>
-        setNomeTitular(e.target.value)
-      }
-      placeholder="Nome impresso no cartão"
-      className={`
-        ${inputBg}
-        border
-        rounded-2xl
-        p-4
-      `}
-    />
-
-    <input
-      value={cpfCartao}
-      onChange={(e) =>
-        setCpfCartao(e.target.value)
-      }
-      placeholder="CPF do titular"
-      className={`
-        ${inputBg}
-        border
-        rounded-2xl
-        p-4
-      `}
-    />
-
-    <input
-      value={numeroCartao}
-      onChange={(e) =>
-        setNumeroCartao(e.target.value)
-      }
-      placeholder="Número do cartão"
-      className={`
-        ${inputBg}
-        border
-        rounded-2xl
-        p-4
-      `}
-    />
-
-    <div className="grid grid-cols-2 gap-4">
-
-      <input
-        value={validadeCartao}
-        onChange={(e) =>
-          setValidadeCartao(e.target.value)
-        }
-        placeholder="MM/AA"
-        className={`
-          ${inputBg}
-          border
-          rounded-2xl
-          p-4
-        `}
-      />
-
-      <input
-        value={cvvCartao}
-        onChange={(e) =>
-          setCvvCartao(e.target.value)
-        }
-        placeholder="CVV"
-        className={`
-          ${inputBg}
-          border
-          rounded-2xl
-          p-4
-        `}
-      />
-
-    </div>
-
-  </div>
-
-)}
-
           <textarea
             value={observacoes}
             onChange={(e) =>
@@ -932,6 +783,58 @@ setTimeout(() => {
                 selectedColor + "30",
             }}
           />
+
+          <div className="mb-4">
+
+  <p className={`mb-2 font-semibold ${textPrimary}`}>
+    Forma de pagamento
+  </p>
+
+  <div className="flex gap-3">
+
+    <button
+      type="button"
+      onClick={() =>
+        setFormaPagamento("pix")
+      }
+      className={`
+        px-4
+        py-3
+        rounded-xl
+        border
+        ${
+          formaPagamento === "pix"
+            ? "border-green-500 bg-green-500/10"
+            : ""
+        }
+      `}
+    >
+      PIX
+    </button>
+
+    <button
+      type="button"
+      onClick={() =>
+        setFormaPagamento("cartao")
+      }
+      className={`
+        px-4
+        py-3
+        rounded-xl
+        border
+        ${
+          formaPagamento === "cartao"
+            ? "border-blue-500 bg-blue-500/10"
+            : ""
+        }
+      `}
+    >
+      Cartão
+    </button>
+
+  </div>
+
+        </div>
 
         </div>
 
