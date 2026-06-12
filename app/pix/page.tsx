@@ -36,12 +36,22 @@ function PixContent() {
           );
 
           const data =
-            await response.json();
+  await response.json();
 
-          if (
-            data.payment_status ===
-            "approved"
-          ) {
+console.log(
+  "STATUS RECEBIDO:",
+  data.payment_status
+);
+
+console.log(
+  "PEDIDO:",
+  pedidoId
+);
+
+if (
+  data.payment_status ===
+  "approved"
+) {
             clearInterval(
               interval
             );
