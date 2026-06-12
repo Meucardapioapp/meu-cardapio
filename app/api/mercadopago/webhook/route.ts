@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function GET() {
-  console.log("WEBHOOK GET");
-
   return NextResponse.json({
     ok: true,
-    method: "GET",
   });
 }
 
@@ -14,36 +11,40 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    console.log("=================================");
-    console.log("WEBHOOK POST");
     console.log(
-      "BODY COMPLETO:",
+      "WEBHOOK:",
       JSON.stringify(body, null, 2)
     );
-    console.log("=================================");
 
     const paymentId =
       body?.data?.id ||
       body?.id;
 
-    console.log(
-      "PAYMENT ID RECEBIDO:",
-      paymentId
-    );
-
     if (!paymentId) {
-      console.log(
-        "PAYMENT ID NÃO ENCONTRADO"
-      );
-
       return NextResponse.json({
         success: true,
       });
     }
 
+    const mpResponse = await fetch(
+      `https://api.mercadopago.com/v1/payments/${paymentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+        },
+      }
+    );
+
+    const pagamento =
+      await mpResponse.json();
+
+    console.log(
+      "STATUS MP:",
+      pagamento.status
+    );
+
     const {
       data: pedido,
-      error: pedidoError,
     } = await supabaseAdmin
       .from("pedidos")
       .select("*")
@@ -53,20 +54,9 @@ export async function POST(request: Request) {
       )
       .single();
 
-    console.log(
-      "PEDIDO ENCONTRADO:",
-      pedido
-    );
-
-    console.log(
-      "ERRO BUSCA PEDIDO:",
-      pedidoError
-    );
-
     if (!pedido) {
       console.log(
-        "NENHUM PEDIDO ENCONTRADO PARA O PAYMENT ID:",
-        paymentId
+        "PEDIDO NÃO ENCONTRADO"
       );
 
       return NextResponse.json({
@@ -74,22 +64,29 @@ export async function POST(request: Request) {
       });
     }
 
-    const {
-      error: updateError,
-    } = await supabaseAdmin
+    if (
+      pagamento.status !==
+      "approved"
+    ) {
+      console.log(
+        "PAGAMENTO AINDA NÃO APROVADO"
+      );
+
+      return NextResponse.json({
+        success: true,
+      });
+    }
+
+    await supabaseAdmin
       .from("pedidos")
       .update({
-        payment_status: "approved",
+        payment_status:
+          "approved",
       })
       .eq("id", pedido.id);
 
     console.log(
-      "ERRO UPDATE:",
-      updateError
-    );
-
-    console.log(
-      "PEDIDO MARCADO COMO APPROVED:",
+      "PEDIDO APROVADO:",
       pedido.id
     );
 
@@ -99,17 +96,11 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
 
-    console.error(
-      "ERRO WEBHOOK:",
-      error
-    );
+    console.error(error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message ||
-          "Erro interno",
       },
       {
         status: 500,
