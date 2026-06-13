@@ -3,6 +3,7 @@ import {
   MercadoPagoConfig,
   Payment,
 } from "mercadopago";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const client = new MercadoPagoConfig({
   accessToken:
@@ -15,6 +16,9 @@ export async function POST(
   try {
     const body =
       await req.json();
+
+      console.log("PEDIDO ID:", body.pedidoId);
+console.log("RESTAURANTE ID:", body.restauranteId);
 
     console.log(
       "=============================="
@@ -115,6 +119,36 @@ export async function POST(
     console.log(
       "=============================="
     );
+
+    if (body.pedidoId) {
+
+  const { error } =
+    await supabaseAdmin
+      .from("pedidos")
+      .update({
+
+        mercadopago_payment_id:
+          String(resultado.id),
+
+        payment_method:
+          "cartao",
+
+        payment_status:
+          resultado.status,
+
+      })
+      .eq(
+        "id",
+        body.pedidoId
+      );
+
+  console.log(
+    "UPDATE PEDIDO:",
+    error
+      ? error
+      : "OK"
+  );
+}
 
     return NextResponse.json({
       success: true,

@@ -317,6 +317,57 @@ console.log(
   }
 }
 
+async function pagarComCartao() {
+
+  const pedido = {
+    cliente,
+    telefone,
+    endereco: `${rua}, ${numero}`,
+    bairro,
+    rua,
+    numero,
+    observacoes,
+    itens: cart,
+    total: total + frete,
+    status: "pendente",
+    payment_status: "pending",
+    payment_method: "cartao",
+    restaurante_id: restauranteId,
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("pedidos")
+    .insert([pedido])
+    .select()
+    .single()
+
+  if (error) {
+    console.log(error)
+    return
+  }
+
+  localStorage.setItem(
+    "pedidoId",
+    String(data.id)
+  )
+
+  localStorage.setItem(
+    "restauranteId",
+    restauranteId
+  )
+
+  localStorage.setItem(
+    "valorPedido",
+    String(total + frete)
+  )
+
+  window.location.href =
+    "/cartao"
+}
+
   async function finalizarPedido() {
 
   if (!lojaAberta) {
@@ -886,7 +937,7 @@ setTimeout(() => {
 <button
             onClick={() => {
 
- if (
+if (
   formaPagamento === "pix"
 ) {
 
@@ -894,8 +945,7 @@ setTimeout(() => {
 
 } else {
 
-  window.location.href =
-    "/cartao"
+  pagarComCartao()
 
 }
 
