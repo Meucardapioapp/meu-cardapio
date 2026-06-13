@@ -22,6 +22,24 @@ export async function POST(
     const body =
       await req.json();
 
+      const {
+  data: restaurante,
+} = await supabaseAdmin
+  .from("restaurantes")
+  .select("mercadopago_access_token")
+  .eq("id", body.restauranteId)
+  .single();
+
+console.log(
+  "TOKEN RESTAURANTE:",
+  restaurante?.mercadopago_access_token?.substring(0, 30)
+);
+
+console.log(
+  "TOKEN GLOBAL:",
+  process.env.MERCADOPAGO_ACCESS_TOKEN?.substring(0, 30)
+);
+
       console.log("PEDIDO ID:", body.pedidoId);
 console.log("RESTAURANTE ID:", body.restauranteId);
 
