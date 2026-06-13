@@ -21,13 +21,32 @@ export default function CartaoPage() {
         </h1>
 
         <CardPayment
-          initialization={{
-            amount: 10,
-          }}
-          onSubmit={async (formData) => {
-            console.log(formData);
-          }}
-        />
+  initialization={{
+    amount: 10,
+  }}
+  onSubmit={async (formData) => {
+
+    const response = await fetch(
+      "/api/cartao/pagar",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify(
+          formData
+        ),
+      }
+    )
+
+    const data =
+      await response.json()
+
+    console.log(data)
+
+  }}
+/>
 
       </div>
     </main>
