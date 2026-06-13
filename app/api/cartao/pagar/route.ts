@@ -10,6 +10,11 @@ const client = new MercadoPagoConfig({
     process.env.MERCADOPAGO_ACCESS_TOKEN!,
 });
 
+console.log(
+  "TOKEN DA ROTA CARTAO:",
+  process.env.MERCADOPAGO_ACCESS_TOKEN?.substring(0, 30)
+);
+
 export async function POST(
   req: NextRequest
 ) {
@@ -39,6 +44,22 @@ console.log("RESTAURANTE ID:", body.restauranteId);
     console.log(
       "=============================="
     );
+
+const usuarioResponse = await fetch(
+  "https://api.mercadopago.com/users/me",
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+    },
+  }
+);
+
+const usuario = await usuarioResponse.json();
+
+console.log(
+  "USUARIO MP CARTAO:",
+  JSON.stringify(usuario, null, 2)
+);
 
     const payment =
       new Payment(client);
