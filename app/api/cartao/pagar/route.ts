@@ -5,16 +5,6 @@ import {
 } from "mercadopago";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-const client = new MercadoPagoConfig({
-  accessToken:
-    process.env.MERCADOPAGO_ACCESS_TOKEN!,
-});
-
-console.log(
-  "TOKEN DA ROTA CARTAO:",
-  process.env.MERCADOPAGO_ACCESS_TOKEN?.substring(0, 30)
-);
-
 export async function POST(
   req: NextRequest
 ) {
@@ -22,26 +12,63 @@ export async function POST(
     const body =
       await req.json();
 
-      const {
-  data: restaurante,
-} = await supabaseAdmin
-  .from("restaurantes")
-  .select("mercadopago_access_token")
-  .eq("id", body.restauranteId)
-  .single();
+    const {
+      data: restaurante,
+      error: restauranteError,
+    } = await supabaseAdmin
+      .from("restaurantes")
+      .select(
+        "mercadopago_access_token"
+      )
+      .eq(
+        "id",
+        body.restauranteId
+      )
+      .single();
 
-console.log(
-  "TOKEN RESTAURANTE:",
-  restaurante?.mercadopago_access_token?.substring(0, 30)
-);
+    if (
+      restauranteError ||
+      !restaurante?.mercadopago_access_token
+    ) {
+      console.error(
+        "TOKEN RESTAURANTE NÃO ENCONTRADO"
+      );
 
-console.log(
-  "TOKEN GLOBAL:",
-  process.env.MERCADOPAGO_ACCESS_TOKEN?.substring(0, 30)
-);
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Token Mercado Pago não encontrado para o restaurante",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
 
-      console.log("PEDIDO ID:", body.pedidoId);
-console.log("RESTAURANTE ID:", body.restauranteId);
+    console.log(
+      "TOKEN RESTAURANTE:",
+      restaurante
+        .mercadopago_access_token
+        ?.substring(0, 35)
+    );
+
+    console.log(
+      "TOKEN GLOBAL:",
+      process.env
+        .MERCADOPAGO_ACCESS_TOKEN
+        ?.substring(0, 35)
+    );
+
+    console.log(
+      "PEDIDO ID:",
+      body.pedidoId
+    );
+
+    console.log(
+      "RESTAURANTE ID:",
+      body.restauranteId
+    );
 
     console.log(
       "=============================="
@@ -63,21 +90,33 @@ console.log("RESTAURANTE ID:", body.restauranteId);
       "=============================="
     );
 
-const usuarioResponse = await fetch(
-  "https://api.mercadopago.com/users/me",
-  {
-    headers: {
-      Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
-    },
-  }
-);
+    const usuarioResponse =
+      await fetch(
+        "https://api.mercadopago.com/users/me",
+        {
+          headers: {
+            Authorization: `Bearer ${restaurante.mercadopago_access_token}`,
+          },
+        }
+      );
 
-const usuario = await usuarioResponse.json();
+    const usuario =
+      await usuarioResponse.json();
 
-console.log(
-  "USUARIO MP CARTAO:",
-  JSON.stringify(usuario, null, 2)
-);
+    console.log(
+      "USUARIO MP CARTAO:",
+      JSON.stringify(
+        usuario,
+        null,
+        2
+      )
+    );
+
+    const client =
+      new MercadoPagoConfig({
+        accessToken:
+          restaurante.mercadopago_access_token,
+      });
 
     const payment =
       new Payment(client);
@@ -160,34 +199,33 @@ console.log(
     );
 
     if (body.pedidoId) {
+      const { error } =
+        await supabaseAdmin
+          .from("pedidos")
+          .update({
+            mercadopago_payment_id:
+              String(
+                resultado.id
+              ),
 
-  const { error } =
-    await supabaseAdmin
-      .from("pedidos")
-      .update({
+            payment_method:
+              "cartao",
 
-        mercadopago_payment_id:
-          String(resultado.id),
+            payment_status:
+              resultado.status,
+          })
+          .eq(
+            "id",
+            body.pedidoId
+          );
 
-        payment_method:
-          "cartao",
-
-        payment_status:
-          resultado.status,
-
-      })
-      .eq(
-        "id",
-        body.pedidoId
+      console.log(
+        "UPDATE PEDIDO:",
+        error
+          ? error
+          : "OK"
       );
-
-  console.log(
-    "UPDATE PEDIDO:",
-    error
-      ? error
-      : "OK"
-  );
-}
+    }
 
     return NextResponse.json({
       success: true,
