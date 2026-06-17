@@ -3,9 +3,9 @@ export function getThemeSettings() {
   if (typeof window === "undefined") {
 
     return {
-      lightMode: false,
-      selectedColor: "#7F1D1D",
-    }
+  lightMode: true,
+  selectedColor: "#6D1F2F",
+}
   }
 
   const lightMode =
