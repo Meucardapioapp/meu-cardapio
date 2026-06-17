@@ -8,12 +8,14 @@ type Props = {
   cart: CartItem[]
   openCart?: () => void
   logo?: string
+  corPrincipal?: string
 }
 
 export default function Header({
   cart,
   openCart,
   logo,
+  corPrincipal,
 }: Props) {
   const totalItems = cart.reduce(
     (acc, item) => acc + item.quantity,
@@ -113,8 +115,8 @@ export default function Header({
       font-semibold
     "
     style={{
-      color: selectedColor,
-      borderColor: selectedColor,
+      color: corPrincipal || selectedColor,
+borderColor: corPrincipal || selectedColor,
     }}
   >
     Cardápio
@@ -148,7 +150,7 @@ export default function Header({
           "
           style={{
             backgroundColor:
-              selectedColor,
+              corPrincipal || selectedColor
           }}
         >
   <div className="flex items-center gap-3">

@@ -464,7 +464,9 @@ console.log(
     
 
     const cartStorage =
-      localStorage.getItem("cart")
+  localStorage.getItem(
+    `cart-${slug}`
+  )
 
     if (cartStorage) {
 
@@ -482,9 +484,9 @@ console.log(
   useEffect(() => {
 
     localStorage.setItem(
-      "cart",
-      JSON.stringify(cart)
-    )
+  `cart-${slug}`,
+  JSON.stringify(cart)
+)
 
   }, [cart])
 
@@ -799,11 +801,11 @@ function obterHorarioFechamento() {
       <Header
   logo={logo}
   cart={cart}
-        openCart={() => {
-  window.location.href =
-    `/${slug}/carrinho`
-}}
-      />
+  corPrincipal={corPrincipal}
+  openCart={() => {
+    window.location.href = `/${slug}/carrinho`
+  }}
+/>
 
       {/* HERO */}
 
