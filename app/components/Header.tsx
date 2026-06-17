@@ -1,55 +1,167 @@
 "use client"
 
+import { ShoppingCart } from "lucide-react"
+import { getThemeSettings } from "../lib/theme"
 import type { CartItem } from "../types"
 
 type Props = {
   cart: CartItem[]
   openCart?: () => void
+  logo?: string
 }
 
 export default function Header({
   cart,
   openCart,
+  logo,
 }: Props) {
-
   const totalItems = cart.reduce(
     (acc, item) => acc + item.quantity,
     0
   )
 
+  const {
+    lightMode,
+    selectedColor,
+  } = getThemeSettings()
+
+  const bgColor = lightMode
+    ? "bg-[#F4F1EA]"
+    : "bg-zinc-950"
+
+  const borderColor = lightMode
+    ? "border-[#DDD6CC]"
+    : "border-zinc-800"
+
+  const textColor = lightMode
+    ? "text-zinc-700"
+    : "text-zinc-300"
+
   return (
-    <header className="border-b border-zinc-900 bg-black sticky top-0 z-50">
+    <header
+      className={`
+        ${bgColor}
+        ${borderColor}
+        border-b
+        sticky
+        top-0
+        z-50
+        backdrop-blur-md
+      `}
+    >
+      <div
+        className="
+          max-w-7xl
+          mx-auto
+          px-5
+          h-20
+          flex
+          items-center
+          justify-between
+        "
+      >
+        <div
+          className="
+            w-12
+            h-12
+            rounded-full
+            overflow-hidden
+            border
+            border-[#DDD6CC]
+            bg-white
+            flex
+            items-center
+            justify-center
+            shrink-0
+          "
+        >
+          {logo ? (
+            <img
+              src={logo}
+              alt="Logo"
+              className="
+                w-full
+                h-full
+                object-cover
+              "
+            />
+          ) : (
+            <span className="font-semibold">
+              Logo
+            </span>
+          )}
+        </div>
 
-      <div className="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between">
+       <nav
+  className={`
+    hidden
+    md:flex
+    items-center
+    gap-10
+    font-medium
+    ${textColor}
+  `}
+>
+  <button>
+    Início
+  </button>
 
-        <h1 className="text-2xl font-bold text-white">
-          MeuCardapioApp
-        </h1>
+  <button
+    className="
+      border-b-2
+      pb-1
+      font-semibold
+    "
+    style={{
+      color: selectedColor,
+      borderColor: selectedColor,
+    }}
+  >
+    Cardápio
+  </button>
+</nav>
 
         <button
           onClick={() => {
-
             if (openCart) {
               openCart()
               return
             }
 
             const carrinho =
-              document.getElementById("cart-section")
+              document.getElementById(
+                "cart-section"
+              )
 
             carrinho?.scrollIntoView({
               behavior: "smooth",
             })
           }}
-          className="bg-red-500 hover:bg-red-400 transition px-5 py-2 rounded-xl text-white font-bold"
+          className="
+            transition-all
+            px-5
+            py-3
+            rounded-xl
+            text-white
+            font-semibold
+            hover:scale-105
+          "
+          style={{
+            backgroundColor:
+              selectedColor,
+          }}
         >
-
-          Carrinho ({totalItems})
-
-        </button>
-
-      </div>
-
-    </header>
+  <div className="flex items-center gap-3">
+    <ShoppingCart
+  size={22}
+  strokeWidth={1.8}
+/>
+   <span>
+  Carrinho ({totalItems})
+</span>
+  </div>
+</button>
+</div>
+</header>
   )
 }

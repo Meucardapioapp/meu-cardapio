@@ -20,13 +20,35 @@ const colors = [
   "#18181B",
 ]
 
+const bgPage = "bg-[#F4F1EA]"
+
+const cardBg = "bg-white"
+
+const borderColor = "border-[#DDD6CC]"
+
+const textPrimary = "text-zinc-900"
+
+const textSecondary = "text-zinc-600"
+
 export default function AparenciaPage() {
 
   const [selectedColor, setSelectedColor] =
     useState("#556B2F")
 
-  const [lightMode, setLightMode] =
-    useState(true)
+    const [categoriaRestaurante, setCategoriaRestaurante] =
+  useState("")
+
+  const [nomeRestaurante,
+  setNomeRestaurante] =
+  useState("")
+
+const [pedidoMinimo,
+  setPedidoMinimo] =
+  useState("")
+
+const [tipoAtendimento, setTipoAtendimento] =
+  useState("Delivery")
+
 
   const [logoPreview, setLogoPreview] =
     useState<string | null>(null)
@@ -67,6 +89,9 @@ const [premium, setPremium] =
 const [statusAssinatura, setStatusAssinatura] =
   useState("")
 
+  const [slug, setSlug] =
+  useState("")
+
   const logoInputRef =
     useRef<HTMLInputElement>(null)
 
@@ -97,6 +122,7 @@ const [statusAssinatura, setStatusAssinatura] =
   .from("restaurantes")
   .select(`
     id,
+    slug,
     premium,
     assinatura_status
   `)
@@ -117,6 +143,10 @@ const [statusAssinatura, setStatusAssinatura] =
 
 setRestauranteId(
   restaurante.id
+)
+
+setSlug(
+  restaurante.slug || ""
 )
 
 setPremium(
@@ -171,15 +201,28 @@ console.log(
 
       if (aparencia) {
 
+        setCategoriaRestaurante(
+  aparencia.categoria_restaurante || ""
+)
+
+setTipoAtendimento(
+  aparencia.tipo_atendimento || "Delivery"
+)
+
+setNomeRestaurante(
+  aparencia.nome_restaurante || ""
+)
+
+setPedidoMinimo(
+  aparencia.pedido_minimo || ""
+)
+
         setSelectedColor(
           aparencia.cor_primaria ||
             "#556B2F"
         )
 
-        setLightMode(
-          aparencia.tema !==
-            "escuro"
-        )
+        
 
         setLogoPreview(
           aparencia.logo_url ||
@@ -236,10 +279,6 @@ console.log(
     }
 
     try {
-
-      const tema = lightMode
-        ? "claro"
-        : "escuro"
 
       /*
         PROCURA REGISTRO EXISTENTE
@@ -302,16 +341,26 @@ const {
   .from("aparencia")
   .update({
 
-    tema,
+  categoria_restaurante:
+    categoriaRestaurante,
 
-    cor_primaria:
-      selectedColor,
+  tipo_atendimento:
+    tipoAtendimento,
 
-    logo_url:
-      logoPreview,
+    nome_restaurante:
+  nomeRestaurante,
 
-    banner_url:
-      bannerPreview,
+pedido_minimo:
+  Number(pedidoMinimo),
+
+  cor_primaria:
+    selectedColor,
+
+  logo_url:
+    logoPreview,
+
+  banner_url:
+    bannerPreview,
 
     horario_seg_inicio:
       horarios.seg_inicio,
@@ -384,12 +433,22 @@ console.log("UPDATE OK")
           error: insertError,
         } = await supabase
           .from("aparencia")
-          .insert({
+         .insert({
 
   restaurante_id:
     restauranteId,
 
-  tema,
+    nome_restaurante:
+  nomeRestaurante,
+
+pedido_minimo:
+  Number(pedidoMinimo),
+
+  categoria_restaurante:
+    categoriaRestaurante,
+
+  tipo_atendimento:
+    tipoAtendimento,
 
   cor_primaria:
     selectedColor,
@@ -462,10 +521,15 @@ console.log("UPDATE OK")
       */
 
       localStorage.removeItem(
-        "aparencia-cache"
-      )
+  "aparencia-cache"
+)
 
-      setSavedMessage(true)
+localStorage.setItem(
+  "cardapio-primary-color",
+  selectedColor
+)
+
+setSavedMessage(true)
 
       setTimeout(() => {
 
@@ -639,25 +703,7 @@ console.log("UPDATE OK")
   }
 }
 
-  const bgPage = lightMode
-    ? "bg-[#F4F1EA]"
-    : "bg-black"
-
-  const cardBg = lightMode
-    ? "bg-[#ECE7DE]"
-    : "bg-zinc-900"
-
-  const borderColor = lightMode
-    ? "border-[#D6D0C7]"
-    : "border-zinc-800"
-
-  const textPrimary = lightMode
-    ? "text-zinc-900"
-    : "text-white"
-
-  const textSecondary = lightMode
-    ? "text-zinc-600"
-    : "text-zinc-400"
+ 
 
   if (loading) {
 
@@ -694,8 +740,24 @@ console.log("UPDATE OK")
 
           <div>
 
+            <div
+  className="
+    w-14
+    h-14
+    rounded-full
+    bg-[#7F1D1D]
+    flex
+    items-center
+    justify-center
+    text-white
+    mb-4
+  "
+>
+  🎨
+</div>
+
             <h1
-              className={`text-5xl font-black ${textPrimary}`}
+              className={`text-4xl font-black ${textPrimary}`}
             >
               Aparência
             </h1>
@@ -703,112 +765,13 @@ console.log("UPDATE OK")
             <p
               className={`${textSecondary} mt-2`}
             >
-              Personalize o visual do seu cardápio
+Personalize o visual e as informações do seu cardápio
             </p>
 
           </div>
 
-<div className="flex gap-3 mb-6">
-
-  <a href="/admin/aparencia/restaurante">
-    <Button variant="outline">
-      Restaurante
-    </Button>
-  </a>
-
-  <a href="/admin/aparencia/horarios">
-    <Button variant="outline">
-      Horários
-    </Button>
-  </a>
 
 </div>
-<div className="mb-6">
-
-  {premium ? (
-
-    <div
-      className="
-        inline-flex
-        items-center
-        gap-2
-        px-4
-        py-2
-        rounded-full
-        bg-green-500/20
-        border
-        border-green-500
-        text-green-400
-        font-semibold
-      "
-    >
-      🟢 Premium Ativo
-    </div>
-
-  ) : (
-
-    <div
-      className="
-        inline-flex
-        items-center
-        gap-2
-        px-4
-        py-2
-        rounded-full
-        bg-red-500/20
-        border
-        border-red-500
-        text-red-400
-        font-semibold
-      "
-    >
-      🔴 Plano Inativo
-    </div>
-
-  )}
-
-</div>
-
-<div className="flex items-center gap-3">
-
-            <Button
-              variant="outline"
-              onClick={() =>
-                setLightMode(
-                  !lightMode
-                )
-              }
-              className="
-                rounded-2xl
-                px-6
-              "
-            >
-              {
-                lightMode
-                  ? "Tema Escuro"
-                  : "Tema Claro"
-              }
-            </Button>
-
-            <Button
-              onClick={
-                saveChanges
-              }
-              className="
-                rounded-2xl
-                px-6
-              "
-              style={{
-                backgroundColor:
-                  selectedColor,
-              }}
-            >
-              Salvar Alterações
-            </Button>
-
-          </div>
-        </div>
-
         {
           savedMessage && (
 
@@ -826,71 +789,396 @@ console.log("UPDATE OK")
           )
         }
 
-        <div
-          className={`${cardBg} ${borderColor} border rounded-3xl p-6`}
-        >
+        
+<div
+  className={`${cardBg} ${borderColor} border rounded-3xl p-6 shadow-sm`}
+>
 
-          <h2
-            className={`text-3xl font-black ${textPrimary}`}
-          >
-            Cor Principal
-          </h2>
+  <div className="flex items-start gap-3 mb-6">
 
-          <p
-            className={`${textSecondary} mt-2`}
-          >
-            Escolha a identidade da sua marca
-          </p>
+    <div
+      className="
+        w-10
+        h-10
+        rounded-full
+        bg-red-50
+        flex
+        items-center
+        justify-center
+      "
+    >
+      🍽️
+    </div>
 
-          <div className="
-            flex
-            flex-wrap
-            gap-4
-            mt-8
-          ">
+    <div>
 
-            {
-              colors.map(
-                (color) => (
+      <h2
+        className={`text-2xl font-bold ${textPrimary}`}
+      >
+        Informações do Restaurante
+      </h2>
 
-                  <button
-                    key={color}
-                    onClick={() =>
-                      setSelectedColor(
-                        color
-                      )
-                    }
-                    className="
-                      w-14
-                      h-14
-                      rounded-2xl
-                      border-4
-                      hover:scale-110
-                      transition-all
-                    "
-                    style={{
-                      backgroundColor:
-                        color,
+      <p
+        className={`${textSecondary}`}
+      >
+        Essas informações aparecem no topo do cardápio.
+      </p>
 
-                      borderColor:
-                        selectedColor ===
-                        color
-                          ? "#ffffff"
-                          : "transparent",
-                    }}
-                  />
-                )
-              )
-            }
+    </div>
 
-          </div>
+  </div>
+
+  <div className="space-y-6 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0 mt-6">
+
+    <div>
+      <label className="font-semibold">
+        Categoria do restaurante
+      </label>
+
+      <input
+  type="text"
+  value={categoriaRestaurante}
+  onChange={(e) =>
+    setCategoriaRestaurante(e.target.value)
+  }
+  placeholder="Ex: Pizzaria, Hamburgueria, Açaiteria..."
+  className="
+    w-full
+    mt-2
+    border
+    rounded-xl
+    p-3
+  "
+/>
+    </div>
+
+<div className="mt-4">
+
+  <label className="font-semibold">
+    Nome do Restaurante
+  </label>
+
+  <input
+    type="text"
+    value={nomeRestaurante}
+    onChange={(e) =>
+      setNomeRestaurante(
+        e.target.value
+      )
+    }
+    placeholder="Ex: Minha Pizzaria"
+    className="
+      w-full
+      mt-2
+      border
+      rounded-xl
+      p-3
+    "
+  />
+
+</div>
+
+<div className="mt-4">
+
+  <label className="font-semibold">
+    Pedido mínimo
+  </label>
+
+  <input
+    type="number"
+    value={pedidoMinimo}
+    onChange={(e) =>
+      setPedidoMinimo(
+        e.target.value
+      )
+    }
+    placeholder="Ex: R$:49,00"
+    className="
+      w-full
+      mt-2
+      border
+      rounded-xl
+      p-3
+    "
+  />
+
+</div>
+
+<div>
+
+  <label className="font-semibold">
+    Tipo de atendimento
+  </label>
+
+<div className="
+  grid
+  grid-cols-2 md:grid-cols-3 lg:grid-cols-6
+  gap-4
+  mt-4
+">
+
+  {[
+    "Delivery",
+    "Retirada",
+    "Salão",
+    "Delivery + Retirada",
+    "Delivery + Salão",
+  ].map((tipo) => (
+
+   <button
+  key={tipo}
+  type="button"
+  onClick={() =>
+    setTipoAtendimento(tipo)
+  }
+  className={`
+    p-5
+    rounded-2xl
+    border
+    font-semibold
+    transition-all
+    min-h-[120px]
+
+    ${
+      tipoAtendimento === tipo
+        ? "border-red-700 bg-[#F7F1EC] text-red-700"
+        : "border-zinc-200 bg-white"
+    }
+  `}
+>
+
+  <div
+    className="
+      flex
+      flex-col
+      items-center
+      justify-center
+      gap-2
+    "
+  >
+
+   <span className="text-xl">
+
+  {
+    tipo === "Delivery"
+      ? "🛵"
+      : tipo === "Retirada"
+      ? "🛍️"
+      : tipo === "Salão"
+      ? "🍽️"
+      : tipo === "Delivery + Retirada"
+      ? "🛵🛍️"
+      : tipo === "Delivery + Salão"
+      ? "🛵🍽️"
+      : "⭐"
+  }
+
+</span>
+
+ <span
+  className="
+    text-[11px]
+    text-center
+    leading-tight
+    font-medium
+  "
+>
+  {tipo}
+</span> 
+
+  </div>
+
+</button> 
+
+  ))}
+
+</div>
+
+    </div>
+
+  </div>
+
+</div>
+     <div
+  className="
+    bg-white
+    border
+    border-[#DDD6CC]
+    rounded-3xl
+    p-6
+    mt-6
+  "
+>
+
+  <h2 className="text-2xl font-bold">
+    Cor principal do cardápio
+  </h2>
+
+  <p className="text-zinc-500 mt-2">
+    Escolha a identidade da sua marca
+  </p>
+
+
+  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
+
+    <button
+      onClick={() =>
+        setSelectedColor("#7F1D1D")
+      }
+      className={`
+        border
+        rounded-2xl
+        p-5
+        flex
+        items-center
+        gap-4
+
+        ${
+          selectedColor === "#7F1D1D"
+            ? "border-red-700"
+            : "border-zinc-200"
+        }
+      `}
+    >
+
+      <div
+        className="w-10 h-10 rounded-full"
+        style={{
+          backgroundColor: "#7F1D1D"
+        }}
+      />
+
+      <div>
+
+        <div className="font-bold">
+          Vinho
         </div>
 
-        <div className="
-          grid
-          lg:grid-cols-2
-          gap-6
-        ">
+        <div className="text-sm text-zinc-500">
+          Elegante e marcante
+        </div>
+
+      </div>
+
+    </button>
+
+    <button
+      onClick={() =>
+        setSelectedColor("#18181B")
+      }
+      className={`
+        border
+        rounded-2xl
+        p-5
+        flex
+        items-center
+        gap-4
+
+        ${
+          selectedColor === "#18181B"
+            ? "border-red-700"
+            : "border-zinc-200"
+        }
+      `}
+    >
+
+      <div
+        className="w-10 h-10 rounded-full"
+        style={{
+          backgroundColor: "#18181B"
+        }}
+      />
+
+      <div>
+
+        <div className="font-bold">
+          Preto
+        </div>
+
+        <div className="text-sm text-zinc-500">
+          Moderno e sofisticado
+        </div>
+
+      </div>
+
+    </button>
+     
+<div
+  className="
+    border
+    rounded-2xl
+    p-5
+  "
+>
+
+  <label className="font-bold">
+    Personalizada
+  </label>
+
+  <input
+    type="color"
+    value={selectedColor}
+    onChange={(e) =>
+      setSelectedColor(e.target.value)
+    }
+    className="
+      w-full
+      h-12
+      mt-3
+      cursor-pointer
+    "
+  />
+
+ <input
+  value={selectedColor}
+  onChange={(e) =>
+    setSelectedColor(e.target.value)
+  }
+  className="
+    mt-3
+    w-full
+    border
+    rounded-xl
+    p-2
+  "
+/>
+</div>
+
+<div className="mt-4">
+
+  <p className="text-sm font-semibold mb-2">
+    Prévia
+  </p>
+
+  <button
+    className="
+      w-full
+      rounded-xl
+      text-white
+      font-bold
+      py-3
+    "
+    style={{
+      backgroundColor: selectedColor,
+    }}
+  >
+    🛒 Exemplo de botão
+  </button>
+
+</div>
+
+</div>
+
+</div>
+
+<div
+  className="
+    grid
+    md:grid-cols-2
+    gap-6
+    mt-6
+  "
+>
 
           <div
             className={`${cardBg} ${borderColor} border rounded-3xl p-6`}
@@ -941,54 +1229,96 @@ console.log("UPDATE OK")
               }
             </div>
 
-            <div
-              onClick={() =>
-                logoInputRef.current?.click()
-              }
-              className="
-                mt-6
-                h-72
-                border-2
-                border-dashed
-                border-zinc-600
-                rounded-3xl
-                flex
-                items-center
-                justify-center
-                cursor-pointer
-                overflow-hidden
-              "
-            >
+            <div className="mt-6 flex gap-4">
 
-              {
-                logoPreview ? (
+  <div
+    onClick={() =>
+      logoInputRef.current?.click()
+    }
+    className="
+      w-24
+      h-24
+      rounded-full
+      border
+      border-zinc-200
+      overflow-hidden
+      cursor-pointer
+      flex
+      items-center
+      justify-center
+      bg-white
+    "
+  >
 
-                  <img
-                    src={logoPreview}
-                    alt="Logo"
-                    className="
-                      w-full
-                      h-full
-                      object-contain
-                      bg-white
-                    "
-                  />
+    {logoPreview ? (
 
-                ) : (
+      <img
+        src={logoPreview}
+        alt="Logo"
+        className="
+          w-full
+          h-full
+          object-cover
+        "
+      />
 
-                  <div className="text-center">
+    ) : (
 
-                    <p
-                      className={`font-bold ${textPrimary}`}
-                    >
-                      Clique para enviar logo
-                    </p>
+      <span className="text-zinc-400">
+        Logo
+      </span>
 
-                  </div>
-                )
-              }
+    )}
 
-            </div>
+  </div>
+
+  <div className="flex-1 space-y-3">
+
+    <button
+      type="button"
+      onClick={() =>
+        logoInputRef.current?.click()
+      }
+      className="
+        w-full
+        border
+        rounded-xl
+        py-3
+        font-semibold
+      "
+    >
+      Alterar logo
+    </button>
+
+    {logoPreview && (
+
+      <button
+        type="button"
+        onClick={removeLogo}
+        className="
+          w-full
+          border
+          border-red-300
+          text-red-600
+          rounded-xl
+          py-3
+          font-semibold
+        "
+      >
+        Remover
+      </button>
+
+    )}
+
+    <p className="text-sm text-zinc-500">
+      Formatos: PNG, JPG ou WEBP.
+      <br />
+      Tamanho recomendado: 512x512px
+    </p>
+
+  </div>
+
+</div>    
 
             <input
               type="file"
@@ -1051,53 +1381,96 @@ console.log("UPDATE OK")
               }
             </div>
 
-            <div
-              onClick={() =>
-                bannerInputRef.current?.click()
-              }
-              className="
-                mt-6
-                h-72
-                border-2
-                border-dashed
-                border-zinc-600
-                rounded-3xl
-                flex
-                items-center
-                justify-center
-                cursor-pointer
-                overflow-hidden
-              "
-            >
+            <div className="mt-6 space-y-4">
 
-              {
-                bannerPreview ? (
+  <div
+    onClick={() =>
+      bannerInputRef.current?.click()
+    }
+    className="
+      h-32
+      rounded-2xl
+      overflow-hidden
+      border
+      border-zinc-200
+      cursor-pointer
+      bg-zinc-50
+    "
+  >
 
-                  <img
-                    src={bannerPreview}
-                    alt="Banner"
-                    className="
-                      w-full
-                      h-full
-                      object-cover
-                    "
-                  />
+    {bannerPreview ? (
 
-                ) : (
+      <img
+        src={bannerPreview}
+        alt="Banner"
+        className="
+          w-full
+          h-full
+          object-cover
+        "
+      />
 
-                  <div className="text-center">
+    ) : (
 
-                    <p
-                      className={`font-bold ${textPrimary}`}
-                    >
-                      Clique para enviar banner
-                    </p>
+      <div
+        className="
+          h-full
+          flex
+          items-center
+          justify-center
+          text-zinc-400
+        "
+      >
+        Banner
+      </div>
 
-                  </div>
-                )
-              }
+    )}
 
-            </div>
+  </div>
+
+  <button
+    type="button"
+    onClick={() =>
+      bannerInputRef.current?.click()
+    }
+    className="
+      w-full
+      border
+      rounded-xl
+      py-3
+      font-semibold
+    "
+  >
+    Alterar banner
+  </button>
+
+  {bannerPreview && (
+
+    <button
+      type="button"
+      onClick={removeBanner}
+      className="
+        w-full
+        border
+        border-red-300
+        text-red-600
+        rounded-xl
+        py-3
+        font-semibold
+      "
+    >
+      Remover
+    </button>
+
+  )}
+
+  <p className="text-sm text-zinc-500">
+    Formatos: PNG, JPG ou WEBP.
+    <br />
+    Tamanho recomendado: 1920x600px
+  </p>
+
+</div>
 
                        <input
               type="file"
@@ -1111,6 +1484,53 @@ console.log("UPDATE OK")
 
           </div>
         </div>
+
+        <div
+  className="
+    bg-white
+    border
+    border-[#DDD6CC]
+    rounded-3xl
+    p-6
+    flex
+    gap-4
+    mt-6
+  "
+>
+
+  <Link
+    href={`/${slug}`}
+    target="_blank"
+    className="
+      flex-1
+      border
+      rounded-2xl
+      p-4
+      text-center
+      font-semibold
+    "
+  >
+    👁 Ver Cardápio
+  </Link>
+
+  <button
+    onClick={saveChanges}
+    className="
+      flex-1
+      rounded-2xl
+      text-white
+      font-bold
+    "
+    style={{
+      backgroundColor:
+        selectedColor,
+      padding: "16px",
+    }}
+  >
+    Salvar Alterações
+  </button>
+
+</div>
 
       </div>
     </main>

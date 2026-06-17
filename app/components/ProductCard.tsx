@@ -5,11 +5,13 @@ import type { ProdutoFormatado } from "../types"
 type Props = {
   product: ProdutoFormatado
   onAdd: () => void
+  corPrincipal: string
 }
 
 export default function ProductCard({
   product,
   onAdd,
+  corPrincipal,
 }: Props) {
 
   const lightMode =
@@ -19,12 +21,7 @@ export default function ProductCard({
         ) === "true"
       : false
 
-  const selectedColor =
-    typeof window !== "undefined"
-      ? localStorage.getItem(
-          "cardapio-primary-color"
-        ) || "#7F1D1D"
-      : "#7F1D1D"
+  
 
   const cardBg = lightMode
     ? "bg-white"
@@ -60,33 +57,32 @@ export default function ProductCard({
         ${cardBg}
         ${borderColor}
         border
-        rounded-[32px]
+        rounded-2xl
         overflow-hidden
         transition-all
         hover:scale-[1.02]
       `}
     >
 
-      <div className="relative h-72 overflow-hidden">
+      <div className="relative h-36 md:h-40 overflow-hidden">
         {product.promocao && (
-  <div
+ <div
   className="
     absolute
     top-4
     left-4
     z-20
-    bg-gradient-to-r
-    from-red-500
-    to-red-700
     text-white
-    text-sm
+    text-xs
     font-black
-    px-4
-    py-2
+    px-3
+    py-1
     rounded-full
     shadow-xl
-    animate-pulse
   "
+  style={{
+    backgroundColor: corPrincipal
+  }}
 >
  {percentualDesconto}% OFF
 </div>
@@ -119,11 +115,11 @@ export default function ProductCard({
 
       </div>
 
-      <div className="p-5">
+      <div className="p-3">
 
         <h3
           className={`
-            text-2xl
+            text-lg md:text-xl
             font-black
             ${textPrimary}
           `}
@@ -132,12 +128,13 @@ export default function ProductCard({
         </h3>
 
         <p
-          className={`
-            mt-2
-            text-sm
-            ${textSecondary}
-          `}
-        >
+  className={`
+    mt-1
+    text-xs md:text-sm
+    line-clamp-1
+    ${textSecondary}
+  `}
+>
           {product.descricao}
         </p>
 
@@ -145,7 +142,7 @@ export default function ProductCard({
           flex
           items-center
           justify-between
-          mt-6
+          mt-3
         ">
 
           <div className="flex flex-col">
@@ -155,7 +152,7 @@ export default function ProductCard({
 
     <span
   className="
-    text-base
+    text-sm
     text-zinc-500
     line-through
     font-medium
@@ -170,12 +167,12 @@ export default function ProductCard({
 
  <span
   className="
-    text-3xl
+    text-xl md:text-2xl
     font-black
   "
   style={{
-    color: selectedColor,
-  }}
+  color: corPrincipal,
+}}
 >
  R$ {product.preco.toLocaleString("pt-BR", {
   minimumFractionDigits: 2,
@@ -187,7 +184,7 @@ export default function ProductCard({
 
   <span
     className="
-      text-sm
+      text-xs
       text-emerald-600
       font-bold
       mt-1
@@ -208,18 +205,19 @@ export default function ProductCard({
           <button
             onClick={onAdd}
             className="
-              px-5
-              py-3
-              rounded-2xl
+              px-3
+py-2
+rounded-lg
+text-xs
               font-bold
               text-white
               transition-all
               hover:scale-105
             "
             style={{
-              backgroundColor:
-                selectedColor,
-            }}
+  backgroundColor:
+    corPrincipal,
+}}
           >
             Adicionar
           </button>
