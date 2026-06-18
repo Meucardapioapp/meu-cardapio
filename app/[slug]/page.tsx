@@ -223,6 +223,11 @@ useEffect(() => {
         .eq("slug", slug)
         .single()
 
+        alert(
+  "RESTAURANTE: " +
+  restauranteData?.id
+)
+
       if (
         restauranteError ||
         !restauranteData
