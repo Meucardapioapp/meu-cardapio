@@ -867,6 +867,7 @@ pt-0
     h-[220px]
     md:h-[420px]
     rounded-3xl
+    overflow-hidden
     relative
   "
 
@@ -900,7 +901,7 @@ backgroundPosition: "center",
 
   <h1
     className="
-      text-2xl
+      text-xl
       md:text-5xl
       font-black
     "
@@ -966,8 +967,8 @@ z-[999]
 >
   <div
     className="
-      w-12
-      h-12
+      w-20
+      h-20
       md:w-40
       md:h-40
       rounded-full
@@ -1293,9 +1294,9 @@ justify-center
   <div
     className="
       fixed
-      bottom-4
-      left-4
-      right-4
+      bottom-3
+      left-3
+      right-3
       max-w-7xl
 mx-auto
       z-[999]
@@ -1324,8 +1325,8 @@ mx-auto
 
         <div
           className="
-            w-16
-            h-16
+            w-12
+            h-12
             rounded-xl
             overflow-hidden
             bg-white
