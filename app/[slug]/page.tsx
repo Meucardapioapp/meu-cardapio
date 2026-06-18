@@ -287,6 +287,17 @@ console.log(
   "COR DO BANCO:",
   aparenciaData.cor_primaria
 )
+alert(
+  "COR: " + aparenciaData.cor_primaria
+)
+
+alert(
+  "LOGO: " + aparenciaData.logo_url
+)
+
+alert(
+  "BANNER: " + aparenciaData.banner_url
+)
 
 console.log(
   "LOGO DO BANCO:",
