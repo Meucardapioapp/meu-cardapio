@@ -265,6 +265,21 @@ useEffect(() => {
 
 const aparenciaData =
   aparenciaArray?.[0]
+  alert(
+  "APARENCIA: " +
+  aparenciaData?.restaurante_id
+)
+
+
+alert(
+  "APARENCIA: " +
+  aparenciaData?.restaurante_id
+)
+
+alert(
+  "COR: " +
+  aparenciaData?.cor_primaria
+)
 
   console.log(
   "APARENCIA ARRAY:",
