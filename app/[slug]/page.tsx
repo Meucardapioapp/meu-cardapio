@@ -961,7 +961,7 @@ backgroundPosition: "center",
   flex
   flex-col
   items-center
-  -mt-8
+  -mt-16
   relative
   z-20
 ">
@@ -1007,14 +1007,14 @@ backgroundPosition: "center",
         pb-12
       ">
 
-        <div className="mb-6"></div>
+        
 
         <div className="
 sticky
-top-16
+top-2
 z-40
--mt-6
-md:-mt-8
+-mt-40
+md:-mt-28
 mb-6
 ">
 
