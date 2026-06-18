@@ -263,6 +263,10 @@ useEffect(() => {
   )
   .limit(1)
 
+  alert(
+  JSON.stringify(aparenciaArray)
+)
+
 const aparenciaData =
   aparenciaArray?.[0]
   alert(
