@@ -911,7 +911,7 @@ backgroundPosition: "center",
     }
   </h1>
 
-  <p className="mt-1 text-sm">
+  <p className="mt-1 text-xs">
     {aparencia?.categoria_restaurante}
     {" • "}
     {aparencia?.tipo_atendimento}
@@ -960,14 +960,14 @@ backgroundPosition: "center",
     absolute
 left-1/2
 -translate-x-1/2
--bottom-8
+-bottom-0
 z-[999]
   "
 >
   <div
     className="
-      w-16
-      h-16
+      w-12
+      h-12
       md:w-40
       md:h-40
       rounded-full
@@ -1305,8 +1305,8 @@ mx-auto
       className="
         rounded-3xl
         shadow-2xl
-        px-4
-        py-3
+        px-3
+        py-2
         flex
         items-center
         justify-between
@@ -1347,7 +1347,7 @@ mx-auto
 
         <div className="text-white">
 
-          <p className="font-bold text-lg">
+          <p className="font-bold text-base">
             {cart.reduce(
               (acc, item) =>
                 acc + item.quantity,
@@ -1355,7 +1355,7 @@ mx-auto
             )} itens no carrinho
           </p>
 
-          <p className="text-white/80 text-sm">
+          <p className="text-white/80 text-xs">
             Total: R$ {total.toLocaleString(
   "pt-BR",
   {
@@ -1378,8 +1378,8 @@ mx-auto
           hover:bg-emerald-600
           text-white
           font-semibold
-          px-5
-          py-3
+          px-4
+          py-2
           rounded-xl
           transition-all
         "
