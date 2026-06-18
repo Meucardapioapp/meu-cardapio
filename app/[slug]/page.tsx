@@ -30,6 +30,7 @@ export default function CardapioPage() {
 const params = useParams()
 
 const slug = params.slug as string
+alert("SLUG: " + slug)
 console.log("SLUG ATUAL:", slug)
 
 useEffect(() => {
