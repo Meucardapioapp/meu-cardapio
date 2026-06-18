@@ -1003,7 +1003,7 @@ backgroundPosition: "center",
         max-w-7xl
         mx-auto
         px-5
-        pt-0 
+        pt-0
         pb-12
       ">
 
