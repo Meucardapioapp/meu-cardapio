@@ -14,30 +14,15 @@ export default function ProductCard({
   corPrincipal,
 }: Props) {
 
-  const lightMode =
-    typeof window !== "undefined"
-      ? localStorage.getItem(
-          "cardapio-light-mode"
-        ) === "true"
-      : false
+  const lightMode = true
 
-  
+const cardBg = "bg-white"
 
-  const cardBg = lightMode
-    ? "bg-white"
-    : "bg-zinc-900"
+ const borderColor = "border-[#DDD6CC]"
 
-  const borderColor = lightMode
-    ? "border-[#DDD6CC]"
-    : "border-zinc-800"
+const textPrimary = "text-zinc-900"
 
-  const textPrimary = lightMode
-    ? "text-zinc-900"
-    : "text-white"
-
-  const textSecondary = lightMode
-    ? "text-zinc-500"
-    : "text-zinc-400"
+const textSecondary = "text-zinc-500"
 
     const percentualDesconto =
   product.precoAntigo &&
