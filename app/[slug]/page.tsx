@@ -867,7 +867,7 @@ pt-0
     h-[210px]
     md:h-[420px]
     rounded-3xl
-    overflow-visible
+    overflow-hidden
     relative
   "
 
@@ -883,7 +883,7 @@ backgroundPosition: "center",
 
    {/* ESCURECER BANNER */}
 
-<div className="absolute inset-0 bg-black/50 z-10" />
+<div className="absolute inset-0 bg-black/50 rounded-3xl z-10" />
 
 {/* TEXTO SOBRE O BANNER */}
 
