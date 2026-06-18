@@ -139,12 +139,12 @@ export default function ProductModal({
           <img
             src={product.imagem}
             alt={product.nome}
-            className="w-full h-40 object-cover"
+            className="w-full h-36 object-cover"
           />
 
         )}
 
-        <div className="p-5">
+        <div className="p-4">
 
           <div className="flex items-start justify-between gap-4">
 
@@ -208,8 +208,9 @@ export default function ProductModal({
                             flex
                             items-center
                             justify-between
-                            p-3
-                            rounded-xl
+                            py-2 
+                            px-3 
+                            rounded-lg
                             border
                             transition
                             ${ativo
@@ -274,7 +275,7 @@ export default function ProductModal({
               placeholder="Ex: sem cebola, molho separado..."
               className={`
                 w-full
-                h-20
+                h-16
                 rounded-2xl
                 p-4
                 outline-none
@@ -286,8 +287,22 @@ export default function ProductModal({
 
           </div>
 
-          <div className="mt-6 flex items-center justify-between">
-
+         <div
+className="
+sticky
+bottom-0
+bg-white
+px-1
+pt-3
+pb-3
+mt-6
+flex
+items-center
+justify-between
+border-t
+border-zinc-200
+"
+>
             <div>
 
               <p className={`${textSecondary} text-sm`}>
