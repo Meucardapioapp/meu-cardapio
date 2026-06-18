@@ -857,7 +857,7 @@ function obterHorarioFechamento() {
      <section className="
 max-w-7xl
 mx-auto
-px-2
+px-1
 pt-0
 ">
 
@@ -974,42 +974,45 @@ text-[10px]
 
 </div>
 
+{logo && (
+
 <div
-  className="
-    absolute
-left-1/2
--translate-x-1/2
--bottom-12
-z-[999]
-  "
+className="
+absolute
+right-8
+bottom-8
+z-30
+"
 >
-  <div
-    className="
-      w-24
-      h-24
-      md:w-40
-      md:h-40
-      rounded-full
-      overflow-hidden
-      border-4
-      border-white
-      bg-white
-      shadow-lg
-    "
-  >
-    {logo && (
-      <img
-        src={logo}
-        alt="Logo"
-        className="
-          w-full
-          h-full
-          object-cover
-        "
-      />
-    )}
-  </div>
+
+<div
+className="
+w-24
+h-24
+rounded-full
+bg-white
+shadow-2xl
+border-4
+border-white
+overflow-hidden
+"
+>
+
+<img
+src={logo}
+alt="Logo"
+className="
+w-full
+h-full
+object-cover
+"
+/>
+
 </div>
+
+</div>
+
+)}
 
 </div>
 
@@ -1032,7 +1035,7 @@ sticky
 top-2
 z-20
 mt-0
-mb-2
+mb-6
 ">
 
 <div
@@ -1237,7 +1240,7 @@ justify-center
   ref={(el) => {
     categoriaRefs.current[categoria] = el
   }}
-  className="mb-8"
+  className="mb-12"
 >
 
       <h3
