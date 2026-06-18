@@ -49,19 +49,19 @@ const textSecondary = "text-zinc-500"
       `}
     >
 
-      <div className="relative h-36 md:h-40 overflow-hidden">
+      <div className="relative h-28 md:h-40 overflow-hidden">
         {product.promocao && (
  <div
   className="
     absolute
-    top-4
-    left-4
+    top-2
+    left-2
     z-20
     text-white
-    text-xs
+    text-[11px]
     font-black
-    px-3
-    py-1
+    px-2
+    py-0.5
     rounded-full
     shadow-xl
   "
@@ -100,11 +100,11 @@ const textSecondary = "text-zinc-500"
 
       </div>
 
-      <div className="p-3">
+      <div className="p-2.5">
 
         <h3
           className={`
-            text-lg md:text-xl
+            text-base md:text-xl
             font-black
             ${textPrimary}
           `}
@@ -115,7 +115,7 @@ const textSecondary = "text-zinc-500"
         <p
   className={`
     mt-1
-    text-xs md:text-sm
+    text-[11px] md:text-sm
     line-clamp-1
     ${textSecondary}
   `}
@@ -127,10 +127,10 @@ const textSecondary = "text-zinc-500"
           flex
           items-center
           justify-between
-          mt-3
+          mt-2
         ">
 
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
 
   {product.precoAntigo &&
     product.precoAntigo > product.preco && (
@@ -152,12 +152,14 @@ const textSecondary = "text-zinc-500"
 
  <span
   className="
-    text-xl md:text-2xl
+    text-lg
+    md:text-2xl
     font-black
+    whitespace-nowrap
   "
   style={{
-  color: corPrincipal,
-}}
+    color: corPrincipal,
+  }}
 >
  R$ {product.preco.toLocaleString("pt-BR", {
   minimumFractionDigits: 2,
@@ -169,7 +171,7 @@ const textSecondary = "text-zinc-500"
 
   <span
     className="
-      text-xs
+      text-[11px]
       text-emerald-600
       font-bold
       mt-1
@@ -190,10 +192,10 @@ const textSecondary = "text-zinc-500"
           <button
             onClick={onAdd}
             className="
-              px-3
-py-2
+              px-2
+py-1
 rounded-lg
-text-xs
+text-[10px]
               font-bold
               text-white
               transition-all
