@@ -255,6 +255,21 @@ useEffect(() => {
 const aparenciaData =
   aparenciaArray?.[0]
 
+  console.log(
+  "APARENCIA ARRAY:",
+  aparenciaArray
+)
+
+console.log(
+  "APARENCIA ERROR:",
+  aparenciaError
+)
+
+console.log(
+  "RESTAURANTE ID:",
+  restauranteData.id
+)
+
    if (
   aparenciaData &&
   !aparenciaError
@@ -280,6 +295,10 @@ console.log(
     null,
     2
   )
+)
+console.log(
+  "COR PRIMARIA:",
+  aparenciaData?.cor_primaria
 )
 
 console.log(
