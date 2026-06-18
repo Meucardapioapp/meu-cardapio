@@ -902,7 +902,7 @@ backgroundPosition: "center",
 
   <h1
     className="
-      text-2xl
+      text-xl
       md:text-5xl
       font-black
     "
@@ -913,7 +913,7 @@ backgroundPosition: "center",
     }
   </h1>
 
-  <p className="mt-1 text-xs">
+  <p className="mt-1 text-[11px]">
     {aparencia?.categoria_restaurante}
     {" • "}
     {aparencia?.tipo_atendimento}
@@ -925,7 +925,7 @@ backgroundPosition: "center",
   <span
   className="
 font-semibold
-text-xs
+text-[11px]
 "
   style={{
     color: obterStatusLoja().includes("Aberto")
@@ -957,7 +957,7 @@ text-xs
     backdrop-blur-sm
     px-3
     py-1
-    text-xs
+    text-[11px]
     font-medium
   "
 >
@@ -980,7 +980,7 @@ text-xs
     absolute
 left-1/2
 -translate-x-1/2
--bottom-12
+-bottom-8
 z-[999]
   "
 >
@@ -1367,7 +1367,7 @@ mx-auto
 
         <div className="text-white">
 
-          <p className="font-bold text-xs">
+          <p className="font-bold text-[11px]">
             {cart.reduce(
               (acc, item) =>
                 acc + item.quantity,
