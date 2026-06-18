@@ -30,7 +30,6 @@ export default function CardapioPage() {
 const params = useParams()
 
 const slug = params.slug as string
-alert("SLUG: " + slug)
 console.log("SLUG ATUAL:", slug)
 
 useEffect(() => {
@@ -223,15 +222,6 @@ useEffect(() => {
         .eq("slug", slug)
         .single()
 
-        alert(
-  "RESTAURANTE JSON: " +
-  JSON.stringify(restauranteData)
-)
-
-        alert(
-  "RESTAURANTE: " +
-  restauranteData?.id
-)
 
       if (
         restauranteError ||
@@ -268,38 +258,13 @@ useEffect(() => {
   )
   .limit(1)
 
-  alert(
-  "BUSCANDO ID: " +
-  restauranteData.id
-)
-
 console.log(
   "BUSCANDO ID:",
   restauranteData.id
 )
 
- alert(
-  "RESULTADO: " +
-  JSON.stringify(aparenciaArray)
-)
-
 const aparenciaData =
   aparenciaArray?.[0]
-  alert(
-  "APARENCIA: " +
-  aparenciaData?.restaurante_id
-)
-
-
-alert(
-  "APARENCIA: " +
-  aparenciaData?.restaurante_id
-)
-
-alert(
-  "COR: " +
-  aparenciaData?.cor_primaria
-)
 
   console.log(
   "APARENCIA ARRAY:",
@@ -327,17 +292,6 @@ console.log(
 console.log(
   "COR DO BANCO:",
   aparenciaData.cor_primaria
-)
-alert(
-  "COR: " + aparenciaData.cor_primaria
-)
-
-alert(
-  "LOGO: " + aparenciaData.logo_url
-)
-
-alert(
-  "BANNER: " + aparenciaData.banner_url
 )
 
 console.log(
