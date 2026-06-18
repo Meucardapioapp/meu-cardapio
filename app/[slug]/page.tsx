@@ -864,7 +864,7 @@ pt-0
   <div
   className="
     w-full
-   h-[300px]
+   h-[220px]
 md:h-[420px]
       rounded-3xl
       overflow-hidden
@@ -882,7 +882,7 @@ backgroundPosition: "center",
 
    {/* ESCURECER BANNER */}
 
-
+<div className="absolute inset-0 bg-black/40 z-10" />
 
 {/* TEXTO SOBRE O BANNER */}
 
@@ -900,7 +900,7 @@ backgroundPosition: "center",
 
   <h1
     className="
-      text-4xl
+      text-3xl
       md:text-6xl
       font-black
     "
@@ -911,7 +911,7 @@ backgroundPosition: "center",
     }
   </h1>
 
-  <p className="mt-2 text-lg">
+  <p className="mt-2 text-base">
     {aparencia?.categoria_restaurante}
     {" • "}
     {aparencia?.tipo_atendimento}
@@ -961,14 +961,14 @@ backgroundPosition: "center",
   flex
   flex-col
   items-center
-  -mt-20
+  -mt-12
   relative
   z-20
 ">
 
     <div className="
-  w-28
-  h-28
+  w-20
+  h-20
   md:w-40
   md:h-40
   rounded-full
@@ -1013,9 +1013,9 @@ backgroundPosition: "center",
 sticky
 top-16
 z-40
--mt-24
+-mt-10
 md:-mt-10
-mb-8
+mb-6
 ">
 
 <div
@@ -1025,8 +1025,8 @@ rounded-3xl
 shadow-lg
 border
 border-zinc-100
-px-4
-py-4
+px-3
+py-3
 overflow-hidden
 "
 >
@@ -1084,8 +1084,8 @@ pr-10
   }
 }}
     className="
-      px-8
-      h-14
+      px-6
+      h-12
       rounded-2xl
       font-semibold
       whitespace-nowrap
@@ -1307,8 +1307,8 @@ mx-auto
       className="
         rounded-3xl
         shadow-2xl
-        px-6
-        py-5
+        px-4
+        py-3
         flex
         items-center
         justify-between
@@ -1380,8 +1380,8 @@ mx-auto
           hover:bg-emerald-600
           text-white
           font-semibold
-          px-10
-          py-4
+          px-6
+          py-3
           rounded-xl
           transition-all
         "

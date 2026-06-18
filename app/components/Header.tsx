@@ -56,7 +56,7 @@ export default function Header({
           max-w-7xl
           mx-auto
           px-5
-          h-20
+          h-[68px]
           flex
           items-center
           justify-between
@@ -64,8 +64,8 @@ export default function Header({
       >
         <div
           className="
-            w-12
-            h-12
+            w-10
+            h-10
             rounded-full
             overflow-hidden
             border
@@ -141,8 +141,8 @@ borderColor: corPrincipal || selectedColor,
           }}
           className="
             transition-all
-            px-5
-            py-3
+            px-4
+            py-2.5
             rounded-xl
             text-white
             font-semibold
@@ -155,7 +155,7 @@ borderColor: corPrincipal || selectedColor,
         >
   <div className="flex items-center gap-3">
     <ShoppingCart
-  size={22}
+  size={20}
   strokeWidth={1.8}
 />
    <span>
