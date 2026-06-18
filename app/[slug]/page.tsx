@@ -860,6 +860,7 @@ mx-auto
 px-4
 pt-0
 ">
+<div className="h-10 md:h-14" />
 
  <div
   className="
@@ -890,9 +891,9 @@ backgroundPosition: "center",
 <div
   className="
     absolute
-    left-8
+    left-6
     md:left-12
-    top-1/2
+    top-[42%]
     -translate-y-1/2
     z-20
     text-white
@@ -901,7 +902,7 @@ backgroundPosition: "center",
 
   <h1
     className="
-      text-xl
+      text-2xl
       md:text-5xl
       font-black
     "
@@ -922,7 +923,10 @@ backgroundPosition: "center",
 
     <div className="flex items-center gap-2 mt-2">
   <span
-  className="font-bold"
+  className="
+font-semibold
+text-xs
+"
   style={{
     color: obterStatusLoja().includes("Aberto")
       ? "#22C55E"
@@ -943,16 +947,31 @@ backgroundPosition: "center",
 
   </div>
 
-  <p className="mt-2 text-base">
-    Pedido mínimo:
-    {" "}
-    R$
-    {Number(
+  <div
+  className="
+    mt-3
+    inline-flex
+    items-center
+    rounded-full
+    bg-white/15
+    backdrop-blur-sm
+    px-3
+    py-1
+    text-xs
+    font-medium
+  "
+>
+  💰 Pedido mínimo R$ {
+    Number(
       aparencia?.pedido_minimo || 0
-    ).toLocaleString("pt-BR", {
-      minimumFractionDigits: 2,
-    })}
-  </p>
+    ).toLocaleString(
+      "pt-BR",
+      {
+        minimumFractionDigits: 2,
+      }
+    )
+  }
+</div>
 
 </div>
 
@@ -961,7 +980,7 @@ backgroundPosition: "center",
     absolute
 left-1/2
 -translate-x-1/2
--bottom-0
+-bottom-12
 z-[999]
   "
 >
@@ -1139,7 +1158,7 @@ onClick={() => {
 className="
 absolute
 left-0
-top-1/2
+top-[42%]
 -translate-y-1/2
 z-20
 w-8
@@ -1171,7 +1190,7 @@ onClick={() => {
 className="
 absolute
 right-0
-top-1/2
+top-[42%]
 -translate-y-1/2
 z-20
 w-8
@@ -1294,9 +1313,9 @@ justify-center
   <div
     className="
       fixed
-      bottom-3
-      left-3
-      right-3
+      bottom-2
+      left-2
+      right-2
       max-w-7xl
 mx-auto
       z-[999]
@@ -1304,10 +1323,10 @@ mx-auto
   >
     <div
       className="
-        rounded-3xl
+        rounded-2xl
         shadow-2xl
-        px-3
-        py-2
+        px-2
+        py-1.5
         flex
         items-center
         justify-between
@@ -1325,8 +1344,8 @@ mx-auto
 
         <div
           className="
-            w-12
-            h-12
+            w-9
+            h-9
             rounded-xl
             overflow-hidden
             bg-white
@@ -1348,7 +1367,7 @@ mx-auto
 
         <div className="text-white">
 
-          <p className="font-bold text-base">
+          <p className="font-bold text-xs">
             {cart.reduce(
               (acc, item) =>
                 acc + item.quantity,
@@ -1356,7 +1375,7 @@ mx-auto
             )} itens no carrinho
           </p>
 
-          <p className="text-white/80 text-xs">
+          <p className="text-white/80 text-[11px]">
             Total: R$ {total.toLocaleString(
   "pt-BR",
   {
@@ -1379,7 +1398,7 @@ mx-auto
           hover:bg-emerald-600
           text-white
           font-semibold
-          px-4
+          px-3
           py-2
           rounded-xl
           transition-all
