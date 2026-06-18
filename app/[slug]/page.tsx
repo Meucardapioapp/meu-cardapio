@@ -900,8 +900,8 @@ backgroundPosition: "center",
 
   <h1
     className="
-      text-3xl
-      md:text-6xl
+      text-2xl
+      md:text-5xl
       font-black
     "
   >
@@ -911,7 +911,7 @@ backgroundPosition: "center",
     }
   </h1>
 
-  <p className="mt-2 text-base">
+  <p className="mt-1 text-sm">
     {aparencia?.categoria_restaurante}
     {" • "}
     {aparencia?.tipo_atendimento}
@@ -942,7 +942,7 @@ backgroundPosition: "center",
 
   </div>
 
-  <p className="mt-3 text-lg">
+  <p className="mt-2 text-base">
     Pedido mínimo:
     {" "}
     R$
@@ -958,10 +958,10 @@ backgroundPosition: "center",
 <div
   className="
     absolute
-    left-1/2
-    -translate-x-1/2
-    -bottom-8
-    z-30
+left-1/2
+-translate-x-1/2
+-bottom-8
+z-[999]
   "
 >
   <div
@@ -1011,7 +1011,7 @@ backgroundPosition: "center",
         <div className="
 sticky
 top-2
-z-40
+z-20
 mt-2
 mb-4
 ">
