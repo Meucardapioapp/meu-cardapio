@@ -861,15 +861,15 @@ px-4
 pt-0
 ">
 
-  <div
+ <div
   className="
     w-full
-   h-[220px]
-md:h-[420px]
-      rounded-3xl
-      overflow-hidden
-      relative
-    "
+    h-[220px]
+    md:h-[420px]
+    rounded-3xl
+    relative
+  "
+
     style={{
       backgroundImage: banner
         ? `url(${banner})`
