@@ -30,6 +30,7 @@ export default function CardapioPage() {
 const params = useParams()
 
 const slug = params.slug as string
+console.log("SLUG ATUAL:", slug)
 
 useEffect(() => {
   localStorage.setItem(
@@ -237,6 +238,10 @@ useEffect(() => {
       setRestaurante(
         restauranteData
       )
+      console.log(
+  "RESTAURANTE ENCONTRADO:",
+  restauranteData
+)
 
       /* APARÊNCIA */
 
@@ -278,6 +283,21 @@ console.log(
   setAparencia(
   aparenciaData
 )
+console.log(
+  "COR DO BANCO:",
+  aparenciaData.cor_primaria
+)
+
+console.log(
+  "LOGO DO BANCO:",
+  aparenciaData.logo_url
+)
+
+console.log(
+  "BANNER DO BANCO:",
+  aparenciaData.banner_url
+)
+
 console.log(
   "PEDIDO APARENCIA DATA:",
   aparenciaData.pedido_minimo
