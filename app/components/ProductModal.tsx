@@ -5,7 +5,6 @@ import {
   useState,
 } from "react"
 
-import { getThemeSettings } from "@/app/lib/theme"
 
 type Adicional = {
   nome: string
@@ -21,6 +20,8 @@ type Props = {
 
   product: ProdutoFormatado | null
 
+  corPrincipal: string
+
   onAdd: (
     produto: ProdutoFormatado,
     observation?: string,
@@ -33,12 +34,11 @@ export default function ProductModal({
   onClose,
   product,
   onAdd,
+  corPrincipal,
 }: Props) {
+  console.log("COR MODAL:", corPrincipal)
 
-  const {
-    lightMode,
-    selectedColor,
-  } = getThemeSettings()
+  const lightMode = true
 
   const [observation, setObservation] =
     useState("")
@@ -123,25 +123,34 @@ export default function ProductModal({
 
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5">
 
-      <div className={`${bgMain} rounded-3xl w-full max-w-lg overflow-hidden`}>
+      <div
+  className={`
+    ${bgMain}
+    rounded-3xl
+    w-full
+    max-w-[520px]
+    max-h-[90vh]
+    overflow-y-auto
+  `}
+>
 
         {product.imagem && (
 
           <img
             src={product.imagem}
             alt={product.nome}
-            className="w-full h-60 object-cover"
+            className="w-full h-40 object-cover"
           />
 
         )}
 
-        <div className="p-6">
+        <div className="p-5">
 
           <div className="flex items-start justify-between gap-4">
 
             <div>
 
-              <h2 className={`text-3xl font-black ${textPrimary}`}>
+              <h2 className={`text-2xl font-black ${textPrimary}`}>
                 {product.nome}
               </h2>
 
@@ -199,8 +208,8 @@ export default function ProductModal({
                             flex
                             items-center
                             justify-between
-                            p-4
-                            rounded-2xl
+                            p-3
+                            rounded-xl
                             border
                             transition
                             ${ativo
@@ -212,9 +221,9 @@ export default function ProductModal({
                             ativo
                               ? {
                                   borderColor:
-                                    selectedColor,
+                                    corPrincipal,
                                   backgroundColor:
-                                    `${selectedColor}15`,
+                                    `${corPrincipal}15`,
                                 }
                               : {}
                           }
@@ -228,7 +237,7 @@ export default function ProductModal({
                             className="font-bold"
                             style={{
                               color:
-                                selectedColor,
+                                corPrincipal,
                             }}
                           >
                             R${" "}
@@ -265,7 +274,7 @@ export default function ProductModal({
               placeholder="Ex: sem cebola, molho separado..."
               className={`
                 w-full
-                h-28
+                h-20
                 rounded-2xl
                 p-4
                 outline-none
@@ -286,10 +295,10 @@ export default function ProductModal({
               </p>
 
               <h3
-                className="text-3xl font-black"
+                className="text-2xl font-black"
                 style={{
                   color:
-                    selectedColor,
+                    corPrincipal,
                 }}
               >
                 R$ {total.toFixed(2)}
@@ -311,17 +320,17 @@ export default function ProductModal({
               }}
               className="
                 transition
-                px-8
-                py-4
-                rounded-2xl
+                px-6
+                py-3
+                rounded-xl
                 font-bold
-                text-lg
+                text-base
                 text-white
                 hover:scale-105
               "
               style={{
                 backgroundColor:
-                  selectedColor,
+                  corPrincipal,
               }}
             >
               Adicionar

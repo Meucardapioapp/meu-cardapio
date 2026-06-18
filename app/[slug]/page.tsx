@@ -1232,13 +1232,12 @@ justify-center
       
 
       <ProductModal
-        open={openModal}
-        onClose={() =>
-          setOpenModal(false)
-        }
-        product={selectedProduct}
-        onAdd={addToCart}
-      />
+  open={openModal}
+  onClose={() => setOpenModal(false)}
+  product={selectedProduct}
+  onAdd={addToCart}
+  corPrincipal={corPrincipal}
+/>
 
     <CheckoutModal
   open={openCheckout}
