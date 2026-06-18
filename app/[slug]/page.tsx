@@ -955,45 +955,44 @@ backgroundPosition: "center",
 
 </div>
 
+<div
+  className="
+    absolute
+    left-1/2
+    -translate-x-1/2
+    -bottom-8
+    z-30
+  "
+>
+  <div
+    className="
+      w-16
+      h-16
+      md:w-40
+      md:h-40
+      rounded-full
+      overflow-hidden
+      border-4
+      border-white
+      bg-white
+      shadow-lg
+    "
+  >
+    {logo && (
+      <img
+        src={logo}
+        alt="Logo"
+        className="
+          w-full
+          h-full
+          object-cover
+        "
+      />
+    )}
   </div>
+</div>
 
- <div className="
-  flex
-  flex-col
-  items-center
-  -mt-16
-  relative
-  z-20
-">
-
-    <div className="
-  w-16
-  h-16
-  md:w-40
-  md:h-40
-  rounded-full
-  overflow-hidden
-  border-4
-  border-white
-  bg-white
-  shadow-lg
-">
-
-      {logo && (
-        <img
-          src={logo}
-          alt="Logo"
-          className="
-            w-full
-            h-full
-            object-cover
-          "
-        />
-      )}
-
-    </div>
-
- </div>
+</div>
 
 
 
@@ -1013,9 +1012,8 @@ backgroundPosition: "center",
 sticky
 top-2
 z-40
--mt-40
-md:-mt-28
-mb-6
+mt-2
+mb-4
 ">
 
 <div
