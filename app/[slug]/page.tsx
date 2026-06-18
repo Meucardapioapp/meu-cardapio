@@ -961,14 +961,14 @@ backgroundPosition: "center",
   flex
   flex-col
   items-center
-  -mt-12
+  -mt-8
   relative
   z-20
 ">
 
     <div className="
-  w-20
-  h-20
+  w-16
+  h-16
   md:w-40
   md:h-40
   rounded-full
@@ -976,7 +976,7 @@ backgroundPosition: "center",
   border-4
   border-white
   bg-white
-  shadow-2xl
+  shadow-lg
 ">
 
       {logo && (
@@ -1003,7 +1003,7 @@ backgroundPosition: "center",
         max-w-7xl
         mx-auto
         px-5
-        pt-8 
+        pt-0 
         pb-12
       ">
 
@@ -1013,8 +1013,8 @@ backgroundPosition: "center",
 sticky
 top-16
 z-40
--mt-10
-md:-mt-10
+-mt-6
+md:-mt-8
 mb-6
 ">
 
@@ -1026,7 +1026,7 @@ shadow-lg
 border
 border-zinc-100
 px-3
-py-3
+py-2
 overflow-hidden
 "
 >
@@ -1084,8 +1084,8 @@ pr-10
   }
 }}
     className="
-      px-6
-      h-12
+      px-5
+      h-10
       rounded-2xl
       font-semibold
       whitespace-nowrap
@@ -1380,7 +1380,7 @@ mx-auto
           hover:bg-emerald-600
           text-white
           font-semibold
-          px-6
+          px-5
           py-3
           rounded-xl
           transition-all
