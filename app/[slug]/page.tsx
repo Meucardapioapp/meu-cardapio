@@ -821,7 +821,7 @@ function obterHorarioFechamento() {
       ">
 
         <p className="
-          text-xl
+          text-2xl
           font-bold
         ">
           Carregando cardápio...
@@ -857,18 +857,17 @@ function obterHorarioFechamento() {
      <section className="
 max-w-7xl
 mx-auto
-px-4
+px-2
 pt-0
 ">
-<div className="h-10 md:h-14" />
 
  <div
   className="
     w-full
-    h-[220px]
+    h-[250px]
     md:h-[420px]
     rounded-3xl
-    overflow-hidden
+    overflow-visible
     relative
   "
 
@@ -884,7 +883,7 @@ backgroundPosition: "center",
 
    {/* ESCURECER BANNER */}
 
-<div className="absolute inset-0 bg-black/40 z-10" />
+<div className="absolute inset-0 bg-black/50 z-10" />
 
 {/* TEXTO SOBRE O BANNER */}
 
@@ -893,7 +892,7 @@ backgroundPosition: "center",
     absolute
     left-6
     md:left-12
-    top-[42%]
+    top-[50%]
     -translate-y-1/2
     z-20
     text-white
@@ -902,7 +901,7 @@ backgroundPosition: "center",
 
   <h1
     className="
-      text-xl
+      text-2xl
       md:text-5xl
       font-black
     "
@@ -913,7 +912,7 @@ backgroundPosition: "center",
     }
   </h1>
 
-  <p className="mt-1 text-[11px]">
+  <p className="mt-1 text-[10px]">
     {aparencia?.categoria_restaurante}
     {" • "}
     {aparencia?.tipo_atendimento}
@@ -925,7 +924,7 @@ backgroundPosition: "center",
   <span
   className="
 font-semibold
-text-[11px]
+text-[10px]
 "
   style={{
     color: obterStatusLoja().includes("Aberto")
@@ -957,7 +956,7 @@ text-[11px]
     backdrop-blur-sm
     px-3
     py-1
-    text-[11px]
+    text-[10px]
     font-medium
   "
 >
@@ -980,7 +979,7 @@ text-[11px]
     absolute
 left-1/2
 -translate-x-1/2
--bottom-8
+-bottom-12
 z-[999]
   "
 >
@@ -1032,14 +1031,14 @@ z-[999]
 sticky
 top-2
 z-20
-mt-2
-mb-4
+mt-0
+mb-2
 ">
 
 <div
 className="
 bg-white
-rounded-3xl
+rounded-2xl
 shadow-lg
 border
 border-zinc-100
@@ -1238,14 +1237,14 @@ justify-center
   ref={(el) => {
     categoriaRefs.current[categoria] = el
   }}
-  className="mb-14"
+  className="mb-8"
 >
 
       <h3
         className={`
-          text-3xl
+          text-xl
           font-black
-          mb-6
+          mb-4
           ${textPrimary}
         `}
       >
@@ -1367,7 +1366,7 @@ mx-auto
 
         <div className="text-white">
 
-          <p className="font-bold text-[11px]">
+          <p className="font-bold text-[10px]">
             {cart.reduce(
               (acc, item) =>
                 acc + item.quantity,
