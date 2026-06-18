@@ -821,7 +821,7 @@ function obterHorarioFechamento() {
       ">
 
         <p className="
-          text-2xl
+          text-xl
           font-bold
         ">
           Carregando cardápio...
@@ -864,7 +864,7 @@ pt-0
  <div
   className="
     w-full
-    h-[250px]
+    h-[210px]
     md:h-[420px]
     rounded-3xl
     overflow-visible
@@ -901,7 +901,7 @@ backgroundPosition: "center",
 
   <h1
     className="
-      text-2xl
+      text-xl
       md:text-5xl
       font-black
     "
@@ -985,8 +985,8 @@ z-[999]
 >
   <div
     className="
-      w-20
-      h-20
+      w-24
+      h-24
       md:w-40
       md:h-40
       rounded-full
