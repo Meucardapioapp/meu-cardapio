@@ -224,6 +224,11 @@ useEffect(() => {
         .single()
 
         alert(
+  "RESTAURANTE JSON: " +
+  JSON.stringify(restauranteData)
+)
+
+        alert(
   "RESTAURANTE: " +
   restauranteData?.id
 )
@@ -264,6 +269,17 @@ useEffect(() => {
   .limit(1)
 
   alert(
+  "BUSCANDO ID: " +
+  restauranteData.id
+)
+
+console.log(
+  "BUSCANDO ID:",
+  restauranteData.id
+)
+
+ alert(
+  "RESULTADO: " +
   JSON.stringify(aparenciaArray)
 )
 
