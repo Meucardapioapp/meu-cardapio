@@ -239,6 +239,20 @@ useEffect(() => {
       setRestaurante(
         restauranteData
       )
+
+const {
+  data: categoriasData
+} = await supabase
+  .from("categorias")
+  .select("*")
+  .eq(
+    "restaurante_id",
+    restauranteData.id
+  )
+  .order("ordem", {
+    ascending: true,
+  })
+
       console.log(
   "RESTAURANTE ENCONTRADO:",
   restauranteData
@@ -465,27 +479,22 @@ console.log(
   produtosFormatados
 )
 
-      const categoriasUnicas = [
+const categoriasOrdenadas =
+  categoriasData?.map(
+    (categoria) =>
+      categoria.nome
+  ) || []
 
-        ...new Set(
+setCategorias(
+  categoriasOrdenadas
+)
 
-          produtosFormatados.map(
-            (produto: any) =>
-              produto.categoria
-          )
-        )
-      ]
-
-      setCategorias(
-        categoriasUnicas
-      )
-
-      if (
-  categoriasUnicas.length > 0 &&
+   if (
+  categoriasOrdenadas.length > 0 &&
   categoriaSelecionada === null
 ) {
   setCategoriaSelecionada(
-    categoriasUnicas[0]
+    categoriasOrdenadas[0]
   )
 }
 

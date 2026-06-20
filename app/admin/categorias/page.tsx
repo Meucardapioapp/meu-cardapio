@@ -8,6 +8,7 @@ type Categoria = {
   nome: string
   restaurante_id: string
   created_at: string
+  ordem: number
 }
 
 export default function CategoriasPage() {
@@ -29,6 +30,54 @@ export default function CategoriasPage() {
     fetchCategorias()
   }, [])
 
+async function moverCategoria(
+  id: string,
+  direcao: "up" | "down"
+) {
+
+  const index =
+    categorias.findIndex(
+      (c) => c.id === id
+    )
+
+  if (index === -1)
+    return
+
+  const novoIndex =
+    direcao === "up"
+      ? index - 1
+      : index + 1
+
+  if (
+    novoIndex < 0 ||
+    novoIndex >= categorias.length
+  ) {
+    return
+  }
+
+  const atual =
+    categorias[index]
+
+  const alvo =
+    categorias[novoIndex]
+
+  await supabase
+    .from("categorias")
+    .update({
+      ordem: alvo.ordem
+    })
+    .eq("id", atual.id)
+
+  await supabase
+    .from("categorias")
+    .update({
+      ordem: atual.ordem
+    })
+    .eq("id", alvo.id)
+
+  fetchCategorias()
+}
+
   async function fetchCategorias() {
 
     const restauranteId =
@@ -47,9 +96,9 @@ export default function CategoriasPage() {
           "restaurante_id",
           restauranteId
         )
-        .order("nome", {
-          ascending: true
-        })
+        .order("ordem", {
+  ascending: true
+})
 
     if (error) {
 
@@ -98,6 +147,7 @@ export default function CategoriasPage() {
               nome,
               restaurante_id:
                 restauranteId,
+                ordem: categorias.length + 1
             },
           ])
 
@@ -200,7 +250,7 @@ export default function CategoriasPage() {
     <main className="
       min-h-screen
       bg-[#F3F1F4]
-      p-8
+      p-8 lg:p-8
     ">
 
       <div className="
@@ -236,9 +286,11 @@ export default function CategoriasPage() {
 
           <div className="
             bg-white
-            rounded-3xl
-            p-6
-            border
+rounded-3xl
+p-6
+border
+border-zinc-200
+shadow-sm
           ">
             <p className="text-zinc-500">
               Total Categorias
@@ -254,10 +306,12 @@ export default function CategoriasPage() {
           </div>
 
           <div className="
-            bg-white
-            rounded-3xl
-            p-6
-            border
+           bg-white
+rounded-3xl
+p-6
+border
+border-zinc-200
+shadow-sm
           ">
             <p className="text-zinc-500">
               Encontradas
@@ -276,9 +330,11 @@ export default function CategoriasPage() {
 
           <div className="
             bg-white
-            rounded-3xl
-            p-6
-            border
+rounded-3xl
+p-6
+border
+border-zinc-200
+shadow-sm
           ">
             <p className="text-zinc-500">
               Última Categoria
@@ -359,7 +415,8 @@ Digite o nome da categoria"
                 duration-200
 
                 hover:scale-[1.02]
-                hover:shadow-xl
+                hover:shadow-lg
+hover:-translate-y-[2px]
 
                 active:scale-95
               "
@@ -370,6 +427,45 @@ Digite o nome da categoria"
                   : "Salvar Categoria"
               }
             </button>
+
+            <div
+  className="
+    mt-8
+    bg-[#F9F2F4]
+    rounded-2xl
+    p-6
+    min-h-[120px]
+    border
+    border-[#F0DDE3]
+  "
+>
+
+  <h3
+    className="
+      font-bold
+      text-[#7A1F3D]
+      mb-3
+      text-lg
+    "
+  >
+    💡 Dica
+  </h3>
+
+  <p
+    className="
+      text-sm
+      text-zinc-600
+      leading-6
+    "
+  >
+    A categoria número 1 aparecerá
+primeiro no cardápio do cliente.
+
+Use as setas para reorganizar
+a ordem das categorias.
+  </p>
+
+</div>
 
           </div>
 
@@ -389,117 +485,248 @@ Digite o nome da categoria"
             ">
 
               <h2 className="
-                text-2xl
-                font-bold
-              ">
-                Categorias
-              </h2>
+  text-2xl
+  font-bold
+">
+  Categorias ({categoriasFiltradas.length})
+</h2>
 
-              <input
-                value={busca}
-                onChange={(e) =>
-                  setBusca(
-                    e.target.value
-                  )
-                }
-                placeholder="
-Buscar categoria..."
-                className="
-                  border
-                  rounded-xl
-                  px-4
-                  py-3
-                "
-              />
+              <div className="relative">
 
+  <input
+    value={busca}
+    onChange={(e) =>
+      setBusca(
+        e.target.value
+      )
+    }
+    placeholder="Buscar categoria..."
+    className="
+      border
+      border-zinc-200
+      rounded-2xl
+      px-5
+      py-3
+      pr-12
+      outline-none
+    "
+  />
+
+  <span
+    className="
+      absolute
+      right-4
+      top-1/2
+      -translate-y-1/2
+      text-zinc-400
+    "
+  >
+    🔍
+  </span>
+
+</div>
             </div>
+
+            <div
+  className="
+    grid
+    grid-cols-[1fr_120px_70px_70px]
+    px-6
+    mb-3
+    text-sm
+    font-semibold
+    text-zinc-500
+  "
+>
+  <span>Categoria</span>
+
+  <span className="text-center">
+    Ordem
+  </span>
+
+  <span className="text-center">
+    Editar
+  </span>
+
+  <span className="text-center">
+    Excluir
+  </span>
+</div>
 
             <div className="space-y-3">
 
               {categoriasFiltradas.map(
                 (categoria) => (
 
-                  <div
-                    key={categoria.id}
-                    className="
-                      border
-                      rounded-2xl
-                      p-5
-                      flex
-                      justify-between
-                      items-center
-                    "
-                  >
+                
+<div
+  key={categoria.id}
+ className={`
+  rounded-2xl
+  px-6
+  py-4
+  grid
+  grid-cols-[1fr_120px_70px_70px]
+  items-center
+  transition-all
+  hover:shadow-lg
+  hover:-translate-y-[2px]
 
-                    <h3 className="
-                      font-bold
-                      text-lg
-                    ">
-                      {categoria.nome}
-                    </h3>
+  ${
+    categoria.ordem === 1
+      ? "border-2 border-[#7A1F3D] bg-[#FCF7F9]"
+      : "border border-zinc-200 bg-white"
+  }
+`}
+>
+<div
+  className="
+    flex
+    items-center
+    gap-2
+  "
+>
+<span className="text-zinc-300">
+  ⋮⋮
+</span>
 
-                    <div className="
-                      flex
-                      gap-2
-                    ">
+  <h3
+    className="
+      font-bold
+      text-lg
+      text-[#1F1720]
+    "
+  >
+    {categoria.nome}
+  </h3>
 
-                      <button
-                        onClick={() => {
+</div>
 
-                          setCategoriaEditando(
-                            categoria
-                          )
+<div
+  className="
+    flex
+    items-center
+    justify-center
+    gap-2
+  "
+>
 
-                          setNovoNome(
-                            categoria.nome
-                          )
+  <span
+    className="
+      text-[#7A1F3D]
+      font-black
+      text-lg
+      min-w-[20px]
+    "
+  >
+    #{categoria.ordem}
+  </span>
 
-                        }}
-                        className="
-                          border
-                          px-4
-                          py-2
-                          rounded-xl
+  <button
+    onClick={() =>
+      moverCategoria(
+        categoria.id,
+        "up"
+      )
+    }
+    className={`
+  w-8
+  h-8
+  rounded-lg
+  text-sm
+  border
 
-                          transition-all
-                          duration-200
+  ${
+    categoria.ordem === 1
+      ? "opacity-40 cursor-not-allowed"
+      : "bg-white"
+  }
+`}
+  >
+    ⬆
+  </button>
 
-                          hover:bg-yellow-50
-                          hover:scale-110
+  <button
+    onClick={() =>
+      moverCategoria(
+        categoria.id,
+        "down"
+      )
+    }
+    className={`
+  w-8
+  h-8
+  rounded-lg
+  text-sm
+  border
 
-                          active:scale-95
-                        "
-                      >
-                        ✏️
-                      </button>
+  ${
+    categoria.ordem === categorias.length
+      ? "opacity-40 cursor-not-allowed"
+      : "bg-white"
+  }
+`}
+  >
+    ⬇
+  </button>
 
-                      <button
-                        onClick={() =>
-                          excluirCategoria(
-                            categoria.id
-                          )
-                        }
-                        className="
-                          border
-                          border-red-300
-                          text-red-500
-                          px-4
-                          py-2
-                          rounded-xl
+</div>
 
-                          transition-all
-                          duration-200
+<div className="flex justify-center">
 
-                          hover:bg-red-50
-                          hover:scale-110
+  <button
+    onClick={() => {
 
-                          active:scale-95
-                        "
-                      >
-                        🗑️
-                      </button>
+      setCategoriaEditando(
+        categoria
+      )
 
-                    </div>
+      setNovoNome(
+        categoria.nome
+      )
+
+    }}
+    className="
+      w-10
+      h-10
+      rounded-xl
+      border
+      flex
+      items-center
+      justify-center
+      hover:bg-yellow-50
+    "
+  >
+    ✏️
+  </button>
+
+</div>
+
+<div className="flex justify-center">
+
+  <button
+    onClick={() =>
+      excluirCategoria(
+        categoria.id
+      )
+    }
+    className="
+      w-10
+      h-10
+      rounded-xl
+      border
+      border-red-200
+      text-red-500
+      flex
+      items-center
+      justify-center
+      hover:bg-red-50
+    "
+  >
+    🗑️
+  </button>
+
+</div>       
 
                   </div>
 
@@ -560,7 +787,7 @@ Buscar categoria..."
             <div className="
               flex
               justify-end
-              gap-3
+              gap-4
               mt-6
             ">
 

@@ -1,11 +1,760 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { ShoppingCart } from "lucide-react";
+
 export default function CarrinhoPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+
+  const [cart, setCart] = useState<any[]>([]);
+
+  const [logo, setLogo] =
+  useState("")
+
+const [corPrincipal, setCorPrincipal] =
+  useState("#6D1F2F")
+
+  const [restauranteNome, setRestauranteNome] =
+  useState("");
+
+const [totalItens, setTotalItens] =
+  useState(0);
+
+const [sugestoes, setSugestoes] =
+  useState<any[]>([]);
+
+
+  useEffect(() => {
+  async function carregarDados() {
+
+    const cartStorage =
+      localStorage.getItem(
+        `cart-${slug}`
+      );
+
+    if (cartStorage) {
+      const itens =
+        JSON.parse(cartStorage);
+
+      setCart(itens);
+
+      setTotalItens(
+        itens.reduce(
+          (acc: number, item: any) =>
+            acc + item.quantity,
+          0
+        )
+      );
+    }
+
+    const { data: restaurante } =
+      await supabase
+        .from("restaurantes")
+        .select("*")
+        .eq("slug", slug)
+        .single();
+
+    if (!restaurante) return;
+
+    const { data: aparencia } =
+      await supabase
+        .from("aparencia")
+        .select("*")
+        .eq(
+          "restaurante_id",
+          restaurante.id
+        )
+        .single();
+
+    if (aparencia) {
+
+      setLogo(
+        aparencia.logo_url || ""
+      );
+
+      setCorPrincipal(
+        aparencia.cor_primaria ||
+          "#6D1F2F"
+      );
+
+      setRestauranteNome(
+        aparencia.nome_restaurante ||
+          restaurante.nome
+      );
+    }
+    const { data: produtos } =
+  await supabase
+    .from("produtos")
+    .select("*")
+    .eq(
+      "restaurante_id",
+      restaurante.id
+    );
+
+if (produtos) {
+
+  const sugestoesFiltradas =
+    produtos.filter((produto) => {
+
+      const categoria =
+        (
+          produto.categoria || ""
+        ).toLowerCase();
+
+      return (
+        categoria.includes(
+          "bebida"
+        ) ||
+        categoria.includes(
+          "sobremesa"
+        )
+      );
+    });
+
+  setSugestoes(
+    sugestoesFiltradas.slice(
+      0,
+      3
+    )
+  );
+}
+  }
+
+  carregarDados();
+
+}, [slug]);
+
+ function salvarCarrinho(
+  novoCarrinho: any[]
+) {
+  setCart(novoCarrinho);
+
+  setTotalItens(
+    novoCarrinho.reduce(
+      (acc, item) =>
+        acc + item.quantity,
+      0
+    )
+  );
+
+  localStorage.setItem(
+    `cart-${slug}`,
+    JSON.stringify(novoCarrinho)
+  );
+}
+
+  function increaseQuantity(
+    uniqueId: string
+  ) {
+    const novoCarrinho = cart.map(
+      (item) =>
+        item.uniqueId === uniqueId
+          ? {
+              ...item,
+              quantity:
+                item.quantity + 1,
+            }
+          : item
+    );
+
+    salvarCarrinho(novoCarrinho);
+  }
+
+  function decreaseQuantity(
+    uniqueId: string
+  ) {
+    const novoCarrinho = cart
+      .map((item) =>
+        item.uniqueId === uniqueId
+          ? {
+              ...item,
+              quantity:
+                item.quantity - 1,
+            }
+          : item
+      )
+      .filter(
+        (item) => item.quantity > 0
+      );
+
+    salvarCarrinho(novoCarrinho);
+  }
+
+  function removeItem(
+    uniqueId: string
+  ) {
+    const novoCarrinho = cart.filter(
+      (item) =>
+        item.uniqueId !== uniqueId
+    );
+
+    salvarCarrinho(novoCarrinho);
+  }
+
+  function adicionarSugestao(
+  produto: any
+) {
+
+  const itemExistente =
+    cart.find(
+      (item) =>
+        item.id === produto.id
+    );
+
+  if (itemExistente) {
+
+    const novoCarrinho =
+      cart.map((item) =>
+        item.id === produto.id
+          ? {
+              ...item,
+              quantity:
+                item.quantity + 1,
+            }
+          : item
+      );
+
+    salvarCarrinho(
+      novoCarrinho
+    );
+
+    return;
+  }
+
+  const novoItem = {
+    ...produto,
+    quantity: 1,
+    uniqueId:
+      crypto.randomUUID(),
+  };
+
+  salvarCarrinho([
+    ...cart,
+    novoItem,
+  ]);
+}
+
+  const total = cart.reduce(
+    (acc, item) =>
+      acc +
+      Number(item.preco) *
+        Number(item.quantity),
+    0
+  );
+
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <h1 className="text-3xl font-bold">
-        Página do Carrinho
-      </h1>
+    <main
+      className="
+      min-h-screen
+      bg-[#F4F1EA]
+      p-4
+      pb-32
+    "
+    >
+      <div
+        className="
+        flex
+        items-center
+        justify-between
+        mb-6
+      "
+      >
+        <button
+  onClick={() => {
+    window.location.href = `/${slug}`;
+  }}
+  className="
+    text-3xl
+    font-bold
+  "
+  style={{
+    color: corPrincipal,
+  }}
+>
+          ←
+        </button>
+
+<div
+  className="
+    flex
+    flex-col
+    items-center
+  "
+>
+<img
+  src={logo}
+  alt="Logo"
+  className="
+    w-24
+    h-24
+    rounded-full
+    object-cover
+    border
+    border-white
+    shadow-md
+  "
+/>
+
+
+</div>
+
+<div
+  className="
+    flex
+    flex-col
+    items-center
+  "
+>
+
+ <div
+  className="
+    px-4
+    h-12
+    rounded-xl
+    flex
+    items-center
+    gap-2
+    text-white
+    font-bold
+  "
+  style={{
+    backgroundColor: corPrincipal,
+  }}
+>
+  <ShoppingCart size={18} />
+
+  <span>
+      {totalItens}
+  </span>
+</div>
+
+</div>
+      </div>
+
+<div
+  className="
+    flex
+    items-center
+    justify-between
+    mb-8
+  "
+>
+  <h1
+    className="
+      text-3xl
+      font-black
+    "
+  >
+    Meu carrinho
+  </h1>
+
+  <span
+    className="
+      text-sm
+      font-semibold
+    "
+    style={{
+      color: corPrincipal,
+    }}
+  >
+    {totalItens} itens
+  </span>
+</div>
+
+      {cart.map((item) => (
+        <div
+          key={item.uniqueId}
+          className="
+            bg-white
+            rounded-xl
+            p-4
+            mb-4
+            shadow-sm
+          "
+        >
+          <div className="flex gap-4">
+            <img
+              src={item.imagem}
+              alt={item.nome}
+              className="
+                w-28
+                h-28
+                rounded-xl
+                object-cover
+              "
+            />
+
+            <div className="flex-1">
+              <h2
+                className="
+                  font-bold
+                  text-lg
+                "
+              >
+                {item.nome}
+              </h2>
+
+<p
+  className="
+    text-zinc-800
+    text-xs
+    line-clamp-2
+  "
+>
+  {item.descricao}
+</p>
+
+              <p
+                className="
+                  mt-2
+                  font-black
+                  text-xl
+                "
+              >
+                R${" "}
+                {Number(
+                  item.preco
+                ).toFixed(2)}
+              </p>
+
+              <div
+                className="
+                  flex
+                  items-center
+                  justify-between
+                  mt-4
+                "
+              >
+                <button
+                  onClick={() =>
+                    removeItem(
+                      item.uniqueId
+                    )
+                  }
+                  className="
+                    text-red-500
+                    text-sm
+                    font-semibold
+                  "
+                >
+                  Remover
+                </button>
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                  "
+                >
+                  <button
+                    onClick={() =>
+                      decreaseQuantity(
+                        item.uniqueId
+                      )
+                    }
+                    className="
+                      w-8
+                      h-8
+                      rounded-lg
+                      border
+                    "
+                  >
+                    -
+                  </button>
+
+                  <span className="font-bold">
+                    {item.quantity}
+                  </span>
+
+                  <button
+                    onClick={() =>
+                      increaseQuantity(
+                        item.uniqueId
+                      )
+                    }
+className="
+  w-8
+  h-8
+  rounded-lg
+  text-white
+"
+style={{
+  backgroundColor: corPrincipal,
+}}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <div
+        className="
+          bg-white
+          rounded-xl
+          p-4
+          mt-4
+          cursor-pointer
+        "
+        onClick={() => {
+          window.location.href = `/${slug}`;
+        }}
+      >
+        <div
+          className="
+            flex
+            justify-between
+            items-center
+          "
+        >
+<span
+  className="
+    font-bold
+  "
+  style={{
+    color: corPrincipal,
+  }}
+>
+            + Adicionar mais itens
+          </span>
+
+          <span>→</span>
+        </div>
+      </div>
+
+<h2
+  className="
+    text-xl
+    font-black
+    mt-6
+    mb-4
+  "
+>
+  Complete seu pedido
+</h2>
+
+<div
+  className="
+    flex
+    gap-3
+    overflow-x-auto
+    pb-2
+    mb-6
+  "
+>
+  {sugestoes.map((produto) => (
+
+    <div
+      key={produto.id}
+      className="
+        bg-white
+        border
+        border-zinc-100
+        rounded-xl
+        p-3
+        relative
+        min-w-[170px]
+      "
+    >
+
+      <div
+        className="
+          flex
+          justify-center
+          mb-3
+        "
+      >
+        <img
+          src={produto.imagem}
+          alt={produto.nome}
+          className="
+            w-24
+            h-24
+            object-cover
+          "
+        />
+      </div>
+
+      <button
+  onClick={() =>
+    adicionarSugestao(
+      produto
+    )
+  }
+        className="
+          absolute
+          right-3
+          top-20
+          w-10
+          h-10
+          rounded-full
+          bg-white
+          shadow-md
+          text-3xl
+          flex
+          items-center
+          justify-center
+        "
+        style={{
+          color: corPrincipal,
+        }}
+      >
+        +
+      </button>
+
+      <p
+        className="
+          text-sm
+          font-semibold
+          leading-5
+          min-h-[40px]
+        "
+      >
+        {produto.nome}
+      </p>
+
+      <p
+        className="
+          text-sm
+          text-zinc-800
+          mt-2
+        "
+      >
+        R$ {Number(produto.preco).toFixed(2)}
+      </p>
+
     </div>
+
+  ))}
+</div>
+
+
+<div
+  className="
+    bg-[#F7F1FF]
+    border
+    border-[#E8DDFD]
+    rounded-xl
+    p-4
+    mt-6
+    mb-6
+    flex
+    items-center
+    gap-4
+  "
+>
+
+  <div
+    className="
+      w-10
+      h-10
+      rounded-full
+      bg-white
+      flex
+      items-center
+      justify-center
+      shadow-sm
+      text-xl
+      flex-shrink-0
+    "
+    style={{
+      color: corPrincipal,
+    }}
+  >
+    ℹ
+  </div>
+
+  <div>
+
+    <p
+      className="
+        text-sm
+        font-semibold
+      "
+      style={{
+        color: corPrincipal,
+      }}
+    >
+      A entrega será calculada
+    </p>
+
+    <p
+      className="
+        text-sm
+      "
+      style={{
+        color: corPrincipal,
+      }}
+    >
+      após informar seu endereço.
+    </p>
+
+  </div>
+
+</div>
+
+      <div
+        className="
+          fixed
+          bottom-0
+          left-0
+          right-0
+          bg-white
+          border-t
+          p-4
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+          "
+        >
+          <div>
+            <p
+              className="
+                text-sm
+                text-zinc-800
+              "
+            >
+              Subtotal ({totalItens} itens)
+            </p>
+
+            <p
+              className="
+                text-2xl
+                font-black
+              "
+            >
+              R$ {total.toFixed(2)}
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              window.location.href = `/${slug}/endereco`;
+            }}
+            className="
+              bg-[#16A34A]
+              text-white
+              px-6
+              py-4
+              rounded-xl
+              font-bold
+            "
+          >
+            Continuar →
+          </button>
+        </div>
+      </div>
+    </main>
   );
 }
