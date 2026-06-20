@@ -262,20 +262,38 @@ if (produtos) {
         mb-6
       "
       >
-        <button
+<button
   onClick={() => {
     window.location.href = `/${slug}`;
   }}
   className="
-    text-3xl
-    font-bold
+    w-16
+    h-16
+    rounded-xl
+    bg-white
+    shadow-xl
+    flex
+    items-center
+    justify-center
+    border
+    border-zinc-100
+    transition-all
+    duration-200
   "
-  style={{
-    color: corPrincipal,
-  }}
 >
-          ←
-        </button>
+  <span
+    className="
+      text-4xl
+      font-bold
+      leading-none
+    "
+    style={{
+      color: corPrincipal,
+    }}
+  >
+    ←
+  </span>
+</button>
 
 <div
   className="
@@ -525,7 +543,14 @@ style={{
             + Adicionar mais itens
           </span>
 
-          <span>→</span>
+          <span
+  className="
+    text-2xl
+    font-light
+  "
+>
+  ›
+</span>
         </div>
       </div>
 
@@ -557,7 +582,7 @@ style={{
         bg-white
         border
         border-zinc-100
-        rounded-xl
+        rounded-3xl
         p-3
         relative
         min-w-[170px]
@@ -575,10 +600,12 @@ style={{
           src={produto.imagem}
           alt={produto.nome}
           className="
-            w-24
-            h-24
-            object-cover
-          "
+  w-28
+  h-28
+  rounded-full
+  object-cover
+  mx-auto
+"
         />
       </div>
 
@@ -635,71 +662,6 @@ style={{
   ))}
 </div>
 
-
-<div
-  className="
-    bg-[#F7F1FF]
-    border
-    border-[#E8DDFD]
-    rounded-xl
-    p-4
-    mt-6
-    mb-6
-    flex
-    items-center
-    gap-4
-  "
->
-
-  <div
-    className="
-      w-10
-      h-10
-      rounded-full
-      bg-white
-      flex
-      items-center
-      justify-center
-      shadow-sm
-      text-xl
-      flex-shrink-0
-    "
-    style={{
-      color: corPrincipal,
-    }}
-  >
-    ℹ
-  </div>
-
-  <div>
-
-    <p
-      className="
-        text-sm
-        font-semibold
-      "
-      style={{
-        color: corPrincipal,
-      }}
-    >
-      A entrega será calculada
-    </p>
-
-    <p
-      className="
-        text-sm
-      "
-      style={{
-        color: corPrincipal,
-      }}
-    >
-      após informar seu endereço.
-    </p>
-
-  </div>
-
-</div>
-
       <div
         className="
           fixed
@@ -751,7 +713,7 @@ style={{
               font-bold
             "
           >
-            Continuar →
+            Continuar
           </button>
         </div>
       </div>
