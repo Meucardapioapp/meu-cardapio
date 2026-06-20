@@ -260,7 +260,7 @@ if (produtos) {
     flex
     items-center
     justify-between
-    mb-6
+    mb-4
   "
 >
 
@@ -294,8 +294,8 @@ if (produtos) {
   src={logo}
   alt="Logo"
   className="
-    w-20
-    h-20
+    w-16
+    h-16
     rounded-full
     object-cover
     border
@@ -317,8 +317,8 @@ if (produtos) {
 
  <div
   className="
-    px-4
-    h-12
+    px-3
+    h-10
     rounded-xl
     flex
     items-center
@@ -330,7 +330,7 @@ if (produtos) {
     backgroundColor: corPrincipal,
   }}
 >
-  <ShoppingCart size={18} />
+  <ShoppingCart size={16} />
 
   <span>
       {totalItens}
