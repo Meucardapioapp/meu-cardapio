@@ -267,32 +267,14 @@ if (produtos) {
     window.location.href = `/${slug}`;
   }}
   className="
-    w-16
-    h-16
-    rounded-xl
-    bg-white
-    shadow-xl
-    flex
-    items-center
-    justify-center
-    border
-    border-zinc-100
-    transition-all
-    duration-200
+    text-5xl
+    font-light
   "
+  style={{
+    color: corPrincipal,
+  }}
 >
-  <span
-    className="
-      text-4xl
-      font-bold
-      leading-none
-    "
-    style={{
-      color: corPrincipal,
-    }}
-  >
-    ←
-  </span>
+  ‹
 </button>
 
 <div
@@ -306,8 +288,8 @@ if (produtos) {
   src={logo}
   alt="Logo"
   className="
-    w-24
-    h-24
+    w-28
+    h-28
     rounded-full
     object-cover
     border
@@ -582,10 +564,10 @@ style={{
         bg-white
         border
         border-zinc-100
-        rounded-3xl
+        rounded-2xl
         p-3
         relative
-        min-w-[170px]
+        min-w-[160px]
       "
     >
 
@@ -599,11 +581,12 @@ style={{
         <img
           src={produto.imagem}
           alt={produto.nome}
-          className="
-  w-28
-  h-28
+className="
+  w-32
+  h-32
   rounded-full
   object-cover
+  object-center
   mx-auto
 "
         />
@@ -618,7 +601,7 @@ style={{
         className="
           absolute
           right-3
-          top-20
+          top-24
           w-10
           h-10
           rounded-full
