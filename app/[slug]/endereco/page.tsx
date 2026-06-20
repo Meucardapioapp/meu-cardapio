@@ -1,12 +1,223 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { ShoppingCart } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
+import { supabase } from "@/lib/supabase";
 
 export default function EnderecoPage() {
 
   const params = useParams();
-
   const slug = params.slug as string;
+
+  useEffect(() => {
+
+  async function carregarDados() {
+
+    const carrinho =
+      JSON.parse(
+        localStorage.getItem(
+          `cart-${slug}`
+        ) || "[]"
+      )
+
+    const subtotalCarrinho =
+      carrinho.reduce(
+        (acc: number, item: any) =>
+          acc +
+          Number(item.preco) *
+          Number(item.quantity),
+        0
+      )
+
+    setSubtotal(
+      subtotalCarrinho
+    )
+
+    const { data: restaurante } =
+      await supabase
+        .from("restaurantes")
+        .select("*")
+        .eq("slug", slug)
+        .single()
+
+    if (!restaurante) return
+
+    setRestauranteId(
+      restaurante.id
+    )
+
+    const { data: aparencia } =
+      await supabase
+        .from("aparencia")
+        .select("*")
+        .eq(
+          "restaurante_id",
+          restaurante.id
+        )
+        .single()
+
+    if (aparencia) {
+
+      setLogo(
+        aparencia.logo_url || ""
+      )
+
+      setCorPrincipal(
+        aparencia.cor_primaria ||
+        "#6D1F2F"
+      )
+    }
+  }
+
+  carregarDados()
+
+}, [slug])
+
+  const [corPrincipal, setCorPrincipal] =
+  useState("#6D1F2F")
+
+const [logo, setLogo] =
+  useState("")
+
+const [restauranteId, setRestauranteId] =
+  useState("")
+
+const [taxaEntrega, setTaxaEntrega] =
+  useState(0)
+
+const [subtotal, setSubtotal] =
+  useState(0)
+
+  const [cep, setCep] =
+  useState("")
+
+const [rua, setRua] =
+  useState("")
+
+const [bairro, setBairro] =
+  useState("")
+
+const [cidade, setCidade] =
+  useState("")
+
+const [estado, setEstado] =
+  useState("AM")
+
+const [numero, setNumero] =
+  useState("")
+
+  const [whatsapp, setWhatsapp] =
+  useState("")
+
+const [freteCalculado, setFreteCalculado] =
+  useState(false)
+
+  const [carregandoFrete, setCarregandoFrete] =
+  useState(false)
+
+
+async function buscarCEP() {
+
+  if (!cep) return
+
+  const response =
+    await fetch(
+      `https://viacep.com.br/ws/${cep}/json`
+    )
+
+  const data =
+    await response.json()
+
+  setRua(
+    data.logradouro || ""
+  )
+
+  setBairro(
+    data.bairro || ""
+  )
+
+  setCidade(
+    data.localidade || ""
+  )
+
+  setEstado(
+    data.uf || ""
+  )
+}
+
+async function calcularFrete() {
+
+  setCarregandoFrete(true)
+  
+
+  if (
+    !restauranteId ||
+    !rua ||
+    !numero ||
+    !bairro ||
+    !cidade
+  ) {
+    return
+  }
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/calcular-frete",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            restauranteId,
+            rua,
+            numero,
+            bairro,
+            cidade,
+            estado,
+          }),
+        }
+      )
+
+    const data =
+      await response.json()
+
+    console.log(data)
+
+if (
+  data.faixaFrete?.valor
+) {
+
+  setTaxaEntrega(
+    Number(
+      data.faixaFrete.valor
+    )
+  )
+
+  setFreteCalculado(true)
+  setCarregandoFrete(false)
+}
+
+  } catch (error) {
+
+    console.error(error)
+    setCarregandoFrete(false)
+
+  }
+}
+
+function resetarFrete() {
+
+  setFreteCalculado(false)
+
+  setTaxaEntrega(0)
+
+}
 
   return (
 
@@ -15,8 +226,110 @@ export default function EnderecoPage() {
         min-h-screen
         bg-[#F4F1EA]
         p-4
+        pb-36
       "
     >
+
+      {/* TOPO */}
+
+      <div
+        className="
+          relative
+          flex
+          items-center
+          justify-between
+          mb-4
+        "
+      >
+
+        <button
+          onClick={() => {
+            window.location.href =
+              `/${slug}/carrinho`;
+          }}
+          className="
+            w-14
+            h-14
+            flex
+            items-center
+            justify-center
+          "
+        >
+          <span
+            className="
+              text-4xl
+              font-light
+            "
+            style={{
+              color: corPrincipal,
+            }}
+          >
+            ‹
+          </span>
+        </button>
+
+        <div
+          className="
+            absolute
+            left-1/2
+            -translate-x-1/2
+            flex
+            flex-col
+            items-center
+          "
+        >
+
+          <img
+            src={logo}
+            alt="Logo"
+            className="
+              w-20
+              h-20
+              rounded-full
+              object-cover
+              border
+              border-white
+              shadow-md
+            "
+          />
+
+        </div>
+
+        <div
+          className="
+            px-3
+            h-10
+            rounded-xl
+            flex
+            items-center
+            gap-2
+            text-white
+            font-bold
+          "
+          style={{
+            backgroundColor:
+              corPrincipal,
+          }}
+        >
+          <ShoppingCart size={16} />
+          <span>
+{
+JSON.parse(
+localStorage.getItem(
+`cart-${slug}`
+) || "[]"
+).reduce(
+(acc:any,item:any)=>
+acc + item.quantity,
+0
+)
+}
+</span>
+        </div>
+
+      </div>
+
+      {/* TITULO */}
 
       <h1
         className="
@@ -25,36 +338,598 @@ export default function EnderecoPage() {
           mb-6
         "
       >
-        Endereço
+        Endereço de entrega
       </h1>
+
+      {/* ENDEREÇO SALVO */}
 
       <div
         className="
           bg-white
           rounded-xl
           p-4
+          mb-6
+          flex
+          justify-between
+          items-center
         "
       >
-        Página em desenvolvimento
+
+        <div>
+
+          <p
+            className="
+              font-semibold
+              text-sm
+            "
+          >
+            Endereço salvo
+          </p>
+
+          <p
+            className="
+              text-sm
+              text-zinc-600
+              mt-1
+            "
+          >
+            Rua das Flores, 123
+          </p>
+
+          <p
+            className="
+              text-sm
+              text-zinc-600
+            "
+          >
+            Centro - Manaus/AM
+          </p>
+
+        </div>
+
+<span
+  className="
+    text-2xl
+    font-light
+  "
+  style={{
+    color: corPrincipal,
+  }}
+>
+  ›
+</span>
+
       </div>
 
-      <button
-        onClick={() => {
-          window.location.href =
-            `/${slug}/pagamento`;
-        }}
+      {/* NOVO ENDEREÇO */}
+
+      <h2
         className="
-          mt-6
-          bg-green-600
-          text-white
-          px-6
-          py-4
-          rounded-xl
           font-bold
+          mb-4
         "
       >
-        Continuar
+        Novo endereço
+      </h2>
+
+ <div
+  className="
+    bg-white
+    rounded-xl
+    border
+    p-4
+  "
+>
+
+  <div
+    className="
+      flex
+      items-center
+      justify-between
+    "
+  >
+
+    <div
+      className="
+        flex
+        items-center
+        gap-3
+      "
+    >
+
+<div
+  className="
+    w-10
+    h-10
+    rounded-full
+    bg-green-100
+    flex
+    items-center
+    justify-center
+  "
+>
+  <FaWhatsapp
+    size={22}
+    className="text-green-600"
+  />
+</div>
+
+      <div>
+
+        <input
+          value={whatsapp}
+          onChange={(e) =>
+            setWhatsapp(e.target.value)
+          }
+          placeholder="(92) 99999-9999"
+          className="
+            outline-none
+            font-semibold
+          "
+        />
+
+        <p
+          className="
+            text-xs
+            text-zinc-500
+          "
+        >
+          Para avisos sobre seu pedido
+        </p>
+
+      </div>
+
+    </div>
+
+    {
+      whatsapp.length >= 15 && (
+
+        <div
+          className="
+            w-6
+            h-6
+            rounded-full
+            bg-green-500
+            text-white
+            flex
+            items-center
+            justify-center
+            text-xs
+            font-bold
+          "
+        >
+          ✓
+        </div>
+
+      )
+    }
+
+  </div>
+
+</div>
+
+     
+<div className="space-y-4">
+
+  {/* CEP */}
+
+  <div>
+
+    <p
+      className="
+        text-xs
+        font-semibold
+        mb-1
+        text-zinc-700
+      "
+    >
+      CEP
+    </p>
+
+    <div
+      className="
+        flex
+        bg-white
+        rounded-xl
+        border
+        overflow-hidden
+      "
+    >
+
+      <input
+        value={cep}
+        onChange={(e) => {
+          setCep(e.target.value)
+          resetarFrete()
+        }}
+        className="
+          flex-1
+          p-4
+          outline-none
+        "
+      />
+
+      <button
+        onClick={buscarCEP}
+        className="px-4 font-bold"
+        style={{
+          color: corPrincipal
+        }}
+      >
+        Buscar CEP
       </button>
+
+    </div>
+
+  </div>
+
+  {/* RUA */}
+
+  <div>
+
+    <p className="text-xs font-semibold mb-1">
+      Rua
+    </p>
+
+    <input
+      value={rua}
+      onChange={(e) => {
+        setRua(e.target.value)
+        resetarFrete()
+      }}
+      className="
+        w-full
+        bg-white
+        rounded-xl
+        border
+        p-4
+      "
+    />
+
+  </div>
+
+  {/* NUMERO + COMPLEMENTO */}
+
+  <div
+    className="
+      grid
+      grid-cols-2
+      gap-3
+    "
+  >
+
+    <div>
+
+      <p className="text-xs font-semibold mb-1">
+        Número
+      </p>
+
+      <input
+        value={numero}
+        onChange={(e) => {
+          setNumero(e.target.value)
+          resetarFrete()
+        }}
+        className="
+          w-full
+          bg-white
+          rounded-xl
+          border
+          p-4
+        "
+      />
+
+    </div>
+
+    <div>
+
+      <p className="text-xs font-semibold mb-1">
+        Complemento (opcional)
+      </p>
+
+      <input
+        placeholder="Apto 101"
+        className="
+          w-full
+          bg-white
+          rounded-xl
+          border
+          p-4
+        "
+      />
+
+    </div>
+
+  </div>
+
+  {/* BAIRRO + CIDADE */}
+
+  <div
+    className="
+      grid
+      grid-cols-2
+      gap-3
+    "
+  >
+
+    <div>
+
+      <p className="text-xs font-semibold mb-1">
+        Bairro
+      </p>
+
+      <input
+        value={bairro}
+        onChange={(e) => {
+          setBairro(e.target.value)
+          resetarFrete()
+        }}
+        className="
+          w-full
+          bg-white
+          rounded-xl
+          border
+          p-4
+        "
+      />
+
+    </div>
+
+    <div>
+
+      <p className="text-xs font-semibold mb-1">
+        Cidade
+      </p>
+
+      <input
+        value={cidade}
+        onChange={(e) => {
+          setCidade(e.target.value)
+          resetarFrete()
+        }}
+        className="
+          w-full
+          bg-white
+          rounded-xl
+          border
+          p-4
+        "
+      />
+
+    </div>
+
+  </div>
+
+  {/* REFERENCIA */}
+
+  <div>
+
+    <p className="text-xs font-semibold mb-1">
+      Referência (opcional)
+    </p>
+
+    <input
+      placeholder="Ex: Próximo ao Shopping"
+      className="
+        w-full
+        bg-white
+        rounded-xl
+        border
+        p-4
+      "
+    />
+
+  </div>
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+</div>
+
+<button
+  onClick={calcularFrete}
+  className="
+    w-full
+    h-14
+    rounded-xl
+    text-white
+    font-bold
+    mt-5
+
+    transition-all
+    duration-200
+
+    hover:scale-[1.01]
+    active:scale-[0.97]
+
+    shadow-md
+    hover:shadow-lg
+  "
+  style={{
+    backgroundColor:
+      corPrincipal,
+  }}
+>
+
+
+{
+carregandoFrete
+  ? "Calculando..."
+
+: freteCalculado
+  ? "✓ Entrega calculada"
+
+: "Calcular entrega"
+}
+
+</button>
+
+      {/* ENTREGA */}
+
+      {
+freteCalculado && (
+<div
+  className="
+    mt-6
+          bg-[#F7F1FF]
+          rounded-xl
+          p-4
+          flex
+          justify-between
+        "
+      >
+
+        <div>
+
+          <p
+            className="
+              text-sm
+              text-zinc-500
+            "
+          >
+            Entrega
+          </p>
+
+          <p
+            className="
+              font-bold
+            "
+          >
+            30-50 min
+          </p>
+
+        </div>
+
+        <div>
+
+          <p
+            className="
+              text-sm
+              text-zinc-500
+            "
+          >
+            Taxa
+          </p>
+
+          <p
+            className="
+              font-bold
+              text-green-600
+            "
+          >
+            R$ {
+taxaEntrega.toFixed(2)
+}
+          </p>
+
+        </div>
+
+      </div>
+)
+}
+
+      {/* RODAPÉ FIXO */}
+
+      <div
+        className="
+          fixed
+          bottom-0
+          left-0
+          right-0
+          bg-white
+          border-t
+          p-4
+        "
+      >
+
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+          "
+        >
+
+          <div>
+
+            <p
+              className="
+                text-sm
+                text-zinc-500
+              "
+            >
+              Total parcial
+            </p>
+
+            <p
+              className="
+                text-2xl
+                font-black
+              "
+            >
+              R$ {
+(
+subtotal +
+taxaEntrega
+).toFixed(2)
+}
+            </p>
+
+          </div>
+
+          <button
+  disabled={!freteCalculado}
+  onClick={() => {
+
+  localStorage.setItem(
+    `endereco-${slug}`,
+    JSON.stringify({
+      cep,
+      rua,
+      numero,
+      bairro,
+      cidade,
+      estado,
+      taxaEntrega,
+      subtotal,
+      total:
+        subtotal +
+        taxaEntrega,
+    })
+  )
+
+  window.location.href =
+    `/${slug}/pagamento`
+}}
+className={`
+  text-white
+  px-6
+  py-4
+  rounded-xl
+  font-bold
+  ${
+    freteCalculado
+      ? "bg-green-600"
+      : "bg-zinc-300"
+  }
+`}
+          >
+            Continuar para pagamento
+          </button>
+
+        </div>
+
+      </div>
 
     </main>
 
