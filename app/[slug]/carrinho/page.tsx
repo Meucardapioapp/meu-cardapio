@@ -283,7 +283,7 @@ if (produtos) {
   className="
     absolute
     left-1/2
-    top-2
+    top-0
     -translate-x-1/2
     flex
     flex-col
@@ -294,8 +294,8 @@ if (produtos) {
   src={logo}
   alt="Logo"
   className="
-    w-24
-    h-24
+    w-20
+    h-20
     rounded-full
     object-cover
     border
