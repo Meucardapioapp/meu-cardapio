@@ -283,7 +283,7 @@ if (produtos) {
   className="
     absolute
     left-1/2
-    top-0
+    -top-2
     -translate-x-1/2
     flex
     flex-col
