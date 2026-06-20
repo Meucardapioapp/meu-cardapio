@@ -254,14 +254,16 @@ if (produtos) {
       pb-32
     "
     >
-      <div
-        className="
-        flex
-        items-center
-        justify-between
-        mb-6
-      "
-      >
+ <div
+  className="
+    relative
+    flex
+    items-center
+    justify-between
+    mb-6
+  "
+>
+
 <button
   onClick={() => {
     window.location.href = `/${slug}`;
@@ -279,6 +281,9 @@ if (produtos) {
 
 <div
   className="
+    absolute
+    left-1/2
+    -translate-x-1/2
     flex
     flex-col
     items-center
@@ -568,6 +573,7 @@ style={{
         p-3
         relative
         min-w-[160px]
+        h-[300px]
       "
     >
 
@@ -578,18 +584,26 @@ style={{
           mb-3
         "
       >
-        <img
-          src={produto.imagem}
-          alt={produto.nome}
-className="
-  w-32
-  h-32
-  rounded-full
-  object-cover
-  object-center
-  mx-auto
-"
-        />
+<div
+  className="
+    w-32
+    h-32
+    rounded-full
+    overflow-hidden
+    mx-auto
+    bg-zinc-100
+  "
+>
+  <img
+    src={produto.imagem}
+    alt={produto.nome}
+    className="
+      w-full
+      h-full
+      object-cover
+    "
+  />
+</div>
       </div>
 
       <button
@@ -619,14 +633,15 @@ className="
         +
       </button>
 
-      <p
-        className="
-          text-sm
-          font-semibold
-          leading-5
-          min-h-[40px]
-        "
-      >
+     <p
+  className="
+    text-sm
+    font-semibold
+    leading-5
+    h-[48px]
+    overflow-hidden
+  "
+>
         {produto.nome}
       </p>
 
