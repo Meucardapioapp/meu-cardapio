@@ -283,6 +283,7 @@ if (produtos) {
   className="
     absolute
     left-1/2
+    top-2
     -translate-x-1/2
     flex
     flex-col
@@ -293,8 +294,8 @@ if (produtos) {
   src={logo}
   alt="Logo"
   className="
-    w-28
-    h-28
+    w-24
+    h-24
     rounded-full
     object-cover
     border
@@ -573,7 +574,7 @@ style={{
         p-3
         relative
         min-w-[160px]
-        h-[300px]
+        h-[250px]
       "
     >
 
@@ -586,23 +587,29 @@ style={{
       >
 <div
   className="
-    w-32
-    h-32
+    w-28
+    h-28
     rounded-full
     overflow-hidden
     mx-auto
     bg-zinc-100
+    flex
+    items-center
+    justify-center
   "
 >
-  <img
-    src={produto.imagem}
-    alt={produto.nome}
-    className="
-      w-full
-      h-full
-      object-cover
-    "
-  />
+
+<img
+  src={produto.imagem}
+  alt={produto.nome}
+  className="
+    w-full
+    h-full
+    object-cover
+    object-center
+  "
+/>
+
 </div>
       </div>
 
