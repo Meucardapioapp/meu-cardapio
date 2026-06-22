@@ -313,7 +313,15 @@ console.log(
   aparenciaData.logo_url
 )
 
+localStorage.setItem(
+  "logo-restaurante",
+  aparenciaData.logo_url || ""
+)
 
+localStorage.setItem(
+  "cor-principal",
+  aparenciaData.cor_primaria || "#571f5b"
+)
 
 console.log(
   "BANNER DO BANCO:",

@@ -231,6 +231,7 @@ setLogo(
         </button>
 
     <img
+    
   src={logo || "/logo.png"}
   alt="Logo"
   onError={() =>
@@ -249,6 +250,15 @@ setLogo(
     border
   "
 />
+
+<p
+  style={{
+    fontSize: "10px",
+    wordBreak: "break-all"
+  }}
+>
+  {logo}
+</p>
 
         <div
           className="
