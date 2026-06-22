@@ -66,6 +66,7 @@ const [filtroStatus, setFiltroStatus] = useState("")
 
 const [promocao, setPromocao] =
   useState(false)
+  
   const [destaque, setDestaque] =
     useState("normal")
   const [categoria, setCategoria] =
@@ -108,15 +109,16 @@ const [previewImagem, setPreviewImagem] =
     }
 
     const { data } = await supabase
-      .from("produtos")
-      .select("*")
-      .eq(
-        "restaurante_id",
-        restauranteId
-      )
-      .order("created_at", {
-        ascending: false,
-      })
+ 
+    .from("produtos")
+.select("*")
+.eq(
+  "restaurante_id",
+  restauranteId
+)
+.order("ordem", {
+  ascending: true,
+})
 
     if (!data) return
 
@@ -310,30 +312,36 @@ return false
         error,
       } = await supabase
         .from("produtos")
-        .insert([
-          {
-            nome,
-            descricao,
-           preco: parseFloat(
-  preco.replace(",", ".")
-),
 
-preco_antigo:
-  precoAntigo
-    ? parseFloat(
-        precoAntigo.replace(",", ".")
-      )
-    : null,
+.insert([
+{
+  nome,
+  descricao,
 
-promocao,
+  preco: parseFloat(
+    preco.replace(",", ".")
+  ),
 
-            imagem: imageUrl,
-            destaque,
-            categoria,
-            restaurante_id:
-              restauranteId,
-          },
-        ])
+  preco_antigo:
+    precoAntigo
+      ? parseFloat(
+          precoAntigo.replace(",", ".")
+        )
+      : null,
+
+  promocao,
+
+  imagem: imageUrl,
+
+  destaque,
+
+  categoria,
+
+  restaurante_id:
+    restauranteId,
+},
+])
+
         .select()
         .single()
 
@@ -1434,67 +1442,44 @@ duration-200
 
 </select>
 
-        <select
-          value={destaque}
-          onChange={(e) =>
-            setDestaque(
-              e.target.value
-            )
-          }
-          className="border rounded-2xl p-4"
-        >
-          <option value="normal">
-            Normal
-          </option>
+</div>
 
-          <option value="destaque">
-            Destaque
-          </option>
-
-          <option value="promocao">
-            Promoção
-          </option>
-        </select>
-
-      </div>
-
-      <label
+<label
   className="
   flex
   items-center
   gap-3
-  border
-  rounded-2xl
-  p-4
+  mb-4
   cursor-pointer
   "
 >
-
   <input
     type="checkbox"
     checked={promocao}
     onChange={(e) =>
-      setPromocao(
-        e.target.checked
-      )
+      setPromocao(e.target.checked)
     }
   />
 
   <span className="font-medium">
     Produto em promoção
   </span>
-
 </label>
 
-      <textarea
+<textarea
   value={descricao}
   onChange={(e) =>
-    setDescricao(
-      e.target.value
-    )
+    setDescricao(e.target.value)
   }
   placeholder="Descrição"
-  className="border rounded-2xl p-4 w-full h-32 mb-4"
+  className="
+  border
+  rounded-2xl
+  p-4
+  w-full
+  h-32
+  mb-4
+  "
 />
 
 <div className="mt-6">
@@ -1532,66 +1517,19 @@ duration-200
     />
 
     <button
-  type="button"
-  onClick={adicionarExtra}
-  className="
-  bg-[#7A1F3D]
-text-white
-rounded-xl
-font-semibold
-hover:scale-105
-active:scale-95
-transition-all
-duration-200
-  "
->
-  Adicionar
-</button>
-
-</div>
-
-</div>
-
-<div className="mt-4 flex flex-wrap gap-2">
-
-  {extras.map((extra, index) => (
-
-    <div
-      key={index}
+      type="button"
+      onClick={adicionarExtra}
       className="
-      bg-zinc-100
+      bg-[#7A1F3D]
+      text-white
       rounded-xl
-      px-3
-      py-2
-      flex
-      items-center
-      gap-2
+      font-semibold
       "
     >
-      <span>
-        {extra.nome}
-      </span>
+      Adicionar
+    </button>
 
-      <span className="font-semibold text-[#7A1F3D]">
-        R$ {extra.preco.toFixed(2).replace(".", ",")}
-      </span>
-
-      <button
-        type="button"
-        onClick={() =>
-          setExtras(
-            extras.filter(
-              (_, i) => i !== index
-            )
-          )
-        }
-      >
-        <X size={14} />
-      </button>
-
-    </div>
-
-  ))}
+  </div>
 
 </div>
 

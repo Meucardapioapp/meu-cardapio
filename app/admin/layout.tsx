@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/utils/supabase/client"
@@ -9,7 +10,9 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const pathname = usePathname()
+ const pathname = usePathname()
+
+const [menuAberto, setMenuAberto] = useState(false)
 
   async function sair() {
     await supabase.auth.signOut()
@@ -82,9 +85,62 @@ export default function AdminLayout({
 ]
 
   return (
-  <div className="min-h-screen bg-[#D1CBD0] flex">
- <aside
+
+    <>
+<div
 className="
+lg:hidden
+fixed
+top-0
+left-0
+right-0
+z-50
+bg-[#1F1C21]
+p-4
+flex
+items-center
+justify-between
+shadow-lg
+"
+>
+
+<h1 className="text-white font-bold text-xl">
+MeuCardápio
+</h1>
+
+<button
+onClick={() => setMenuAberto(!menuAberto)}
+className="
+text-white
+text-3xl
+font-bold
+"
+>
+☰
+</button>
+
+</div>
+{menuAberto && (
+  <div
+    onClick={() => setMenuAberto(false)}
+    className="
+      lg:hidden
+      fixed
+      inset-0
+      bg-black/50
+      z-40
+    "
+  />
+)}
+  <div className="min-h-screen bg-[#D1CBD0] flex">
+<aside
+className={`
+fixed lg:relative
+lg:flex
+top-0
+left-0
+z-50
+h-screen
 w-72
 bg-[#1F1C21]
 border-r
@@ -94,7 +150,14 @@ flex
 flex-col
 shadow-2xl
 rounded-r-3xl
-"
+transform
+transition-transform
+duration-300
+
+${menuAberto ? "translate-x-0" : "-translate-x-full"}
+
+lg:translate-x-0
+`}
 >
         <h1 className="text-3xl font-black mb-10 text-white">
   MeuCardápio
@@ -105,6 +168,7 @@ rounded-r-3xl
             <Link
               key={item.link}
               href={item.link}
+              onClick={() => setMenuAberto(false)}
               className={`p-4 rounded-xl transition font-semibold ${
                 pathname === item.link
 ? "bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white shadow-lg"
@@ -135,9 +199,20 @@ text-white
         </button>
       </aside>
 
-     <main className="flex-1 p-10 overflow-y-auto">
+     <main
+className="
+flex-1
+p-5
+lg:p-10
+overflow-y-auto
+pt-24
+lg:pt-10
+"
+>
         {children}
       </main>
-    </div>
-  )
+   </div>
+
+</>
+)
 }
