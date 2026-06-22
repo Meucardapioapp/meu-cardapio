@@ -141,7 +141,13 @@ export default function LoginPage() {
           Gerencie pedidos, produtos e acompanhe o crescimento do seu negócio.
         </p>
 
-        <div className="mt-10">
+       <form
+  className="mt-10"
+  onSubmit={(e) => {
+    e.preventDefault()
+    login()
+  }}
+>
 
           <input
             type="email"
@@ -244,8 +250,8 @@ export default function LoginPage() {
           </div>
 
           <button
-            onClick={login}
-            disabled={loading}
+  type="submit"
+  disabled={loading}
             className="
               mt-6
               w-full
@@ -296,7 +302,7 @@ export default function LoginPage() {
 
           </div>
 
-        </div>
+        </form>
 
          </div>
 
