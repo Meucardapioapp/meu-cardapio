@@ -313,6 +313,8 @@ console.log(
   aparenciaData.logo_url
 )
 
+
+
 console.log(
   "BANNER DO BANCO:",
   aparenciaData.banner_url
