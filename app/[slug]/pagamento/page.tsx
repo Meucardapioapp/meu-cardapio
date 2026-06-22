@@ -251,14 +251,7 @@ setLogo(
   "
 />
 
-<p
-  style={{
-    fontSize: "10px",
-    wordBreak: "break-all"
-  }}
->
-  {logo}
-</p>
+
 
         <div
           className="
