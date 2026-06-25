@@ -5,7 +5,13 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const { total, restauranteId } = body;
+    const {
+  total,
+  restauranteId,
+  nome,
+  cpf,
+  whatsapp,
+} = body;
 
     const {
       data: restaurante,
@@ -59,19 +65,28 @@ export async function POST(request: Request) {
         },
 
         body: JSON.stringify({
- customer: {
-  name: "Victor Moura",
-  email: "vitor-portela.moura@hotmail.com",
+customer: {
+  name: nome,
+
+  email: `cliente${Date.now()}@meucardapioapp.com`,
+
   type: "individual",
-  document: "03066426203",
+
+  document: cpf.replace(/\D/g, ""),
 
   phones: {
     mobile_phone: {
       country_code: "55",
-      area_code: "92",
-      number: "992338863"
-    }
-  }
+
+      area_code: whatsapp
+        .replace(/\D/g, "")
+        .substring(0, 2),
+
+      number: whatsapp
+        .replace(/\D/g, "")
+        .substring(2),
+    },
+  },
 },
   items: [
             {

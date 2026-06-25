@@ -43,6 +43,12 @@ console.log("LOGO:", logo);
   const [formaPagamento, setFormaPagamento] =
     useState("pix");
 
+    const [nome, setNome] = useState("");
+
+const [cpf, setCpf] = useState("");
+
+const [whatsapp, setWhatsapp] = useState("");
+
   useEffect(() => {
     const endereco =
       localStorage.getItem(
@@ -52,6 +58,10 @@ console.log("LOGO:", logo);
     if (endereco) {
       const dados =
         JSON.parse(endereco);
+
+        setNome(dados.nome || "");
+setCpf(dados.cpf || "");
+setWhatsapp(dados.whatsapp || "");
 
       setSubtotal(
         Number(
@@ -551,12 +561,19 @@ setQuantidadeItens(
           "application/json",
       },
       body: JSON.stringify({
-        total,
-        restauranteId:
-          localStorage.getItem(
-            "restaurante_id"
-          ),
-      }),
+  total,
+
+  restauranteId:
+    localStorage.getItem(
+      "restaurante_id"
+    ),
+
+  nome,
+
+  cpf,
+
+  whatsapp,
+}),
     }
   );
 

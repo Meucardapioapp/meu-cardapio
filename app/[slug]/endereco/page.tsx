@@ -122,6 +122,12 @@ const [numero, setNumero] =
   const [whatsapp, setWhatsapp] =
   useState("")
 
+  const [nome, setNome] =
+  useState("")
+
+const [cpf, setCpf] =
+  useState("")
+
 const [freteCalculado, setFreteCalculado] =
   useState(false)
 
@@ -161,17 +167,24 @@ async function buscarCEP() {
 async function calcularFrete() {
 
   setCarregandoFrete(true)
-  
 
-  if (
-    !restauranteId ||
-    !rua ||
-    !numero ||
-    !bairro ||
-    !cidade
-  ) {
-    return
-  }
+if (
+  !nome ||
+  !cpf ||
+  !whatsapp ||
+  !restauranteId ||
+  !rua ||
+  !numero ||
+  !bairro ||
+  !cidade
+) {
+
+  setCarregandoFrete(false)
+
+  alert("Preencha todos os campos.")
+
+  return
+}
 
   try {
 
@@ -342,76 +355,54 @@ function resetarFrete() {
         Endereço de entrega
       </h1>
 
-      {/* ENDEREÇO SALVO */}
-
-      <div
-        className="
-          bg-white
-          rounded-xl
-          p-4
-          mb-6
-          flex
-          justify-between
-          items-center
-        "
-      >
-
-        <div>
-
-          <p
-            className="
-              font-semibold
-              text-sm
-            "
-          >
-            Endereço salvo
-          </p>
-
-          <p
-            className="
-              text-sm
-              text-zinc-600
-              mt-1
-            "
-          >
-            Rua das Flores, 123
-          </p>
-
-          <p
-            className="
-              text-sm
-              text-zinc-600
-            "
-          >
-            Centro - Manaus/AM
-          </p>
-
-        </div>
-
-<span
-  className="
-    text-2xl
-    font-light
-  "
-  style={{
-    color: corPrincipal,
-  }}
->
-  ›
-</span>
-
-      </div>
 
       {/* NOVO ENDEREÇO */}
 
       <h2
-        className="
-          font-bold
-          mb-4
-        "
-      >
-        Novo endereço
-      </h2>
+  className="
+    font-bold
+    text-lg
+    mb-4
+  "
+>
+  Informações do cliente
+</h2>
+
+<div
+  className="
+    bg-white
+    rounded-xl
+    border
+    p-4
+    mb-4
+  "
+>
+
+  <p
+    className="
+      text-xs
+      font-semibold
+      mb-2
+      text-zinc-600
+    "
+  >
+    Nome completo
+  </p>
+
+  <input
+    value={nome}
+    onChange={(e) =>
+      setNome(e.target.value)
+    }
+    placeholder="Digite seu nome"
+    className="
+      w-full
+      outline-none
+      font-semibold
+    "
+  />
+
+</div>
 
  <div
   className="
@@ -511,6 +502,53 @@ function resetarFrete() {
 
      
 <div className="space-y-4">
+
+  <div
+  className="
+    bg-white
+    rounded-xl
+    border
+    p-4
+    mt-4
+  "
+>
+
+  <p
+    className="
+      text-xs
+      font-semibold
+      mb-2
+      text-zinc-600
+    "
+  >
+    CPF
+  </p>
+
+  <input
+    value={cpf}
+    onChange={(e) =>
+      setCpf(e.target.value)
+    }
+    placeholder="000.000.000-00"
+    className="
+      w-full
+      outline-none
+      font-semibold
+    "
+  />
+
+</div>
+
+<h2
+  className="
+    font-bold
+    text-lg
+    mt-6
+    mb-4
+  "
+>
+  Endereço de entrega
+</h2>
 
   {/* CEP */}
 
@@ -895,12 +933,16 @@ taxaEntrega
   localStorage.setItem(
     `endereco-${slug}`,
     JSON.stringify({
-      cep,
-      rua,
-      numero,
-      bairro,
-      cidade,
-      estado,
+      nome,
+cpf,
+whatsapp,
+
+cep,
+rua,
+numero,
+bairro,
+cidade,
+estado,
       taxaEntrega,
       subtotal,
       total:
