@@ -70,6 +70,12 @@ const tipoPessoa =
   );
 }
 
+console.log("SECRET EXISTS:", !!process.env.PAGARME_SECRET_KEY);
+console.log(
+  "SECRET PREFIX:",
+  process.env.PAGARME_SECRET_KEY?.substring(0, 12)
+);
+
 const responsePagarme = await fetch(
   "https://api.pagar.me/core/v5/recipients",
   {
@@ -82,7 +88,7 @@ const responsePagarme = await fetch(
         ).toString("base64"),
       "Content-Type": "application/json",
     },
-
+    
     body: JSON.stringify({
       name: restaurante.nome_responsavel,
 
@@ -122,6 +128,12 @@ const responsePagarme = await fetch(
       },
     }),
   }
+);
+
+console.log("STATUS HTTP:", responsePagarme.status);
+console.log(
+  "HEADERS:",
+  Object.fromEntries(responsePagarme.headers.entries())
 );
 
 const recipient =
