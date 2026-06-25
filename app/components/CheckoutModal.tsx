@@ -1,10 +1,7 @@
 "use client"
 
 import { useState } from "react"
-
-import {
-  initMercadoPago,
-} from "@mercadopago/sdk-react";
+import { useRouter } from "next/navigation"
 
 import { supabase } from "@/lib/supabase"
 
@@ -12,9 +9,8 @@ import { getThemeSettings } from "../lib/theme"
 
 import Toast from "@/app/components/ui/toast"
 
-initMercadoPago(
-  "APP_USR-5d7cdd9b-818a-4645-b257-9a45c9f26141"
-)
+import { QRCodeCanvas }
+from "qrcode.react"
 
 type Props = {
   open: boolean
@@ -43,6 +39,8 @@ export default function CheckoutModal({
     selectedColor,
   } = getThemeSettings()
 
+const router = useRouter()
+
   const bgCard = lightMode
     ? "bg-[#F6F1E7] border border-zinc-200"
     : "bg-zinc-950 border border-zinc-800"
@@ -68,6 +66,12 @@ export default function CheckoutModal({
 
   const [telefone, setTelefone] =
     useState("")
+
+    const [email, setEmail] =
+  useState("")
+
+const [cpf, setCpf] =
+  useState("")
 
     const [cep, setCep] =
   useState("")
@@ -167,6 +171,8 @@ console.log({
   try {
 
     const response = await fetch(
+
+      
   "/api/calcular-frete" ,
   {
     method: "POST",
@@ -210,7 +216,33 @@ console.log({
 
 async function pagarComPix() {
 
+  alert("ENTROU NA NOVA pagarComPix");
+
   console.log("CLICOU PIX")
+
+  if (
+  !cliente ||
+  !telefone ||
+  !email ||
+  !cpf ||
+  !cep ||
+  !bairro ||
+  !rua ||
+  !numero
+) {
+  alert("Preencha todos os campos")
+  return
+}
+
+console.log("DADOS PIX")
+console.log({
+  cliente,
+  telefone,
+  cep,
+  bairro,
+  rua,
+  numero,
+})
 
   console.log(
   "RESTAURANTE ID PIX:",
@@ -256,6 +288,11 @@ console.log(
   data
 )
 
+localStorage.setItem(
+  "pedidoAtual",
+  String(data.id)
+)
+
    if (error) {
 
   console.log(
@@ -272,39 +309,49 @@ console.log(
 
     const response =
       await fetch(
-        "/api/mercadopago/criar-pix",
+        "/api/checkout",
         {
           method: "POST",
           headers: {
             "Content-Type":
               "application/json",
           },
-        body: JSON.stringify({
+      body: JSON.stringify({
   total: total + frete,
   pedidoId: data.id,
   restauranteId,
+
+  customer: {
+    name: cliente,
+    email,
+    document: cpf,
+    phone: telefone,
+  },
+
+  items: cart.map((item: any) => ({
+    name: item.nome,
+    quantity: item.quantidade,
+    amount: Math.round(item.preco * 100),
+  })),
 }),
         }
       )
 
-    const resultado =
-  await response.json()
+   
+const resultado = await response.json()
 
-console.log(
-  "RESULTADO PIX:",
-  resultado
-)
+console.log("RESULTADO:", resultado);
 
-    if (!resultado.success) {
-      return
-    }
+console.log("SUCCESS:", resultado.success);
 
-    window.location.href =
-`/pix?id=${data.id}&qr=${encodeURIComponent(
-  resultado.qr_code
-)}&img=${encodeURIComponent(
-  resultado.qr_code_base64
-)}`
+console.log("QRCODE:", resultado.qrCode);
+
+console.log("VAI REDIRECIONAR");
+
+window.location.href =
+  `/${slug}/pix?id=${data.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
+  
+return;
 
   } catch (error) {
 
@@ -318,6 +365,30 @@ console.log(
 }
 
 async function pagarComCartao() {
+
+  if (
+  !cliente ||
+  !telefone ||
+  !email ||
+  !cpf ||
+  !cep ||
+  !bairro ||
+  !rua ||
+  !numero
+) {
+  alert("Preencha todos os campos")
+  return
+}
+
+console.log("DADOS CARTAO")
+console.log({
+  cliente,
+  telefone,
+  cep,
+  bairro,
+  rua,
+  numero,
+})
 
   const pedido = {
     cliente,
@@ -349,10 +420,10 @@ async function pagarComCartao() {
     return
   }
 
-  localStorage.setItem(
-    "pedidoId",
-    String(data.id)
-  )
+ localStorage.setItem(
+  "pedidoAtual",
+  String(data.id)
+)
 
   localStorage.setItem(
     "restauranteId",
@@ -389,6 +460,8 @@ setTimeout(() => {
   if (
   !cliente ||
   !telefone ||
+  !email ||
+  !cpf ||
   !cep ||
   !bairro ||
   !rua ||
@@ -516,8 +589,13 @@ setToast({
 })
 
 setTimeout(() => {
-  window.location.href =
-    `/pedido/${data.id}`
+ localStorage.setItem(
+  "pedidoAtual",
+  String(data.id)
+)
+
+window.location.href =
+  `/${slug}/pedido-aprovado`
 }, 1500)
 
     } catch (error) {
@@ -660,6 +738,48 @@ setTimeout(() => {
                 selectedColor + "30",
             }}
           />
+
+          <input
+  value={email}
+  onChange={(e) =>
+    setEmail(e.target.value)
+  }
+  placeholder="E-mail"
+  className={`
+    ${inputBg}
+    border
+    rounded-2xl
+    p-4
+    outline-none
+    transition-all
+    focus:ring-2
+  `}
+  style={{
+    borderColor:
+      selectedColor + "30",
+  }}
+/>
+
+<input
+  value={cpf}
+  onChange={(e) =>
+    setCpf(e.target.value)
+  }
+  placeholder="CPF"
+  className={`
+    ${inputBg}
+    border
+    rounded-2xl
+    p-4
+    outline-none
+    transition-all
+    focus:ring-2
+  `}
+  style={{
+    borderColor:
+      selectedColor + "30",
+  }}
+/>
 
           <div className="
             grid
@@ -979,6 +1099,7 @@ if (
       </div>
 
      </div>
+
 
   </>
   )

@@ -10,6 +10,8 @@ import {
   useSearchParams,
 } from "next/navigation";
 
+import { QRCodeCanvas } from "qrcode.react";
+
 function PixContent() {
   const router = useRouter();
 
@@ -22,8 +24,6 @@ function PixContent() {
   const qrCode =
     searchParams.get("qr");
 
-  const qrCodeBase64 =
-    searchParams.get("img");
 
   useEffect(() => {
     if (!pedidoId) return;
@@ -81,19 +81,18 @@ if (
         Aguardando confirmação do pagamento...
       </p>
 
-      {qrCodeBase64 ? (
-        <img
-          src={`data:image/png;base64,${decodeURIComponent(
-            qrCodeBase64
-          )}`}
-          alt="QR Code PIX"
-          className="w-72 h-72 mb-6"
-        />
-      ) : (
-        <p>
-          QR Code não encontrado.
-        </p>
+     {qrCode ? (
+  <div className="bg-white p-4 rounded-2xl shadow mb-6">
+    <QRCodeCanvas
+      value={decodeURIComponent(
+        qrCode
       )}
+      size={280}
+    />
+  </div>
+) : (
+  <p>QR Code não encontrado.</p>
+)}
 
       <textarea
         readOnly

@@ -35,6 +35,9 @@ console.log("LOGO:", logo);
   const [taxaEntrega, setTaxaEntrega] =
     useState(0);
 
+    const [quantidadeItens, setQuantidadeItens] =
+  useState(0);
+
   const taxaOperacional = 0.99;
 
   const [formaPagamento, setFormaPagamento] =
@@ -90,6 +93,21 @@ console.log(
 setLogo(
   logoSalva || ""
 );
+
+const carrinho = JSON.parse(
+  localStorage.getItem(
+    `cart-${slug}`
+  ) || "[]"
+);
+
+setQuantidadeItens(
+  carrinho.reduce(
+    (acc:any,item:any)=>
+      acc + item.quantity,
+    0
+  )
+);
+
 
   }, [slug]);
 
@@ -272,17 +290,7 @@ setLogo(
             size={16}
           />
           <span>
-{
-JSON.parse(
-localStorage.getItem(
-`cart-${slug}`
-) || "[]"
-).reduce(
-(acc:any,item:any)=>
-acc + item.quantity,
-0
-)
-}
+  {quantidadeItens}
 </span>
         </div>
       </div>
@@ -532,21 +540,48 @@ acc + item.quantity,
         "
       >
         <button
-          className="
-            w-full
-            h-14
-            rounded-xl
-            text-white
-            font-bold
-            shadow-lg
-          "
-          style={{
-            backgroundColor:
-              corPrincipal
-          }}
-        >
-          Finalizar pedido
-        </button>
+  onClick={async () => {
+
+  const response = await fetch(
+    "/api/pagarme/criar-pix",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+      body: JSON.stringify({
+        total,
+        restauranteId:
+          localStorage.getItem(
+            "restaurante_id"
+          ),
+      }),
+    }
+  );
+
+ const resultado =
+  await response.json();
+
+window.location.href =
+  `/${slug}/pix?id=${resultado.orderId}&qr=${encodeURIComponent(resultado.qrCode)}`;
+}}
+
+  className="
+    w-full
+    h-14
+    rounded-xl
+    text-white
+    font-bold
+    shadow-lg
+  "
+  style={{
+    backgroundColor:
+      corPrincipal
+  }}
+>
+  Finalizar pedido
+</button>
       </div>
     </main>
   );

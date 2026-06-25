@@ -66,8 +66,8 @@ const [menuAberto, setMenuAberto] = useState(false)
 },
 
 {
-  nome: "Mercado Pago",
-  link: "/admin/mercado-pago",
+  nome: "Dados Bancários",
+  link: "/admin/dados-bancarios",
 },
 
   {
@@ -87,39 +87,7 @@ const [menuAberto, setMenuAberto] = useState(false)
   return (
 
     <>
-<div
-className="
-lg:hidden
-fixed
-top-0
-left-0
-right-0
-z-50
-bg-[#1F1C21]
-p-4
-flex
-items-center
-justify-between
-shadow-lg
-"
->
 
-<h1 className="text-white font-bold text-xl">
-MeuCardápio
-</h1>
-
-<button
-onClick={() => setMenuAberto(!menuAberto)}
-className="
-text-white
-text-3xl
-font-bold
-"
->
-☰
-</button>
-
-</div>
 {menuAberto && (
   <div
     onClick={() => setMenuAberto(false)}
@@ -141,6 +109,7 @@ top-0
 left-0
 z-50
 h-screen
+overflow-y-auto scrollbar-hide
 w-72
 bg-[#1F1C21]
 border-r
@@ -159,9 +128,30 @@ ${menuAberto ? "translate-x-0" : "-translate-x-full"}
 lg:translate-x-0
 `}
 >
-        <h1 className="text-3xl font-black mb-10 text-white">
-  MeuCardápio
-</h1>
+      <div className="flex items-center justify-between mb-10">
+
+  <h1 className="text-3xl font-black text-white">
+    MeuCardápio
+  </h1>
+
+ <button
+  onClick={() => setMenuAberto(!menuAberto)}
+  className="
+    lg:hidden
+    text-white
+    text-xl
+    font-bold
+    w-8
+    h-8
+    flex
+    items-center
+    justify-center
+  "
+>
+  {menuAberto ? "✕" : "☰"}
+</button>
+
+</div>
 
         <nav className="flex flex-col gap-3">
           {menus.map((item) => (
@@ -199,18 +189,42 @@ text-white
         </button>
       </aside>
 
-     <main
+ <main
 className="
 flex-1
 p-5
 lg:p-10
 overflow-y-auto
-pt-24
+pt-6
 lg:pt-10
 "
 >
         {children}
       </main>
+      {!menuAberto && (
+  <button
+    onClick={() => setMenuAberto(true)}
+    className="
+      lg:hidden
+      fixed
+      top-4
+      left-4
+      z-50
+      w-12
+      h-12
+      rounded-xl
+      bg-[#1F1C21]
+      text-white
+      text-2xl
+      shadow-xl
+      flex
+      items-center
+      justify-center
+    "
+  >
+    ☰
+  </button>
+)}
    </div>
 
 </>
