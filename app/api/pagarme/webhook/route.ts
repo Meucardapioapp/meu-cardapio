@@ -4,18 +4,24 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    console.log("WEBHOOK PAGARME");
+    console.log("========== WEBHOOK PAGAR.ME ==========");
     console.log(JSON.stringify(body, null, 2));
-
-    return NextResponse.json({
-      success: true,
-    });
-  } catch (error) {
-    console.error(error);
+    console.log("======================================");
 
     return NextResponse.json(
       {
-        success: false,
+        received: true,
+      },
+      {
+        status: 200,
+      }
+    );
+  } catch (error) {
+    console.error("Erro no webhook:", error);
+
+    return NextResponse.json(
+      {
+        received: false,
       },
       {
         status: 500,
