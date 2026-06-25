@@ -74,10 +74,7 @@ const [menuAberto, setMenuAberto] = useState(false)
     nome: "Link do Cardápio",
     link: "/admin/link-cardapio",
   },
-  {
-    nome: "Assinatura",
-    link: "/admin/assinatura",
-  },
+  
   {
     nome: "Configurações",
     link: "/admin/configuracoes",
