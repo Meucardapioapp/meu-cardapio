@@ -208,24 +208,27 @@ if (
         }
       )
 
-    const data = await response.json()
+   const data = await response.json()
 
 console.log("STATUS:", response.status)
 console.log("RESPOSTA:", data)
 
-if (
-  data.faixaFrete?.valor
-) {
+setCarregandoFrete(false)
 
-  setTaxaEntrega(
-    Number(
-      data.faixaFrete.valor
-    )
-  )
-
-  setFreteCalculado(true)
-  setCarregandoFrete(false)
+if (!response.ok) {
+  alert(data.error || "Erro ao calcular frete")
+  return
 }
+
+if (!data.faixaFrete) {
+  console.log("Não veio faixaFrete:", data)
+  alert("Nenhuma faixa encontrada.")
+  return
+}
+
+setTaxaEntrega(Number(data.faixaFrete.valor))
+
+setFreteCalculado(true)
 
   } catch (error) {
 
@@ -386,7 +389,7 @@ function resetarFrete() {
       text-zinc-600
     "
   >
-    Nome completo
+    Nome e Sobrenome
   </p>
 
   <input
@@ -394,7 +397,7 @@ function resetarFrete() {
     onChange={(e) =>
       setNome(e.target.value)
     }
-    placeholder="Digite seu nome"
+    placeholder="Ex.: João da Silva"
     className="
       w-full
       outline-none
