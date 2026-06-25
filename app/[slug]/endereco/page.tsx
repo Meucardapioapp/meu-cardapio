@@ -22,6 +22,14 @@ export default function EnderecoPage() {
         ) || "[]"
       )
 
+      setQuantidadeCarrinho(
+  carrinho.reduce(
+    (acc: number, item: any) =>
+      acc + item.quantity,
+    0
+  )
+)
+
     const subtotalCarrinho =
       carrinho.reduce(
         (acc: number, item: any) =>
@@ -88,6 +96,9 @@ const [taxaEntrega, setTaxaEntrega] =
   useState(0)
 
 const [subtotal, setSubtotal] =
+  useState(0)
+
+  const [quantidadeCarrinho, setQuantidadeCarrinho] =
   useState(0)
 
   const [cep, setCep] =
@@ -313,17 +324,7 @@ function resetarFrete() {
         >
           <ShoppingCart size={16} />
           <span>
-{
-JSON.parse(
-localStorage.getItem(
-`cart-${slug}`
-) || "[]"
-).reduce(
-(acc:any,item:any)=>
-acc + item.quantity,
-0
-)
-}
+{quantidadeCarrinho}
 </span>
         </div>
 
