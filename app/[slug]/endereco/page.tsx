@@ -195,10 +195,10 @@ async function calcularFrete() {
         }
       )
 
-    const data =
-      await response.json()
+    const data = await response.json()
 
-    console.log(data)
+console.log("STATUS:", response.status)
+console.log("RESPOSTA:", data)
 
 if (
   data.faixaFrete?.valor
