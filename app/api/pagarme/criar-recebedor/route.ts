@@ -138,6 +138,9 @@ console.log(
   recipient
 );
 
+console.log("STATUS HTTP:", responsePagarme.status);
+console.log("RESPOSTA PAGAR.ME:", recipient);
+
 if (!responsePagarme.ok) {
   return NextResponse.json(
     {
