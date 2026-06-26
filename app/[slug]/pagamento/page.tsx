@@ -607,6 +607,12 @@ if (!pedidoResultado.success) {
 
 const pedido = pedidoResultado.pedido;
 
+console.log("PEDIDO RESULTADO:", pedidoResultado);
+
+console.log("PEDIDO:", pedido);
+
+console.log("PEDIDO ID:", pedido.id);
+
   const response = await fetch(
     "/api/pagarme/criar-pix",
     {
