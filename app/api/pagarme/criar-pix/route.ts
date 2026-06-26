@@ -8,10 +8,13 @@ export async function POST(request: Request) {
     const {
   total,
   restauranteId,
+  pedidoId,
   nome,
   cpf,
   whatsapp,
 } = body;
+
+console.log("PEDIDO ID:", pedidoId);
 
     const {
       data: restaurante,
@@ -125,6 +128,13 @@ customer: {
 
     const data =
       await response.json();
+
+      await supabaseAdmin
+  .from("pedidos")
+  .update({
+    pagarme_order_id: data.id,
+  })
+  .eq("id", pedidoId);
 
 console.log(
   "STATUS PAGARME:",
