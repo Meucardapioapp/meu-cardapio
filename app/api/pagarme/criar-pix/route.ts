@@ -111,17 +111,39 @@ customer: {
          
 
           payments: [
-            {
-              payment_method:
-                "pix",
+  {
+    payment_method: "pix",
 
-              pix: {
-                expires_in: 3600,
-              },
+    pix: {
+      expires_in: 3600,
+    },
 
-             
-            },
-          ],
+    split: [
+      {
+        recipient_id: recipientId,
+        type: "flat",
+        amount: Math.round(valorRestaurante * 100),
+        options: {
+          liable: false,
+          charge_processing_fee: false,
+          charge_remainder_fee: false,
+        },
+      },
+      {
+        recipient_id: "re_cmqqtnnl86t240l9tgpsra25y",
+        type: "flat",
+        amount: Math.round(
+          (taxaMarketplace + taxaFixa) * 100
+        ),
+        options: {
+          liable: true,
+          charge_processing_fee: true,
+          charge_remainder_fee: true,
+        },
+      },
+    ],
+  },
+],
         }),
       }
     );
