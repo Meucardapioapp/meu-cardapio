@@ -49,6 +49,16 @@ const [cpf, setCpf] = useState("");
 
 const [whatsapp, setWhatsapp] = useState("");
 
+const [rua, setRua] = useState("");
+
+const [numero, setNumero] = useState("");
+
+const [bairro, setBairro] = useState("");
+
+const [cidade, setCidade] = useState("");
+
+const [estado, setEstado] = useState("");
+
   useEffect(() => {
     const endereco =
       localStorage.getItem(
@@ -62,6 +72,16 @@ const [whatsapp, setWhatsapp] = useState("");
         setNome(dados.nome || "");
 setCpf(dados.cpf || "");
 setWhatsapp(dados.whatsapp || "");
+
+setRua(dados.rua || "");
+
+setNumero(dados.numero || "");
+
+setBairro(dados.bairro || "");
+
+setCidade(dados.cidade || "");
+
+setEstado(dados.estado || "");
 
       setSubtotal(
         Number(
@@ -570,13 +590,13 @@ setQuantidadeItens(
 
       telefone: whatsapp,
 
-      endereco: "",
+      endereco: `${rua}, ${numero}`,
 
-      bairro: "",
+      bairro,
 
-      rua: "",
+      rua,
 
-      numero: "",
+      numero,
 
       observacoes: "",
 

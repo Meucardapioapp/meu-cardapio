@@ -36,12 +36,14 @@ export default function PedidoAprovadoPage() {
       `/api/pedido?id=${pedidoId}`
     );
 
-    const data =
-      await response.json();
+    const data = await response.json();
 
-    if (data.success) {
-      setPedido(data.pedido);
-    }
+console.log("API PEDIDO:", data);
+
+if (data.success) {
+  console.log("PEDIDO RECEBIDO:", data.pedido);
+  setPedido(data.pedido);
+}
 
     const cor =
       localStorage.getItem(
