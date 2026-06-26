@@ -1,13 +1,20 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import {
+  useSearchParams,
+  useParams,
+} from "next/navigation";
 import { QRCodeCanvas } from "qrcode.react";
 
 function PixContent() {
   const searchParams = useSearchParams();
+  const params = useParams();
+
+  const slug = params.slug as string;
 
   const qrCode = searchParams.get("qr");
+  const pedidoId = searchParams.get("id");
 
   if (!qrCode) {
     return (
@@ -18,6 +25,39 @@ function PixContent() {
   }
 
   const codigoPix = decodeURIComponent(qrCode);
+
+  useEffect(() => {
+    if (!pedidoId) return;
+
+    const intervalo = setInterval(async () => {
+      try {
+        const response = await fetch(
+          `/api/pedido-status?id=${pedidoId}`
+        );
+
+        const data = await response.json();
+
+        console.log(
+          "STATUS PEDIDO:",
+          data.payment_status
+        );
+
+        if (
+          data.payment_status ===
+          "approved"
+        ) {
+          clearInterval(intervalo);
+
+          window.location.href =
+            `/${slug}/pedido-aprovado`;
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }, 3000);
+
+    return () => clearInterval(intervalo);
+  }, [pedidoId, slug]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">

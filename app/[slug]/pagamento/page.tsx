@@ -640,7 +640,7 @@ const pedido = pedidoResultado.pedido;
   await response.json();
 
 window.location.href =
-  `/${slug}/pix?id=${resultado.orderId}&qr=${encodeURIComponent(resultado.qrCode)}`;
+`/${slug}/pix?id=${pedido.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
 }}
 
   className="
