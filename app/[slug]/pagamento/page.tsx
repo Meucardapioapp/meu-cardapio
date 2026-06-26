@@ -600,8 +600,12 @@ setQuantidadeItens(
 const pedidoResultado =
   await pedidoResponse.json();
 
-const pedido =
-  pedidoResultado.pedido;
+if (!pedidoResultado.success) {
+  alert("Erro ao criar pedido");
+  return;
+}
+
+const pedido = pedidoResultado.pedido;
 
   const response = await fetch(
     "/api/pagarme/criar-pix",
