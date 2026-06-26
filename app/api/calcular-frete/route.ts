@@ -170,7 +170,7 @@ if (distanciaKm == null) {
 const { data: taxaEntrega } =
   await supabaseAdmin
     .from("taxas_entrega")
-    .select("id")
+    .select("*")
     .eq("restaurante_id", restauranteId)
     .single()
 
@@ -181,6 +181,26 @@ if (!taxaEntrega) {
     },
     { status: 404 }
   )
+}
+
+if (taxaEntrega.tipo === "gratis") {
+  return NextResponse.json({
+    sucesso: true,
+    distanciaKm: 0,
+    faixaFrete: {
+      valor: 0,
+    },
+  })
+}
+
+if (taxaEntrega.tipo === "fixa") {
+  return NextResponse.json({
+    sucesso: true,
+    distanciaKm: 0,
+    faixaFrete: {
+      valor: taxaEntrega.taxa_fixa,
+    },
+  })
 }
 
 const { data: faixaFrete } =
