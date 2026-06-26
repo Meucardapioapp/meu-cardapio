@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import {
+  useParams,
+  useSearchParams,
+} from "next/navigation";
+
 import {
   Check,
   Clock3,
@@ -11,7 +15,10 @@ import {
 
 export default function PedidoAprovadoPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params.slug as string;
+  const pedidoId =
+  searchParams.get("id");
 
   const [pedido, setPedido] = useState<any>(null);
 
@@ -22,15 +29,18 @@ export default function PedidoAprovadoPage() {
     useState("");
 
   useEffect(() => {
-    const pedidoSalvo =
-      localStorage.getItem(
-        `pedido-${slug}`
-      );
+  async function carregarPedido() {
+    if (!pedidoId) return;
 
-    if (pedidoSalvo) {
-      setPedido(
-        JSON.parse(pedidoSalvo)
-      );
+    const response = await fetch(
+      `/api/pedido?id=${pedidoId}`
+    );
+
+    const data =
+      await response.json();
+
+    if (data.success) {
+      setPedido(data.pedido);
     }
 
     const cor =
@@ -42,15 +52,18 @@ export default function PedidoAprovadoPage() {
       setCorPrincipal(cor);
     }
 
-    const logoSalva =
+    const logo =
       localStorage.getItem(
         "logo-restaurante"
       );
 
-    if (logoSalva) {
-      setLogo(logoSalva);
+    if (logo) {
+      setLogo(logo);
     }
-  }, [slug]);
+  }
+
+  carregarPedido();
+}, [pedidoId]);
 
   if (!pedido) {
     return null;

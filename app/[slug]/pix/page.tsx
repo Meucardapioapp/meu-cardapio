@@ -49,7 +49,7 @@ function PixContent() {
           clearInterval(intervalo);
 
           window.location.href =
-            `/${slug}/pedido-aprovado`;
+  `/${slug}/pedido-aprovado?id=${pedidoId}`;
         }
       } catch (error) {
         console.error(error);
