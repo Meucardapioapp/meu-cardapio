@@ -124,9 +124,9 @@ customer: {
         type: "flat",
         amount: Math.round(valorRestaurante * 100),
         options: {
-          liable: false,
-          charge_processing_fee: false,
-          charge_remainder_fee: false,
+          liable: true,
+          charge_processing_fee: true,
+          charge_remainder_fee: true,
         },
       },
       {
@@ -136,9 +136,9 @@ customer: {
           (taxaMarketplace + taxaFixa) * 100
         ),
         options: {
-          liable: true,
-          charge_processing_fee: true,
-          charge_remainder_fee: true,
+          liable: false,
+          charge_processing_fee: false,
+          charge_remainder_fee: false,
         },
       },
     ],
