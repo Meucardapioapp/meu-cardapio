@@ -552,6 +552,57 @@ setQuantidadeItens(
         <button
   onClick={async () => {
 
+    const pedidoResponse = await fetch(
+  "/api/pedido/criar",
+  {
+    method: "POST",
+
+    headers: {
+      "Content-Type": "application/json",
+    },
+
+    body: JSON.stringify({
+
+      restauranteId:
+        localStorage.getItem("restaurante_id"),
+
+      nome,
+
+      telefone: whatsapp,
+
+      endereco: "",
+
+      bairro: "",
+
+      rua: "",
+
+      numero: "",
+
+      observacoes: "",
+
+      itens: JSON.parse(
+        localStorage.getItem(
+          `cart-${slug}`
+        ) || "[]"
+      ),
+
+      subtotal,
+
+      taxaEntrega,
+
+      total,
+
+      payment_method: "pix",
+    }),
+  }
+);
+
+const pedidoResultado =
+  await pedidoResponse.json();
+
+const pedido =
+  pedidoResultado.pedido;
+
   const response = await fetch(
     "/api/pagarme/criar-pix",
     {
@@ -560,7 +611,8 @@ setQuantidadeItens(
         "Content-Type":
           "application/json",
       },
-      body: JSON.stringify({
+    body: JSON.stringify({
+
   total,
 
   restauranteId:
@@ -568,11 +620,14 @@ setQuantidadeItens(
       "restaurante_id"
     ),
 
+  pedidoId: pedido.id,
+
   nome,
 
   cpf,
 
   whatsapp,
+
 }),
     }
   );
