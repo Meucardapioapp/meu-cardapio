@@ -1,7 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams } from "next/navigation"
+import {
+  useParams,
+  useSearchParams,
+} from "next/navigation"
 import {
   ArrowLeft,
   Check,
@@ -29,6 +32,10 @@ type Pedido = {
 
 export default function AcompanharPedidoPage() {
   const params = useParams()
+
+  const searchParams = useSearchParams();
+
+const pedidoId = searchParams.get("id");
 
   const slug = params.slug as string
 
@@ -64,20 +71,10 @@ export default function AcompanharPedidoPage() {
 
   async function buscarPedido() {
     try {
-      const pedidoId =
-        localStorage.getItem(
-          "pedidoAtual"
-        )
-
-      console.log(
-        "PEDIDO LOCAL:",
-        pedidoId
-      )
-
       if (!pedidoId) {
-        setLoading(false)
-        return
-      }
+  setLoading(false);
+  return;
+}
 
       const {
         data,
@@ -127,23 +124,12 @@ export default function AcompanharPedidoPage() {
             table: "pedidos",
           },
           (payload) => {
-            const pedidoAtual =
-              localStorage.getItem(
-                "pedidoAtual"
-              )
-
-            if (
-              Number(
-                payload.new.id
-              ) ===
-              Number(
-                pedidoAtual
-              )
-            ) {
-              setPedido(
-                payload.new as Pedido
-              )
-            }
+           if (
+  Number(payload.new.id) ===
+  Number(pedidoId)
+) {
+  setPedido(payload.new as Pedido);
+}
           }
         )
         .subscribe()

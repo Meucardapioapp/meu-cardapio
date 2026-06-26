@@ -425,9 +425,9 @@ if (data.success) {
 
 <button
   onClick={() => {
-    window.location.href =
-      `/${slug}/acompanhar-pedido`
-  }}
+  window.location.href =
+    `/${slug}/acompanhar-pedido?id=${pedido.id}`;
+}}
   className="
     w-full
     h-14
