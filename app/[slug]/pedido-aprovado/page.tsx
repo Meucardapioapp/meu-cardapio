@@ -69,27 +69,27 @@ export default function PedidoAprovadoPage() {
     return null;
   }
 
-  function nomePagamento() {
-    switch (pedido.formaPagamento) {
-      case "pix":
-        return "Pix";
+ function nomePagamento() {
+  switch (pedido.payment_method) {
+    case "pix":
+      return "Pix";
 
-      case "credito":
-        return "Cartão de Crédito";
+    case "credito":
+      return "Cartão de Crédito";
 
-      case "debito":
-        return "Cartão de Débito";
+    case "debito":
+      return "Cartão de Débito";
 
-      case "apple":
-        return "Apple Pay";
+    case "apple":
+      return "Apple Pay";
 
-      case "google":
-        return "Google Pay";
+    case "google":
+      return "Google Pay";
 
-      default:
-        return "Pix";
-    }
+    default:
+      return "Pix";
   }
+}
 
   return (
     <main
@@ -197,9 +197,7 @@ export default function PedidoAprovadoPage() {
                 corPrincipal,
             }}
           >
-            #{Date.now()
-              .toString()
-              .slice(-5)}
+           #{pedido.id} 
           </div>
         </div>
 
@@ -255,15 +253,13 @@ export default function PedidoAprovadoPage() {
               </p>
 
               <p
-                className="
-                font-bold
-                text-xl
-                "
-              >
-                {
-                  pedido.previsaoEntrega
-                }
-              </p>
+  className="
+    font-bold
+    text-xl
+  "
+>
+  Em preparação
+</p>
             </div>
           </div>
 
@@ -307,34 +303,13 @@ export default function PedidoAprovadoPage() {
                 Endereço de entrega
               </p>
 
-              <p
-                className="
-                font-semibold
-                "
-              >
-                {pedido.endereco.rua},{" "}
-                {
-                  pedido.endereco
-                    .numero
-                }
-              </p>
+              <p className="font-semibold">
+  {pedido.rua || "-"}, {pedido.numero || "-"}
+</p>
 
-              <p>
-                {
-                  pedido.endereco
-                    .bairro
-                }
-                {" - "}
-                {
-                  pedido.endereco
-                    .cidade
-                }
-                /
-                {
-                  pedido.endereco
-                    .estado
-                }
-              </p>
+<p>
+  {pedido.bairro || "-"}
+</p>
             </div>
           </div>
 
