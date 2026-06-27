@@ -360,59 +360,12 @@ style={{
                   </div>
                 </motion.div>
 
-                <div className="mt-8 flex flex-col items-center">
+                
 
-  <Clock3
-    size={22}
-    style={{
-      color: corPrincipal,
-    }}
-  />
 
-  <span className="mt-2 text-zinc-500 text-sm">
-    Expira em
-  </span>
+                <div className="mt-6">
 
-  <span
-    className="text-5xl font-black mt-2"
-    style={{
-      color: corPrincipal,
-    }}
-  >
-    {minutos}:{segundosTexto}
-  </span>
-
-</div>
-
-                <div className="mt-8 rounded-2xl bg-green-50 border border-green-200 p-5">
-
-                  <div className="flex items-center gap-3">
-
-                    <CircleCheckBig
-                      className="text-green-600"
-                      size={24}
-                    />
-
-                    <div>
-
-                      <h3 className="font-bold text-green-700">
-                        Aprovação automática
-                      </h3>
-
-                      <p className="text-sm text-green-700 mt-1">
-                        Assim que o PIX for identificado,
-                        seu pedido será confirmado automaticamente.
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-                <div className="mt-8">
-
-                  <label className="font-semibold text-zinc-700">
+                 <label className="block text-center font-semibold text-zinc-700 mb-3">
                     Código PIX
                   </label>
 
