@@ -177,6 +177,22 @@ console.log(
       )
     );
 
+
+
+console.log(
+  "LAST TRANSACTION:",
+  JSON.stringify(
+    data?.charges?.[0]?.last_transaction,
+    null,
+    2
+  )
+);
+
+console.log(
+  "DATA COMPLETA:",
+  JSON.stringify(data, null, 2)
+);
+
     return NextResponse.json({
   success: true,
 

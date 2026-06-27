@@ -1,5 +1,11 @@
 "use client";
 
+declare global {
+  interface Window {
+    Pagarme: any;
+  }
+}
+
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
@@ -58,6 +64,14 @@ const [bairro, setBairro] = useState("");
 const [cidade, setCidade] = useState("");
 
 const [estado, setEstado] = useState("");
+
+const [numeroCartao, setNumeroCartao] = useState("");
+const [nomeCartao, setNomeCartao] = useState("");
+const [validade, setValidade] = useState("");
+const [cvv, setCvv] = useState("");
+const PUBLIC_KEY =
+  process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY!;
+  console.log("PUBLIC KEY:", PUBLIC_KEY);
 
   useEffect(() => {
     const endereco =
@@ -418,6 +432,58 @@ setQuantidadeItens(
 
       {/* RESUMO */}
 
+      {(formaPagamento === "credito" ||
+  formaPagamento === "debito") && (
+
+<div
+  className="
+    bg-white
+    rounded-2xl
+    p-5
+    mb-6
+  "
+>
+
+  <h2 className="text-lg font-bold mb-4">
+  Dados do cartão
+</h2>
+
+<input
+  value={numeroCartao}
+  onChange={(e) => setNumeroCartao(e.target.value)}
+  placeholder="Número do cartão"
+  className="w-full border rounded-xl p-3 mb-3"
+/>
+
+<input
+  value={nomeCartao}
+  onChange={(e) => setNomeCartao(e.target.value)}
+  placeholder="Nome impresso no cartão"
+  className="w-full border rounded-xl p-3 mb-3"
+/>
+
+<div className="grid grid-cols-2 gap-3">
+
+<input
+  value={validade}
+  onChange={(e) => setValidade(e.target.value)}
+  placeholder="MM/AA"
+  className="border rounded-xl p-3"
+/>
+
+<input
+  value={cvv}
+  onChange={(e) => setCvv(e.target.value)}
+  placeholder="CVV"
+  className="border rounded-xl p-3"
+/>
+
+</div>
+
+</div>
+
+)}
+
       <div
         className="
           bg-white
@@ -612,7 +678,12 @@ setQuantidadeItens(
 
       total,
 
-      payment_method: "pix",
+      payment_method:
+  formaPagamento === "credito"
+    ? "credit_card"
+    : formaPagamento === "debito"
+    ? "debit_card"
+    : "pix",
     }),
   }
 );
@@ -633,40 +704,135 @@ console.log("PEDIDO:", pedido);
 
 console.log("PEDIDO ID:", pedido.id);
 
+if (formaPagamento === "pix") {
+
   const response = await fetch(
     "/api/pagarme/criar-pix",
     {
       method: "POST",
       headers: {
-        "Content-Type":
-          "application/json",
+        "Content-Type": "application/json",
       },
-    body: JSON.stringify({
+      body: JSON.stringify({
+        total,
+        restauranteId: localStorage.getItem("restaurante_id"),
+        pedidoId: pedido.id,
+        nome,
+        cpf,
+        whatsapp,
+      }),
+    }
+  );
 
+  const resultado = await response.json();
+
+  window.location.href =
+    `/${slug}/pix?id=${pedido.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
+
+  return;
+}
+
+if (
+  formaPagamento === "credito" ||
+  formaPagamento === "debito"
+) {
+
+  const [mes, ano] = validade.split("/");
+
+const payload = {
+  type: "card",
+  card: {
+    number: numeroCartao.replace(/\s/g, ""),
+    holder_name: nomeCartao,
+    exp_month: mes,
+    exp_year: ano,
+    cvv,
+  },
+};
+
+console.log("PAYLOAD:", payload);
+
+const tokenResponse = await fetch(
+  `https://api.pagar.me/core/v5/tokens?appId=${PUBLIC_KEY}`,
+  {
+    method: "POST",
+
+    headers: {
+      "Content-Type": "application/json",
+    },
+
+   body: JSON.stringify(payload),
+  }
+);
+
+const token = await tokenResponse.json();
+
+console.log("STATUS:", tokenResponse.status);
+console.log("TOKEN:", token);
+console.log("PAYLOAD:", payload);
+console.log("STATUS:", tokenResponse.status);
+console.log("TOKEN:", token);
+
+if (!token.id) {
+  console.log("TOKEN COMPLETO:", token);
+
+  alert(
+    token.message ||
+    JSON.stringify(token, null, 2)
+  );
+
+  return;
+}
+
+  const response = await fetch(
+    "/api/pagarme/criar-pagamento",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
   total,
-
-  restauranteId:
-    localStorage.getItem(
-      "restaurante_id"
-    ),
-
+  restauranteId: localStorage.getItem("restaurante_id"),
   pedidoId: pedido.id,
 
   nome,
-
   cpf,
-
   whatsapp,
 
+  rua,
+  numero,
+  bairro,
+  cidade,
+  estado,
+
+  paymentMethod:
+    formaPagamento === "credito"
+      ? "credit_card"
+      : "debit_card",
+
+  cardToken: token.id,
 }),
     }
   );
 
- const resultado =
-  await response.json();
+  const resultado = await response.json();
 
-window.location.href =
-`/${slug}/pix?id=${pedido.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
+console.log(resultado);
+
+alert(JSON.stringify(resultado, null, 2));
+
+return;
+}
+
+if (
+  formaPagamento === "apple" ||
+  formaPagamento === "google"
+) {
+  alert("Em desenvolvimento.");
+  return;
+}
+
 }}
 
   className="
