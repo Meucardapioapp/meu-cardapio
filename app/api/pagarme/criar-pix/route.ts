@@ -16,6 +16,14 @@ export async function POST(request: Request) {
 
 console.log("PEDIDO ID:", pedidoId);
 
+console.log("RESTAURANTE ID RECEBIDO:", restauranteId);
+
+const { data: restaurantes } = await supabaseAdmin
+  .from("restaurantes")
+  .select("id,nome");
+
+console.log("RESTAURANTES NO BANCO:", restaurantes);
+
     const {
       data: restaurante,
       error,
