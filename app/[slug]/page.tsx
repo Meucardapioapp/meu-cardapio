@@ -323,6 +323,16 @@ localStorage.setItem(
   aparenciaData.cor_primaria || "#571f5b"
 )
 
+localStorage.setItem(
+  "restaurante_id",
+  restauranteData.id
+)
+
+console.log(
+  "RESTAURANTE ID SALVO:",
+  restauranteData.id
+)
+
 console.log(
   "BANNER DO BANCO:",
   aparenciaData.banner_url

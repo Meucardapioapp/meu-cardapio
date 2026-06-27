@@ -638,6 +638,11 @@ setQuantidadeItens(
         <button
   onClick={async () => {
 
+    console.log(
+  "RESTAURANTE LOCALSTORAGE:",
+  localStorage.getItem("restaurante_id")
+);
+
     const pedidoResponse = await fetch(
   "/api/pedido/criar",
   {
@@ -725,6 +730,9 @@ if (formaPagamento === "pix") {
   );
 
   const resultado = await response.json();
+
+  console.log("PIX COMPLETO:");
+console.log(resultado);
 
   window.location.href =
     `/${slug}/pix?id=${pedido.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
