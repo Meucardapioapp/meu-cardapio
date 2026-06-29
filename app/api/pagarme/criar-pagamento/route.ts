@@ -170,6 +170,9 @@ console.log(
   JSON.stringify(data, null, 2)
 );
 
+console.log("PAYLOAD ENVIADO:");
+console.log(JSON.stringify(payload, null, 2));
+
 return NextResponse.json(data);
 
   } catch (error: any) {
