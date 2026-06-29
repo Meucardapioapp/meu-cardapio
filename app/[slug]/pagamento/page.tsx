@@ -749,14 +749,27 @@ if (
 
 const payload = {
   type: "card",
+
   card: {
     number: numeroCartao.replace(/\s/g, ""),
     holder_name: nomeCartao,
     exp_month: mes,
-    exp_year: ano,
+    exp_year: `20${ano}`,
     cvv,
   },
+
+  billing: {
+    address: {
+      line_1: `${rua}, ${numero}`,
+      line_2: bairro,
+      zip_code: "69000000",
+      city: cidade,
+      state: estado,
+      country: "BR",
+    },
+  },
 };
+   
 
 console.log("PAYLOAD:", payload);
 
