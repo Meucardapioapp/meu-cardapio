@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
@@ -20,6 +20,16 @@ export default function HorariosPage() {
   sab_fim: "",
   dom_inicio: "",
   dom_fim: "",
+})
+
+const [diasAtivos, setDiasAtivos] = useState({
+  seg: true,
+  ter: true,
+  qua: true,
+  qui: true,
+  sex: true,
+  sab: true,
+  dom: true,
 })
 
 const [restauranteId, setRestauranteId] =
@@ -155,56 +165,90 @@ async function salvarHorarios() {
   alert("Horários salvos com sucesso!")
 }
   const dias = [
-    { nome: "Segunda", inicio: "seg_inicio", fim: "seg_fim" },
-    { nome: "Terça", inicio: "ter_inicio", fim: "ter_fim" },
-    { nome: "Quarta", inicio: "qua_inicio", fim: "qua_fim" },
-    { nome: "Quinta", inicio: "qui_inicio", fim: "qui_fim" },
-    { nome: "Sexta", inicio: "sex_inicio", fim: "sex_fim" },
-    { nome: "Sábado", inicio: "sab_inicio", fim: "sab_fim" },
-    { nome: "Domingo", inicio: "dom_inicio", fim: "dom_fim" },
-  ]
+  { id:"seg", nome:"Segunda-feira", inicio:"seg_inicio", fim:"seg_fim" },
+  { id:"ter", nome:"Terça-feira", inicio:"ter_inicio", fim:"ter_fim" },
+  { id:"qua", nome:"Quarta-feira", inicio:"qua_inicio", fim:"qua_fim" },
+  { id:"qui", nome:"Quinta-feira", inicio:"qui_inicio", fim:"qui_fim" },
+  { id:"sex", nome:"Sexta-feira", inicio:"sex_inicio", fim:"sex_fim" },
+  { id:"sab", nome:"Sábado", inicio:"sab_inicio", fim:"sab_fim" },
+  { id:"dom", nome:"Domingo", inicio:"dom_inicio", fim:"dom_fim" },
+]
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto px-8 py-8">
       <div className="mb-8">
-        <h1 className="text-5xl font-black text-white">
+        <h1 className="text-5xl font-black text-zinc-900">
           Horários de Funcionamento
         </h1>
 
-        <p className="text-zinc-400 mt-3 text-lg">
+        <p className="text-zinc-600 mt-3 text-lg">
           Configure os horários que seu restaurante recebe pedidos.
         </p>
       </div>
 
-      <div className="grid gap-6">
+      <div className="space-y-6">
+
+  <div className="grid grid-cols-2 gap-6">
         {/* STATUS */}
 
-        <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8">
-          <h2 className="text-2xl font-bold text-white">
+        <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
+          <h2 className="text-xl font-bold text-zinc-900">
             Status Atual
           </h2>
 
           <div className="mt-6 flex items-center gap-3">
             <div className="w-4 h-4 rounded-full bg-green-500" />
 
-            <span className="text-2xl font-bold text-white">
+            <span className="text-2xl font-bold text-green-600">
               Aberto Agora
             </span>
           </div>
 
-          <p className="text-zinc-400 mt-2">
+          <p className="text-zinc-600 mt-2">
             Fecha às 23:00
           </p>
         </div>
 
+        <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
+
+    <div className="flex items-center gap-5">
+
+        <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-3xl">
+
+            📅
+
+        </div>
+
+        <div>
+
+            <p className="text-zinc-500 text-sm">
+
+                Próxima abertura
+
+            </p>
+
+            <h2 className="text-3xl font-bold text-zinc-900">
+
+                Domingo às 08:00
+
+            </h2>
+
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
         {/* HORÁRIOS */}
 
-        <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8">
-          <h2 className="text-2xl font-bold text-white">
+        <div className="bg-white border border-zinc-200 rounded-3xl p-8">
+          <h2 className="text-xl font-bold text-zinc-900">
             Horários Semanais
           </h2>
 
-          <p className="text-zinc-400 mt-2">
+          <p className="text-zinc-500 mt-2">
             Configure os horários de atendimento.
           </p>
 
@@ -213,116 +257,156 @@ async function salvarHorarios() {
   {dias.map((dia) => (
 
 <div
-  key={dia.nome}
-  className="
-    grid
-    grid-cols-[120px_1fr]
-    gap-4
-    items-center
-  "
+  key={dia.id}
+  className="grid grid-cols-[180px_170px_1fr] items-center gap-6 py-3 border-b border-zinc-100"
 >
 
-  <span className="font-semibold text-white">
+  {/* DIA */}
+
+  <span className="font-bold text-zinc-900">
     {dia.nome}
   </span>
 
-      <div className="flex items-center gap-3">
+  {/* SWITCH */}
+
+  <div className="flex items-center gap-3">
+
+    <button
+      type="button"
+      onClick={() =>
+        setDiasAtivos({
+          ...diasAtivos,
+          [dia.id]: !diasAtivos[dia.id as keyof typeof diasAtivos],
+        })
+      }
+      className={`relative w-12 h-7 rounded-full transition ${
+        diasAtivos[dia.id as keyof typeof diasAtivos]
+          ? "bg-green-500"
+          : "bg-zinc-300"
+      }`}
+    >
+
+      <div
+        className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
+          diasAtivos[dia.id as keyof typeof diasAtivos]
+            ? "left-5"
+            : "left-0.5"
+        }`}
+      />
+
+    </button>
+
+    <span
+      className={`font-semibold ${
+        diasAtivos[dia.id as keyof typeof diasAtivos]
+          ? "text-green-600"
+          : "text-red-600"
+      }`}
+    >
+      {diasAtivos[dia.id as keyof typeof diasAtivos]
+        ? "Aberto"
+        : "Fechado"}
+    </span>
+
+  </div>
+
+  {/* HORÁRIOS */}
+
+  {diasAtivos[dia.id as keyof typeof diasAtivos] ? (
+
+    <div className="flex items-center gap-3">
 
       <input
-  type="time"
-  value={
-    horarios[
-      dia.inicio as keyof typeof horarios
-    ]
-  }
-  onChange={(e) =>
-    setHorarios({
-      ...horarios,
-      [dia.inicio]: e.target.value,
-    })
-  }
-  className="
-    px-4
-    py-3
-    rounded-xl
-    bg-black
-    border
-    border-zinc-700
-    text-white
-  "
-/>
+        type="time"
+        value={horarios[dia.inicio as keyof typeof horarios]}
+        onChange={(e) =>
+          setHorarios({
+            ...horarios,
+            [dia.inicio]: e.target.value,
+          })
+        }
+        className="w-44 h-14 rounded-2xl border border-zinc-300 bg-white px-5 text-lg font-semibold text-zinc-900 shadow-sm"
+      />
 
-        <span className="text-zinc-500">
-          até
-        </span>
+      <span className="text-zinc-400">
+        até
+      </span>
 
-        <input
-  type="time"
-  value={
-    horarios[
-      dia.fim as keyof typeof horarios
-    ]
-  }
-  onChange={(e) =>
-    setHorarios({
-      ...horarios,
-      [dia.fim]: e.target.value,
-    })
-  }
-  className="
-    px-4
-    py-3
-    rounded-xl
-    bg-black
-    border
-    border-zinc-700
-    text-white
-  "
-/>
-
-      </div>
+      <input
+        type="time"
+        value={horarios[dia.fim as keyof typeof horarios]}
+        onChange={(e) =>
+          setHorarios({
+            ...horarios,
+            [dia.fim]: e.target.value,
+          })
+        }
+        className="w-44 h-14 rounded-2xl border border-zinc-300 bg-white px-5 text-lg font-semibold text-zinc-900 shadow-sm"
+      />
 
     </div>
 
-  ))}
+  ) : (
+
+    <div className="h-14 rounded-2xl border border-zinc-200 bg-zinc-100 flex items-center px-5 text-zinc-500">
+
+      Restaurante fechado neste dia
+
+    </div>
+
+  )}
+
+</div>
+
+))}
 
   <button
   onClick={salvarHorarios}
   className="
-      mt-8
-      bg-green-500
-      hover:bg-green-400
-      text-black
-      font-bold
-      px-8
-      py-4
-      rounded-2xl
-      transition
-    "
-  >
-    Salvar Horários
-  </button>
+mt-8
+inline-flex
+items-center
+justify-center
+gap-3
+bg-[#6D1F2F]
+hover:bg-[#531723]
+text-white
+font-semibold
+text-lg
+px-8
+py-4
+rounded-2xl
+shadow-lg
+hover:shadow-xl
+transition-all
+duration-300
+hover:-translate-y-0.5
+active:scale-95
+"
+>
+  Salvar Alterações
+</button>
 
 </div>
         </div>
 
         {/* PREVIEW */}
 
-        <div className="bg-zinc-950 border border-zinc-800 rounded-3xl p-8">
-          <h2 className="text-2xl font-bold text-white">
+        <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
+          <h2 className="text-2xl font-bold text-zinc-900">
             Prévia do Cliente
           </h2>
 
-          <div className="mt-6 bg-black border border-zinc-800 rounded-2xl p-6">
+          <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500" />
 
-              <span className="font-semibold text-white">
+              <span className="font-bold text-lg text-zinc-900">
                 Aberto Agora
               </span>
             </div>
 
-            <p className="text-zinc-400 mt-2">
+            <p className="text-zinc-600 mt-2">
               Hoje: 18:00 às 23:00
             </p>
           </div>
