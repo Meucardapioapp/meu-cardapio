@@ -147,6 +147,19 @@ const response = await fetch(
 
 const data = await response.json();
 
+if (!response.ok) {
+  return NextResponse.json(
+    {
+      responseStatus: response.status,
+      pagarme: data,
+      payload,
+    },
+    {
+      status: 500,
+    }
+  );
+}
+
 console.dir(
   data.charges?.[0]?.last_transaction,
   { depth: null }
