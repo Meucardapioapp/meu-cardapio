@@ -92,6 +92,8 @@ const payload = {
         statement_descriptor: "MEUCARDAPIO",
         card_token: cardToken,
 
+
+        card: {
         billing_address: {
           line_1: `${rua}, ${numero}`,
           line_2: bairro,
@@ -100,6 +102,7 @@ const payload = {
           state: estado,
           country: "BR",
         },
+      },
       },
 
       split: [
