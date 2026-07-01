@@ -233,7 +233,7 @@ ${corPrincipal}EE 100%
         <div className="relative max-w-md mx-auto px-5 pt-6">
           <div className="flex items-center justify-between">
             <Link
-              href={`/${slug}`}
+              href={`/${slug}/pagamento`}
               className="w-12 h-12 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white"
             >
               <ArrowLeft size={22} />

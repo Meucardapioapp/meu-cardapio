@@ -5,7 +5,7 @@ declare global {
     Pagarme: any;
   }
 }
-
+import creditCardType from "credit-card-type";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
@@ -74,10 +74,19 @@ const [numeroCartao, setNumeroCartao] = useState("");
 const [nomeCartao, setNomeCartao] = useState("");
 const [validade, setValidade] = useState("");
 const [cvv, setCvv] = useState("");
+const [bandeira, setBandeira] = useState("");
 
 const [googlePayToken, setGooglePayToken] = useState<any>(null);
 
 const [googlePayPronto, setGooglePayPronto] = useState(false);
+
+const bandeiras: Record<string, string> = {
+  visa: "/bandeiras/visa.png",
+  mastercard: "/bandeiras/mastercard.png",
+  elo: "/bandeiras/elo.png",
+  amex: "/bandeiras/amex.png",
+  hipercard: "/bandeiras/hipercard.png",
+};
 
 const PUBLIC_KEY =
   process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY!;
@@ -505,10 +514,98 @@ onLoadPaymentData={(paymentData) => {
 
 <input
   value={numeroCartao}
-  onChange={(e) => setNumeroCartao(e.target.value)}
+  onChange={(e) => {
+
+  const valor = e.target.value
+    .replace(/\D/g, "")
+    .slice(0, 16)
+    .replace(/(.{4})/g, "$1 ")
+    .trim();
+
+  setNumeroCartao(valor);
+
+  const numero = valor.replace(/\s/g, "");
+
+  const resultado = creditCardType(numero);
+
+  if (resultado.length > 0) {
+    setBandeira(resultado[0].type);
+  } else {
+    setBandeira("");
+  }
+
+}}
+
+  inputMode="numeric"
+  autoComplete="cc-number"
+
   placeholder="Número do cartão"
   className="w-full border rounded-xl p-3 mb-3"
 />
+
+<div className="relative mb-3">
+
+  <input
+    value={numeroCartao}
+    onChange={(e) => {
+
+      const valor = e.target.value
+        .replace(/\D/g, "")
+        .slice(0, 16)
+        .replace(/(.{4})/g, "$1 ")
+        .trim();
+
+      setNumeroCartao(valor);
+
+      const numero = valor.replace(/\s/g, "");
+
+      const resultado = creditCardType(numero);
+
+      if (resultado.length > 0) {
+        setBandeira(resultado[0].type);
+      } else {
+        setBandeira("");
+      }
+
+    }}
+
+    inputMode="numeric"
+    autoComplete="cc-number"
+
+    placeholder="Número do cartão"
+
+    className="
+      w-full
+      border
+      rounded-xl
+      p-3
+      pr-16
+      text-lg
+      tracking-wider
+      focus:outline-none
+      focus:ring-2
+      focus:ring-[#6D1F2F]
+    "
+  />
+
+  {bandeira && bandeiras[bandeira] && (
+    <img
+      src={bandeiras[bandeira]}
+      alt={bandeira}
+      className="
+        absolute
+        right-4
+        top-1/2
+        -translate-y-1/2
+        h-6
+        object-contain
+        pointer-events-none
+      "
+    />
+  )}
+
+</div>
+ 
 
 <input
   value={nomeCartao}
@@ -521,14 +618,47 @@ onLoadPaymentData={(paymentData) => {
 
 <input
   value={validade}
-  onChange={(e) => setValidade(e.target.value)}
+  onChange={(e) => {
+
+  let valor = e.target.value
+    .replace(/\D/g, "")
+    .slice(0, 4);
+
+  if (valor.length > 2) {
+    valor =
+      valor.slice(0, 2) +
+      "/" +
+      valor.slice(2);
+  }
+
+  setValidade(valor);
+
+}}
+
+  inputMode="numeric"
+  autoComplete="cc-exp"
+
   placeholder="MM/AA"
   className="border rounded-xl p-3"
 />
 
 <input
   value={cvv}
-  onChange={(e) => setCvv(e.target.value)}
+  onChange={(e) =>
+
+  setCvv(
+
+    e.target.value
+      .replace(/\D/g, "")
+      .slice(0, 4)
+
+  )
+
+}
+
+  inputMode="numeric"
+  autoComplete="cc-csc"
+
   placeholder="CVV"
   className="border rounded-xl p-3"
 />
@@ -903,13 +1033,25 @@ console.log("DADOS ENVIADOS PARA PAGAR.ME", {
     }
   );
 
-  const resultado = await response.json();
+const resultado = await response.json();
 
-console.log(resultado);
+console.log("PAGAMENTO:", resultado);
 
-alert(JSON.stringify(resultado, null, 2));
+if (
+  resultado.charges?.[0]?.status === "paid" ||
+  resultado.charges?.[0]?.status === "captured"
+) {
+  window.location.href =
+    `/${slug}/pedido-aprovado?id=${pedido.id}`;
 
-return;
+  return;
+}
+
+alert(
+  resultado.message ||
+  "Pagamento recusado."
+);
+
 }
 
 if (formaPagamento === "google") {
@@ -966,9 +1108,22 @@ cep,
 
   const resultado = await response.json();
 
-  console.log(resultado);
+console.log(resultado);
+
+if (
+  resultado.charges?.[0]?.status === "paid" ||
+  resultado.charges?.[0]?.status === "captured"
+) {
+  window.location.href =
+    `/${slug}/pedido-aprovado?id=${pedido.id}`;
 
   return;
+}
+
+alert(
+  resultado.message ||
+  "Pagamento recusado."
+);
 }
 
 if (formaPagamento === "apple") {

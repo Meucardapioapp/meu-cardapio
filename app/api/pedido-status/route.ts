@@ -30,6 +30,9 @@ export async function GET(
       .eq("id", id)
       .single();
 
+      console.log("Pedido:", id);
+console.log("Status encontrado:", data);
+
   return NextResponse.json({
     success: true,
     payment_status:

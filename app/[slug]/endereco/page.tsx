@@ -138,6 +138,26 @@ const [freteCalculado, setFreteCalculado] =
   const [carregandoFrete, setCarregandoFrete] =
   useState(false)
 
+function formatarTelefone(valor: string) {
+  const numeros = valor.replace(/\D/g, "").slice(0, 11);
+
+  if (numeros.length <= 2) return numeros;
+
+  if (numeros.length <= 7) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`;
+  }
+
+  return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(7)}`;
+}
+
+function formatarCPF(valor: string) {
+  const numeros = valor.replace(/\D/g, "").slice(0, 11);
+
+  return numeros
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
+}
 
 async function buscarCEP() {
 
@@ -145,7 +165,7 @@ async function buscarCEP() {
 
   const response =
     await fetch(
-      `https://viacep.com.br/ws/${cep}/json`
+      `https://viacep.com.br/ws/${cep.replace(/\D/g, "")}/json`
     )
 
   const data =
@@ -457,9 +477,13 @@ function resetarFrete() {
 
         <input
           value={whatsapp}
-          onChange={(e) =>
-            setWhatsapp(e.target.value)
-          }
+onChange={(e) =>
+  setWhatsapp(
+    formatarTelefone(e.target.value)
+  )
+}
+inputMode="tel"
+autoComplete="tel"
           placeholder="(92) 99999-9999"
           className="
             outline-none
@@ -534,8 +558,12 @@ function resetarFrete() {
   <input
     value={cpf}
     onChange={(e) =>
-      setCpf(e.target.value)
+      setCpf(
+        formatarCPF(e.target.value)
+      )
     }
+    inputMode="numeric"
+autoComplete="off"
     placeholder="000.000.000-00"
     className="
       w-full
@@ -617,9 +645,20 @@ function resetarFrete() {
       <input
         value={cep}
         onChange={(e) => {
-          setCep(e.target.value)
-          resetarFrete()
-        }}
+
+  const valor = e.target.value
+    .replace(/\D/g, "")
+    .slice(0, 8)
+    .replace(/(\d{5})(\d)/, "$1-$2");
+
+  setCep(valor);
+
+  resetarFrete();
+
+}}
+inputMode="numeric"
+autoComplete="postal-code"
+placeholder="69000-000"
         className="
           flex-1
           p-4

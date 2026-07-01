@@ -5,24 +5,28 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-  const {
+const {
   total,
   restauranteId,
   pedidoId,
+
   nome,
+  email,
   cpf,
   whatsapp,
+
   paymentMethod,
   cardToken,
   googlePayToken,
 
   rua,
   numero,
+  complemento,
   bairro,
   cidade,
   estado,
+  cep,
 } = body;
-
     console.log("CRIAR PAGAMENTO:", body);
 
     const { data: restaurante, error } = await supabaseAdmin
@@ -52,14 +56,16 @@ const valorRestaurante =
 const payload = {
   customer: {
     name: nome,
-    email: `cliente${Date.now()}@meucardapioapp.com`,
+    email,
     type: "individual",
     document: cpf.replace(/\D/g, ""),
 
     address: {
       line_1: `${rua}, ${numero}`,
-      line_2: bairro,
-      zip_code: "69000000",
+      line_2: complemento
+  ? `${complemento} - ${bairro}`
+  : bairro,
+      zip_code: cep.replace(/\D/g, ""),
       city: cidade,
       state: estado,
       country: "BR",
@@ -108,8 +114,10 @@ credit_card: {
   card: {
         billing_address: {
           line_1: `${rua}, ${numero}`,
-          line_2: bairro,
-          zip_code: "69000000",
+          line_2: complemento
+  ? `${complemento} - ${bairro}`
+  : bairro,
+          zip_code: cep.replace(/\D/g, ""),
           city: cidade,
           state: estado,
           country: "BR",
@@ -164,7 +172,8 @@ const data = await response.json();
 
 if (!response.ok) {
   console.error("ERRO PAGAR.ME");
-console.error(JSON.stringify(data, null, 2));
+  console.error(JSON.stringify(data, null, 2));
+
   return NextResponse.json(
     {
       responseStatus: response.status,
@@ -176,6 +185,13 @@ console.error(JSON.stringify(data, null, 2));
     }
   );
 }
+
+await supabaseAdmin
+  .from("pedidos")
+  .update({
+    pagarme_order_id: data.id,
+  })
+  .eq("id", pedidoId);
 
 console.dir(
   data.charges?.[0]?.last_transaction,
