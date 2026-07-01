@@ -66,6 +66,9 @@ const [bairro, setBairro] = useState("");
 const [cidade, setCidade] = useState("");
 
 const [estado, setEstado] = useState("");
+const [email, setEmail] = useState("");
+const [cep, setCep] = useState("");
+const [complemento, setComplemento] = useState("");
 
 const [numeroCartao, setNumeroCartao] = useState("");
 const [nomeCartao, setNomeCartao] = useState("");
@@ -103,6 +106,12 @@ setBairro(dados.bairro || "");
 setCidade(dados.cidade || "");
 
 setEstado(dados.estado || "");
+
+setEmail(dados.email || "");
+
+setCep(dados.cep || "");
+
+setComplemento(dados.complemento || "");
 
       setSubtotal(
         Number(
@@ -438,12 +447,13 @@ setQuantidadeItens(
         "ELO",
       ],
     },
-    tokenizationSpecification: {
-      type: "PAYMENT_GATEWAY",
-      parameters: {
-        gateway: "pagarme",
-      },
-    },
+tokenizationSpecification: {
+  type: "PAYMENT_GATEWAY",
+  parameters: {
+    gateway: "pagarme",
+    gatewayMerchantId: "SEU_GATEWAY_MERCHANT_ID",
+  },
+},
   },
 ],
    merchantInfo: {
@@ -798,11 +808,13 @@ const payload = {
     cvv,
   },
 
-  billing: {
-    address: {
-      line_1: `${rua}, ${numero}`,
-      line_2: bairro,
-      zip_code: "69000000",
+billing: {
+  address: {
+    line_1: `${rua}, ${numero}`,
+    line_2: complemento
+      ? `${complemento} - ${bairro}`
+      : bairro,
+    zip_code: cep.replace(/\D/g, ""),
       city: cidade,
       state: estado,
       country: "BR",
@@ -845,6 +857,20 @@ if (!token.id) {
   return;
 }
 
+console.log("DADOS ENVIADOS PARA PAGAR.ME", {
+  nome,
+  email,
+  cpf,
+  whatsapp,
+  cep,
+  rua,
+  numero,
+  complemento,
+  bairro,
+  cidade,
+  estado,
+});
+
   const response = await fetch(
     "/api/pagarme/criar-pagamento",
     {
@@ -852,22 +878,25 @@ if (!token.id) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
+     body: JSON.stringify({
   total,
   restauranteId: localStorage.getItem("restaurante_id"),
   pedidoId: pedido.id,
 
   nome,
+  email,
   cpf,
   whatsapp,
 
   rua,
   numero,
+  complemento,
   bairro,
   cidade,
   estado,
+  cep,
 
- paymentMethod: "credit_card",
+  paymentMethod: "credit_card",
 
   cardToken: token.id,
 }),
@@ -890,6 +919,20 @@ if (formaPagamento === "google") {
     return;
   }
 
+console.log("DADOS ENVIADOS PARA PAGAR.ME", {
+  nome,
+  email,
+  cpf,
+  whatsapp,
+  cep,
+  rua,
+  numero,
+  complemento,
+  bairro,
+  cidade,
+  estado,
+});
+
   const response = await fetch(
     "/api/pagarme/criar-pagamento",
     {
@@ -902,15 +945,18 @@ if (formaPagamento === "google") {
         restauranteId: localStorage.getItem("restaurante_id"),
         pedidoId: pedido.id,
 
-        nome,
-        cpf,
-        whatsapp,
+nome,
+email,
+cpf,
+whatsapp,
 
-        rua,
-        numero,
-        bairro,
-        cidade,
-        estado,
+rua,
+numero,
+complemento,
+bairro,
+cidade,
+estado,
+cep,
 
         paymentMethod: "google_pay",
         googlePayToken,

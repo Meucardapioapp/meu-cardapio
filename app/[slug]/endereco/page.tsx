@@ -128,6 +128,10 @@ const [numero, setNumero] =
 const [cpf, setCpf] =
   useState("")
 
+  const [email, setEmail] = useState("");
+
+const [complemento, setComplemento] = useState("");
+
 const [freteCalculado, setFreteCalculado] =
   useState(false)
 
@@ -542,6 +546,38 @@ function resetarFrete() {
 
 </div>
 
+<div
+  className="
+    bg-white
+    rounded-xl
+    border
+    p-4
+    mt-4
+  "
+>
+  <p
+    className="
+      text-xs
+      font-semibold
+      mb-2
+      text-zinc-600
+    "
+  >
+    E-mail
+  </p>
+
+  <input
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    placeholder="email@exemplo.com"
+    className="
+      w-full
+      outline-none
+      font-semibold
+    "
+  />
+</div>
+
 <h2
   className="
     font-bold
@@ -669,16 +705,18 @@ function resetarFrete() {
         Complemento (opcional)
       </p>
 
-      <input
-        placeholder="Apto 101"
-        className="
-          w-full
-          bg-white
-          rounded-xl
-          border
-          p-4
-        "
-      />
+<input
+  value={complemento}
+  onChange={(e) => setComplemento(e.target.value)}
+  placeholder="Apto 101"
+  className="
+    w-full
+    bg-white
+    rounded-xl
+    border
+    p-4
+  "
+/>
 
     </div>
 
@@ -762,19 +800,6 @@ function resetarFrete() {
     />
 
   </div>
-
-
-
-
-
-
-
-  
-
-
-
-
-
 
 </div>
 
@@ -933,26 +958,27 @@ taxaEntrega
   disabled={!freteCalculado}
   onClick={() => {
 
-  localStorage.setItem(
-    `endereco-${slug}`,
-    JSON.stringify({
-      nome,
-cpf,
-whatsapp,
+ localStorage.setItem(
+  `endereco-${slug}`,
+  JSON.stringify({
+    nome,
+    email,
+    cpf,
+    whatsapp,
 
-cep,
-rua,
-numero,
-bairro,
-cidade,
-estado,
-      taxaEntrega,
-      subtotal,
-      total:
-        subtotal +
-        taxaEntrega,
-    })
-  )
+    cep,
+    rua,
+    numero,
+    complemento,
+    bairro,
+    cidade,
+    estado,
+
+    taxaEntrega,
+    subtotal,
+    total: subtotal + taxaEntrega,
+  })
+)
 
   window.location.href =
     `/${slug}/pagamento`
