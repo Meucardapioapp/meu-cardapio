@@ -18,33 +18,33 @@ console.log("STATUS:", paymentStatus);
     console.log(JSON.stringify(body, null, 2));
     console.log("======================================");
 
-    if (
-  orderId &&
-  paymentStatus === "paid"
-) {
-  const { error } =
-    await supabaseAdmin
-      .from("pedidos")
-      .update({
-        payment_status:
-          "approved",
+    if (orderId) {
+  let payment_status = "pending";
+  let status = "pendente";
 
-        status: "aceito",
-      })
-      .eq(
-        "pagarme_order_id",
-        orderId
-      );
+  if (paymentStatus === "paid") {
+    payment_status = "approved";
+    status = "aceito";
+  } else if (paymentStatus === "failed") {
+    payment_status = "failed";
+    status = "recusado";
+  } else if (paymentStatus === "processing") {
+    payment_status = "processing";
+    status = "pendente";
+  }
+
+  const { error } = await supabaseAdmin
+    .from("pedidos")
+    .update({
+      payment_status,
+      status,
+    })
+    .eq("pagarme_order_id", orderId);
 
   if (error) {
-    console.error(
-      "Erro ao atualizar pedido:",
-      error
-    );
+    console.error("Erro ao atualizar pedido:", error);
   } else {
-    console.log(
-      "Pedido atualizado com sucesso!"
-    );
+    console.log("Pedido atualizado com sucesso!");
   }
 }
 
