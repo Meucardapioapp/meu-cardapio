@@ -5,12 +5,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const orderId =
-  body?.data?.order?.id;
+ const eventType = body?.type;
+
+const orderId =
+  body?.data?.order?.id ??
+  body?.data?.id;
 
 const paymentStatus =
+  body?.data?.order?.status ??
   body?.data?.status;
 
+console.log("EVENT:", eventType);
 console.log("ORDER ID:", orderId);
 console.log("STATUS:", paymentStatus);
 
