@@ -79,8 +79,6 @@ if (data.success) {
     case "credito":
       return "Cartão de Crédito";
 
-    case "debito":
-      return "Cartão de Débito";
 
     case "apple":
       return "Apple Pay";

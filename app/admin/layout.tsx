@@ -45,6 +45,12 @@ const [menuAberto, setMenuAberto] = useState(false)
     nome: "Aparência",
     link: "/admin/aparencia",
   },
+
+{
+    nome: "Importar Cardápio",
+    link: "/admin/importar-cardapio",
+  },
+
   {
     nome: "Horários",
     link: "/admin/horarios",

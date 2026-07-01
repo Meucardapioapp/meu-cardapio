@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   whatsapp,
   paymentMethod,
   cardToken,
+  googlePayToken,
 
   rua,
   numero,
@@ -84,16 +85,23 @@ const payload = {
 
   payments: [
     {
-      payment_method: paymentMethod,
+credit_card: {
+  operation_type: "auth_and_capture",
+  installments: 1,
+  statement_descriptor: "MEUCARDAPIO",
 
-      credit_card: {
-        operation_type: "auth_and_capture",
-        installments: 1,
-        statement_descriptor: "MEUCARDAPIO",
+  ...(paymentMethod === "google_pay"
+    ? {
+        payload: {
+          type: "google_pay",
+          google_pay: googlePayToken,
+        },
+      }
+    : {
         card_token: cardToken,
+      }),
 
-
-        card: {
+  card: {
         billing_address: {
           line_1: `${rua}, ${numero}`,
           line_2: bairro,

@@ -22,6 +22,8 @@ import {
   FaGooglePay
 } from "react-icons/fa6";
 
+import GooglePayButton from "@google-pay/button-react";
+
 export default function PagamentoPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -69,6 +71,11 @@ const [numeroCartao, setNumeroCartao] = useState("");
 const [nomeCartao, setNomeCartao] = useState("");
 const [validade, setValidade] = useState("");
 const [cvv, setCvv] = useState("");
+
+const [googlePayToken, setGooglePayToken] = useState<any>(null);
+
+const [googlePayPronto, setGooglePayPronto] = useState(false);
+
 const PUBLIC_KEY =
   process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY!;
   console.log("PUBLIC KEY:", PUBLIC_KEY);
@@ -393,18 +400,6 @@ setQuantidadeItens(
 />
 
 <MetodoPagamento
-  id="debito"
-  titulo="Cartão de débito"
-  descricao="Visa, Mastercard, Elo..."
-  icon={
-    <CreditCard
-      size={22}
-      color={corPrincipal}
-    />
-  }
-/>
-
-<MetodoPagamento
   id="apple"
   titulo="Apple Pay"
   descricao=""
@@ -427,13 +422,63 @@ setQuantidadeItens(
   }
 />
 
+<GooglePayButton
+  environment="TEST"
+  paymentRequest={{
+    apiVersion: 2,
+    apiVersionMinor: 0,
+    allowedPaymentMethods: [
+  {
+    type: "CARD",
+    parameters: {
+      allowedAuthMethods: ["PAN_ONLY", "CRYPTOGRAM_3DS"],
+      allowedCardNetworks: [
+        "MASTERCARD",
+        "VISA",
+        "ELO",
+      ],
+    },
+    tokenizationSpecification: {
+      type: "PAYMENT_GATEWAY",
+      parameters: {
+        gateway: "pagarme",
+      },
+    },
+  },
+],
+   merchantInfo: {
+  merchantId: "12345678901234567890",
+  merchantName: "MeuCardapio",
+},
+    transactionInfo: {
+      totalPriceStatus: "FINAL",
+      totalPrice: total.toFixed(2),
+      currencyCode: "BRL",
+      countryCode: "BR",
+    },
+  }}
+onLoadPaymentData={(paymentData) => {
+  console.log("GOOGLE PAY COMPLETO:", paymentData);
+
+  console.log(
+    "TOKENIZAÇÃO:",
+    paymentData.paymentMethodData.tokenizationData
+  );
+
+  setGooglePayToken(
+    paymentData.paymentMethodData.tokenizationData
+  );
+
+  setGooglePayPronto(true);
+}}
+/>
+
       
       </div>
 
       {/* RESUMO */}
 
-      {(formaPagamento === "credito" ||
-  formaPagamento === "debito") && (
+ {formaPagamento === "credito" && (
 
 <div
   className="
@@ -686,8 +731,6 @@ setQuantidadeItens(
       payment_method:
   formaPagamento === "credito"
     ? "credit_card"
-    : formaPagamento === "debito"
-    ? "debit_card"
     : "pix",
     }),
   }
@@ -740,10 +783,7 @@ console.log(resultado);
   return;
 }
 
-if (
-  formaPagamento === "credito" ||
-  formaPagamento === "debito"
-) {
+if (formaPagamento === "credito") {
 
   const [mes, ano] = validade.split("/");
 
@@ -827,10 +867,7 @@ if (!token.id) {
   cidade,
   estado,
 
-  paymentMethod:
-    formaPagamento === "credito"
-      ? "credit_card"
-      : "debit_card",
+ paymentMethod: "credit_card",
 
   cardToken: token.id,
 }),
@@ -846,11 +883,50 @@ alert(JSON.stringify(resultado, null, 2));
 return;
 }
 
-if (
-  formaPagamento === "apple" ||
-  formaPagamento === "google"
-) {
-  alert("Em desenvolvimento.");
+if (formaPagamento === "google") {
+
+  if (!googlePayToken) {
+    alert("Primeiro conclua o Google Pay.");
+    return;
+  }
+
+  const response = await fetch(
+    "/api/pagarme/criar-pagamento",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        total,
+        restauranteId: localStorage.getItem("restaurante_id"),
+        pedidoId: pedido.id,
+
+        nome,
+        cpf,
+        whatsapp,
+
+        rua,
+        numero,
+        bairro,
+        cidade,
+        estado,
+
+        paymentMethod: "google_pay",
+        googlePayToken,
+      }),
+    }
+  );
+
+  const resultado = await response.json();
+
+  console.log(resultado);
+
+  return;
+}
+
+if (formaPagamento === "apple") {
+  alert("Apple Pay em desenvolvimento.");
   return;
 }
 
