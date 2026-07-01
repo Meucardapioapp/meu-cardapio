@@ -85,6 +85,10 @@ const payload = {
 
   payments: [
     {
+      payment_method:
+  paymentMethod === "google_pay"
+    ? "credit_card"
+    : paymentMethod,
 credit_card: {
   operation_type: "auth_and_capture",
   installments: 1,
@@ -159,6 +163,8 @@ const response = await fetch(
 const data = await response.json();
 
 if (!response.ok) {
+  console.error("ERRO PAGAR.ME");
+console.error(JSON.stringify(data, null, 2));
   return NextResponse.json(
     {
       responseStatus: response.status,
