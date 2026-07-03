@@ -116,14 +116,14 @@ items: [
       : `item-${index}`,
   })),
 
-  ...(taxaEntrega > 0
-    ? [{
-        amount: Math.round(taxaEntrega * 100),
-        description: "Taxa de entrega",
-        quantity: 1,
-        code: "delivery",
-      }]
-    : []),
+...(Math.round(taxaEntrega * 100) >= 1
+  ? [{
+      amount: Math.round(taxaEntrega * 100),
+      description: "Taxa de entrega",
+      quantity: 1,
+      code: "delivery",
+    }]
+  : []),
 
   {
     amount: Math.round(taxaFixa * 100),
