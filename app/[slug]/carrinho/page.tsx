@@ -29,6 +29,8 @@ const [totalItens, setTotalItens] =
 const [sugestoes, setSugestoes] =
   useState<any[]>([]);
 
+  const [carregando, setCarregando] = useState(false);
+
 
   useEffect(() => {
   async function carregarDados() {
@@ -697,21 +699,57 @@ style={{
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              window.location.href = `/${slug}/endereco`;
-            }}
-            className="
-              bg-[#16A34A]
-              text-white
-              px-6
-              py-4
-              rounded-xl
-              font-bold
-            "
-          >
-            Continuar
-          </button>
+<button
+  disabled={carregando}
+  onClick={() => {
+
+    if (carregando) return;
+
+    setCarregando(true);
+
+    setTimeout(() => {
+      window.location.href = `/${slug}/endereco`;
+    }, 250);
+
+  }}
+  className="
+    bg-[#16A34A]
+    text-white
+    px-6
+    py-4
+    rounded-xl
+    font-bold
+    transition-all
+    duration-200
+    active:scale-95
+    disabled:opacity-80
+    disabled:cursor-not-allowed
+    min-w-[210px]
+    flex
+    items-center
+    justify-center
+    gap-3
+  "
+>
+  {carregando ? (
+    <>
+      <div
+        className="
+          w-5
+          h-5
+          border-2
+          border-white/40
+          border-t-white
+          rounded-full
+          animate-spin
+        "
+      />
+      Carregando...
+    </>
+  ) : (
+    "Continuar"
+  )}
+</button>
         </div>
       </div>
     </main>

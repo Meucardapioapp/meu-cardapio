@@ -26,9 +26,44 @@ import {
 
 import GooglePayButton from "@google-pay/button-react";
 
+function validarCPF(cpf: string) {
+
+  cpf = cpf.replace(/\D/g, "");
+
+  if (cpf.length !== 11) return false;
+
+  if (/^(\d)\1+$/.test(cpf)) return false;
+
+  let soma = 0;
+
+  for (let i = 0; i < 9; i++) {
+    soma += Number(cpf[i]) * (10 - i);
+  }
+
+  let resto = (soma * 10) % 11;
+
+  if (resto === 10) resto = 0;
+
+  if (resto !== Number(cpf[9])) return false;
+
+  soma = 0;
+
+  for (let i = 0; i < 10; i++) {
+    soma += Number(cpf[i]) * (11 - i);
+  }
+
+  resto = (soma * 10) % 11;
+
+  if (resto === 10) resto = 0;
+
+  return resto === Number(cpf[10]);
+}
+
+
 export default function PagamentoPage() {
   const params = useParams();
   const slug = params.slug as string;
+  const [carregandoPagamento, setCarregandoPagamento] = useState(false);
 
 const {
   logo,
@@ -58,6 +93,7 @@ console.log("LOGO:", logo);
     const [nome, setNome] = useState("");
 
 const [cpf, setCpf] = useState("");
+const [cpfValido, setCpfValido] = useState(true);
 
 const [whatsapp, setWhatsapp] = useState("");
 
@@ -760,7 +796,18 @@ bg-red-200
         "
       >
         <button
-  onClick={async () => {
+disabled={carregandoPagamento}
+ onClick={async () => {
+
+  if (carregandoPagamento) return;
+
+  setCarregandoPagamento(true);
+
+if (!validarCPF(cpf)) {
+  alert("Informe um CPF válido.");
+  setCarregandoPagamento(false);
+  return;
+}
 
     console.log(
   "RESTAURANTE LOCALSTORAGE:",
@@ -821,8 +868,9 @@ const pedidoResultado =
   await pedidoResponse.json();
 
 if (!pedidoResultado.success) {
-  alert("Erro ao criar pedido");
-  return;
+    setCarregandoPagamento(false);
+    alert("Erro ao criar pedido");
+    return;
 }
 
 const pedido = pedidoResultado.pedido;
@@ -922,14 +970,14 @@ console.log("STATUS:", tokenResponse.status);
 console.log("TOKEN:", token);
 
 if (!token.id) {
-  console.log("TOKEN COMPLETO:", token);
+    setCarregandoPagamento(false);
 
-  alert(
-    token.message ||
-    JSON.stringify(token, null, 2)
-  );
+    alert(
+      token.message ||
+      JSON.stringify(token, null, 2)
+    );
 
-  return;
+    return;
 }
 
 console.log("DADOS ENVIADOS PARA PAGAR.ME", {
@@ -998,6 +1046,8 @@ if (
   return;
 }
 
+setCarregandoPagamento(false);
+
 alert(
   resultado.message ||
   "Pagamento recusado."
@@ -1007,10 +1057,11 @@ alert(
 
 if (formaPagamento === "google") {
 
-  if (!googlePayToken) {
+ if (!googlePayToken) {
+    setCarregandoPagamento(false);
     alert("Primeiro conclua o Google Pay.");
     return;
-  }
+}
 
 console.log("DADOS ENVIADOS PARA PAGAR.ME", {
   nome,
@@ -1073,6 +1124,8 @@ if (
   return;
 }
 
+setCarregandoPagamento(false);
+
 alert(
   resultado.message ||
   "Pagamento recusado."
@@ -1104,20 +1157,50 @@ if (formaPagamento === "dinheiro") {
 
 }}
 
-  className="
-    w-full
-    h-14
-    rounded-xl
-    text-white
-    font-bold
-    shadow-lg
-  "
+className="
+w-full
+h-14
+rounded-xl
+text-white
+font-bold
+shadow-lg
+
+transition-all
+duration-200
+
+active:scale-95
+
+disabled:opacity-80
+disabled:cursor-not-allowed
+
+flex
+items-center
+justify-center
+gap-3
+"
   style={{
     backgroundColor:
       corPrincipal
   }}
 >
-  Finalizar pedido
+{carregandoPagamento ? (
+  <>
+    <div
+      className="
+        w-5
+        h-5
+        border-2
+        border-white/40
+        border-t-white
+        rounded-full
+        animate-spin
+      "
+    />
+    Finalizando pedido...
+  </>
+) : (
+  "Finalizar pedido"
+)}
 </button>
       </div>
     </main>

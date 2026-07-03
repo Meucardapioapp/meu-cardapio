@@ -23,7 +23,13 @@ export default function PedidoAprovadoPage() {
   const pedidoId =
   searchParams.get("id");
 
-  const [pedido, setPedido] = useState<any>(null);
+const [pedido, setPedido] = useState<any>(null);
+
+const [carregandoAcompanhar, setCarregandoAcompanhar] =
+  useState(false);
+
+const [carregandoInicio, setCarregandoInicio] =
+  useState(false);
 
 const {
   logo,
@@ -436,10 +442,19 @@ function nomePagamento() {
        {/* BOTÕES */}
 
 <button
+  disabled={carregandoAcompanhar}
   onClick={() => {
-  window.location.href =
-    `/${slug}/acompanhar-pedido?id=${pedido.id}`;
-}}
+
+    if (carregandoAcompanhar) return;
+
+    setCarregandoAcompanhar(true);
+
+    setTimeout(() => {
+      window.location.href =
+        `/${slug}/acompanhar-pedido?id=${pedido.id}`;
+    }, 300);
+
+  }}
   className="
     w-full
     h-14
@@ -447,31 +462,88 @@ function nomePagamento() {
     text-white
     font-bold
     mt-5
+
+    flex
+    items-center
+    justify-center
+    gap-3
+
+    transition-all
+    duration-200
+
+    active:scale-95
+
+    disabled:opacity-70
+    disabled:cursor-not-allowed
   "
   style={{
-    backgroundColor:
-      corPrincipal,
+    backgroundColor: corPrincipal,
   }}
 >
-  Acompanhar pedido
+  {carregandoAcompanhar ? (
+    <>
+      <div
+        className="
+          w-5
+          h-5
+          border-2
+          border-white/40
+          border-t-white
+          rounded-full
+          animate-spin
+        "
+      />
+      Carregando...
+    </>
+  ) : (
+    "Acompanhar pedido"
+  )}
 </button>
 
 <button
+  disabled={carregandoInicio}
   onClick={() => {
-    window.location.href =
-      `/${slug}`
+
+if (carregandoInicio) return;
+
+setCarregandoInicio(true);
+
+    setTimeout(() => {
+      window.location.href =
+        `/${slug}`;
+    }, 300);
+
   }}
   className="
     w-full
     mt-4
     font-semibold
+    transition-all
+active:scale-95
   "
   style={{
     color:
       corPrincipal,
   }}
 >
-  Voltar para o início
+  {carregandoInicio ? (
+    <>
+      <div
+        className="
+          w-5
+          h-5
+          border-2
+          border-zinc-400
+          border-t-black
+          rounded-full
+          animate-spin
+        "
+      />
+      Carregando...
+    </>
+  ) : (
+    "Voltar para o início"
+  )}
 </button>
       </div>
     </main>

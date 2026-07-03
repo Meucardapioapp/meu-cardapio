@@ -46,6 +46,9 @@ const pedidoId = searchParams.get("id");
   const [loading, setLoading] =
     useState(true)
 
+const [carregandoNovoPedido, setCarregandoNovoPedido] =
+  useState(false);
+
 const {
   logo,
   corPrincipal,
@@ -422,26 +425,85 @@ function nomePagamento() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex gap-3">
 
-        <button
-          className="flex-1 h-14 rounded-xl text-white font-bold flex items-center justify-center gap-2"
-          style={{
-            backgroundColor:
-              corPrincipal,
-          }}
-        >
-          <MessageCircle size={18} />
-          WhatsApp
-        </button>
+<button
+  className="
+    flex-1
+    h-14
+    rounded-xl
+    text-white
+    font-bold
 
-        <button
-          onClick={() =>
-            (window.location.href =
-              `/${slug}`)
-          }
-          className="flex-1 h-14 rounded-xl border font-bold"
-        >
-          Novo Pedido
-        </button>
+    flex
+    items-center
+    justify-center
+    gap-2
+
+    transition-all
+    duration-200
+
+    active:scale-95
+  "
+  style={{
+    backgroundColor: corPrincipal,
+  }}
+>
+  <MessageCircle size={18} />
+  WhatsApp
+</button>
+
+<button
+  disabled={carregandoNovoPedido}
+  onClick={() => {
+
+    if (carregandoNovoPedido) return;
+
+    setCarregandoNovoPedido(true);
+
+    setTimeout(() => {
+      window.location.href = `/${slug}`;
+    }, 300);
+
+  }}
+  className="
+    flex-1
+    h-14
+    rounded-xl
+    border
+    font-bold
+
+    transition-all
+    duration-200
+
+    active:scale-95
+
+    disabled:opacity-70
+    disabled:cursor-not-allowed
+
+    flex
+    items-center
+    justify-center
+    gap-3
+  "
+>
+  {carregandoNovoPedido ? (
+    <>
+      <div
+        className="
+          w-5
+          h-5
+          border-2
+          border-zinc-400
+          border-t-black
+          rounded-full
+          animate-spin
+        "
+      />
+      Carregando...
+    </>
+  ) : (
+    "Novo Pedido"
+  )}
+</button>
 
       </div>
 

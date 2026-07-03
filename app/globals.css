@@ -259,3 +259,18 @@
         transform:translateX(320%);
     }
 }
+
+.loading-bar {
+  width: 35%;
+  animation: loadingBar 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes loadingBar {
+  from {
+    transform: translateX(-120%);
+  }
+
+  to {
+    transform: translateX(320%);
+  }
+}

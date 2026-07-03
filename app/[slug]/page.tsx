@@ -66,6 +66,9 @@ useEffect(() => {
   const [cart, setCart] =
     useState<CartItem[]>([])
 
+    const [carregandoCarrinho, setCarregandoCarrinho] =
+  useState(false)
+
   const [
   categoriaSelecionada,
   setCategoriaSelecionada,
@@ -1431,24 +1434,67 @@ style={{
 
       </div>
 
-      <button
-        onClick={() => {
-  window.location.href =
-    `/${slug}/carrinho`
-}}
+<button
+  disabled={carregandoCarrinho}
+  onClick={() => {
+
+    if (carregandoCarrinho) return;
+
+    setCarregandoCarrinho(true);
+
+    setTimeout(() => {
+      window.location.href =
+        `/${slug}/carrinho`;
+    }, 300);
+
+  }}
+  className="
+    bg-[#22C55E]
+    hover:bg-emerald-600
+
+    text-white
+    font-semibold
+
+    px-4
+    py-2
+
+    rounded-xl
+
+    flex
+    items-center
+    justify-center
+    gap-3
+
+    transition-all
+    duration-200
+
+    active:scale-95
+
+    disabled:opacity-70
+    disabled:cursor-not-allowed
+
+    min-w-[155px]
+  "
+>
+  {carregandoCarrinho ? (
+    <>
+      <div
         className="
-          bg-[#22C55E]
-          hover:bg-emerald-600
-          text-white
-          font-semibold
-          px-3
-          py-2
-          rounded-xl
-          transition-all
+          w-5
+          h-5
+          border-2
+          border-white/40
+          border-t-white
+          rounded-full
+          animate-spin
         "
-      >
-        Ver carrinho
-      </button>
+      />
+      Carregando...
+    </>
+  ) : (
+    "Ver carrinho"
+  )}
+</button>
 
     </div>
   </div>

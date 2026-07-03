@@ -12,7 +12,7 @@ export default function EnderecoPage() {
 
   const params = useParams();
   const slug = params.slug as string;
-
+const [carregandoPagamento, setCarregandoPagamento] = useState(false);
   useEffect(() => {
 
   async function carregarDados() {
@@ -111,12 +111,83 @@ const [cpf, setCpf] =
   const [email, setEmail] = useState("");
 
 const [complemento, setComplemento] = useState("");
+const [referencia, setReferencia] = useState("");
 
 const [freteCalculado, setFreteCalculado] =
   useState(false)
 
   const [carregandoFrete, setCarregandoFrete] =
   useState(false)
+
+useEffect(() => {
+  const dados = localStorage.getItem(`endereco-${slug}`);
+
+  if (!dados) return;
+
+  const endereco = JSON.parse(dados);
+
+  setNome(endereco.nome || "");
+  setWhatsapp(endereco.whatsapp || "");
+  setCpf(endereco.cpf || "");
+  setEmail(endereco.email || "");
+
+  setCep(endereco.cep || "");
+  setRua(endereco.rua || "");
+  setNumero(endereco.numero || "");
+  setComplemento(endereco.complemento || "");
+  setReferencia(endereco.referencia || "");
+  setBairro(endereco.bairro || "");
+  setCidade(endereco.cidade || "");
+  setEstado(endereco.estado || "AM");
+
+  setTaxaEntrega(endereco.taxaEntrega || 0);
+
+  if (endereco.taxaEntrega > 0) {
+    setFreteCalculado(true);
+  }
+}, [slug]);
+
+useEffect(() => {
+  localStorage.setItem(
+    `endereco-${slug}`,
+    JSON.stringify({
+      nome,
+      whatsapp,
+      cpf,
+      email,
+
+      cep,
+      rua,
+      numero,
+      complemento,
+      referencia,
+      bairro,
+      cidade,
+      estado,
+
+      taxaEntrega,
+      subtotal,
+      total: subtotal + taxaEntrega,
+    })
+  );
+}, [
+  nome,
+  whatsapp,
+  cpf,
+  email,
+  cep,
+  rua,
+  numero,
+  complemento,
+  referencia,
+  bairro,
+  cidade,
+  estado,
+  taxaEntrega,
+  subtotal,
+  slug,
+]);
+
 
 function formatarTelefone(valor: string) {
   const numeros = valor.replace(/\D/g, "").slice(0, 11);
@@ -137,6 +208,38 @@ function formatarCPF(valor: string) {
     .replace(/(\d{3})(\d)/, "$1.$2")
     .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
     .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
+}
+
+function validarCPF(cpf: string) {
+  cpf = cpf.replace(/\D/g, "");
+
+  if (cpf.length !== 11) return false;
+
+  if (/^(\d)\1+$/.test(cpf)) return false;
+
+  let soma = 0;
+
+  for (let i = 0; i < 9; i++) {
+    soma += Number(cpf[i]) * (10 - i);
+  }
+
+  let resto = (soma * 10) % 11;
+
+  if (resto === 10) resto = 0;
+
+  if (resto !== Number(cpf[9])) return false;
+
+  soma = 0;
+
+  for (let i = 0; i < 10; i++) {
+    soma += Number(cpf[i]) * (11 - i);
+  }
+
+  resto = (soma * 10) % 11;
+
+  if (resto === 10) resto = 0;
+
+  return resto === Number(cpf[10]);
 }
 
 async function buscarCEP() {
@@ -514,7 +617,7 @@ autoComplete="tel"
      
 <div className="space-y-4">
 
-  <div
+<div
   className="
     bg-white
     rounded-xl
@@ -524,33 +627,93 @@ autoComplete="tel"
   "
 >
 
-  <p
+  <div
     className="
-      text-xs
-      font-semibold
-      mb-2
-      text-zinc-600
+      flex
+      items-center
+      justify-between
     "
   >
-    CPF
-  </p>
 
-  <input
-    value={cpf}
-    onChange={(e) =>
-      setCpf(
-        formatarCPF(e.target.value)
+    <div className="flex-1">
+
+      <p
+        className="
+          text-xs
+          font-semibold
+          mb-2
+          text-zinc-600
+        "
+      >
+        CPF
+      </p>
+
+      <input
+        value={cpf}
+        onChange={(e) =>
+          setCpf(
+            formatarCPF(e.target.value)
+          )
+        }
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder="000.000.000-00"
+        className="
+          w-full
+          outline-none
+          font-semibold
+        "
+      />
+
+    </div>
+
+    {cpf.length === 14 && (
+
+      validarCPF(cpf) ? (
+
+        <div
+          className="
+            ml-3
+            w-6
+            h-6
+            rounded-full
+            bg-green-500
+            text-white
+            flex
+            items-center
+            justify-center
+            text-xs
+            font-bold
+          "
+        >
+          ✓
+        </div>
+
+      ) : (
+
+        <div
+          className="
+            ml-3
+            w-6
+            h-6
+            rounded-full
+            bg-red-500
+            text-white
+            flex
+            items-center
+            justify-center
+            text-xs
+            font-bold
+          "
+        >
+          ✕
+        </div>
+
       )
-    }
-    inputMode="numeric"
-autoComplete="off"
-    placeholder="000.000.000-00"
-    className="
-      w-full
-      outline-none
-      font-semibold
-    "
-  />
+
+    )}
+
+  </div>
 
 </div>
 
@@ -807,16 +970,20 @@ placeholder="69000-000"
       Referência (opcional)
     </p>
 
-    <input
-      placeholder="Ex: Próximo ao Shopping"
-      className="
-        w-full
-        bg-white
-        rounded-xl
-        border
-        p-4
-      "
-    />
+<input
+  value={referencia}
+  onChange={(e) =>
+    setReferencia(e.target.value)
+  }
+  placeholder="Ex: Próximo ao Shopping"
+  className="
+    w-full
+    bg-white
+    rounded-xl
+    border
+    p-4
+  "
+/>
 
   </div>
 
@@ -976,50 +1143,90 @@ taxaEntrega
 
           </div>
 
-          <button
-  disabled={!freteCalculado}
+<button
+  disabled={!freteCalculado || carregandoPagamento}
   onClick={() => {
 
- localStorage.setItem(
-  `endereco-${slug}`,
-  JSON.stringify({
-    nome,
-    email,
-    cpf,
-    whatsapp,
+    if (carregandoPagamento) return;
 
-    cep,
-    rua,
-    numero,
-    complemento,
-    bairro,
-    cidade,
-    estado,
+    if (!validarCPF(cpf)) {
+      alert("Informe um CPF válido.");
+      return;
+    }
 
-    taxaEntrega,
-    subtotal,
-    total: subtotal + taxaEntrega,
-  })
-)
+    setCarregandoPagamento(true);
 
-  window.location.href =
-    `/${slug}/pagamento`
-}}
-className={`
-  text-white
-  px-6
-  py-4
-  rounded-xl
-  font-bold
-  ${
-    freteCalculado
-      ? "bg-green-600"
-      : "bg-zinc-300"
-  }
-`}
-          >
-            Continuar para pagamento
-          </button>
+    localStorage.setItem(
+      `endereco-${slug}`,
+      JSON.stringify({
+        nome,
+        whatsapp,
+        cpf,
+        email,
+
+        cep,
+        rua,
+        numero,
+        complemento,
+        referencia,
+        bairro,
+        cidade,
+        estado,
+
+        taxaEntrega,
+        subtotal,
+        total: subtotal + taxaEntrega,
+      })
+    );
+
+    setTimeout(() => {
+      window.location.href = `/${slug}/pagamento`;
+    }, 250);
+
+  }}
+
+  className={`
+    px-6
+    py-4
+    rounded-xl
+    font-bold
+    text-white
+    transition-all
+    duration-200
+    active:scale-95
+    disabled:opacity-80
+    disabled:cursor-not-allowed
+    min-w-[280px]
+    flex
+    items-center
+    justify-center
+    gap-3
+    ${
+      freteCalculado
+        ? "bg-green-600"
+        : "bg-zinc-300"
+    }
+  `}
+>
+  {carregandoPagamento ? (
+    <>
+      <div
+        className="
+          w-5
+          h-5
+          border-2
+          border-white/40
+          border-t-white
+          rounded-full
+          animate-spin
+        "
+      />
+      Carregando...
+    </>
+  ) : (
+    "Continuar para pagamento"
+  )}
+</button>
 
         </div>
 
