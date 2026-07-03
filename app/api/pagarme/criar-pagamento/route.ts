@@ -56,6 +56,16 @@ const {
 
     const taxaMarketplace = Number(total) * 0.01;
 const taxaFixa = 0.99;
+const subtotalProdutos = itens.reduce(
+  (total: number, item: any) =>
+    total + Number(item.preco) * item.quantity,
+  0
+);
+
+const taxaEntrega =
+  Number(total) -
+  subtotalProdutos -
+  taxaFixa;
 
 const valorRestaurante =
   Number(total) -
@@ -96,17 +106,32 @@ metadata: {
 },
   
 
- items: itens.map((item: any, index: number) => ({
-  amount: Math.round(Number(item.preco) * 100),
+items: [
+  ...itens.map((item: any, index: number) => ({
+    amount: Math.round(Number(item.preco) * 100),
+    description: item.nome,
+    quantity: item.quantity,
+    code: item.id
+      ? String(item.id)
+      : `item-${index}`,
+  })),
 
-  description: item.nome,
+  ...(taxaEntrega > 0
+    ? [{
+        amount: Math.round(taxaEntrega * 100),
+        description: "Taxa de entrega",
+        quantity: 1,
+        code: "delivery",
+      }]
+    : []),
 
-  quantity: item.quantity,
-
-  code: item.id
-    ? String(item.id)
-    : `item-${index}`,
-})),
+  {
+    amount: Math.round(taxaFixa * 100),
+    description: "Taxa de plataforma",
+    quantity: 1,
+    code: "platform-fee",
+  },
+],
 
   payments: [
     {
