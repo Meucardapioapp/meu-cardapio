@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ShoppingCart } from "lucide-react";
+import { useRestaurant } from "@/contexts/RestaurantContext";
+import { ArrowLeft } from "lucide-react";
 
 export default function CarrinhoPage() {
   const params = useParams();
@@ -11,11 +13,12 @@ export default function CarrinhoPage() {
 
   const [cart, setCart] = useState<any[]>([]);
 
-  const [logo, setLogo] =
-  useState("")
-
-const [corPrincipal, setCorPrincipal] =
-  useState("#6D1F2F")
+const {
+  logo,
+  corPrincipal,
+  setLogo,
+  setCorPrincipal,
+} = useRestaurant();
 
   const [restauranteNome, setRestauranteNome] =
   useState("");
@@ -59,32 +62,8 @@ const [sugestoes, setSugestoes] =
 
     if (!restaurante) return;
 
-    const { data: aparencia } =
-      await supabase
-        .from("aparencia")
-        .select("*")
-        .eq(
-          "restaurante_id",
-          restaurante.id
-        )
-        .single();
+setRestauranteNome(restaurante.nome);
 
-    if (aparencia) {
-
-      setLogo(
-        aparencia.logo_url || ""
-      );
-
-      setCorPrincipal(
-        aparencia.cor_primaria ||
-          "#6D1F2F"
-      );
-
-      setRestauranteNome(
-        aparencia.nome_restaurante ||
-          restaurante.nome
-      );
-    }
     const { data: produtos } =
   await supabase
     .from("produtos")
@@ -269,14 +248,25 @@ if (produtos) {
     window.location.href = `/${slug}`;
   }}
   className="
-    text-5xl
-    font-light
+    w-12
+    h-12
+    rounded-full
+    bg-white
+    shadow-md
+    flex
+    items-center
+    justify-center
+    transition-all
+    hover:scale-105
+    active:scale-95
   "
-  style={{
-    color: corPrincipal,
-  }}
 >
-  ‹
+  <ArrowLeft
+    size={24}
+    style={{
+      color: corPrincipal,
+    }}
+  />
 </button>
 
 <div
@@ -667,16 +657,17 @@ style={{
   ))}
 </div>
 
-      <div
-        className="
-          fixed
-          bottom-0
-          left-0
-          right-0
-          bg-white
-          border-t
-          p-4
-        "
+<div
+  className="
+    fixed
+    bottom-0
+    left-0
+    right-0
+    p-4
+  "
+  style={{
+    backgroundColor: corPrincipal,
+  }}
       >
         <div
           className="
@@ -686,21 +677,22 @@ style={{
           "
         >
           <div>
-            <p
-              className="
-                text-sm
-                text-zinc-800
-              "
-            >
-              Subtotal ({totalItens} itens)
-            </p>
+<p
+  className="
+    text-sm
+    text-white
+  "
+>
+  Subtotal ({totalItens} itens)
+</p>
 
-            <p
-              className="
-                text-2xl
-                font-black
-              "
-            >
+<p
+  className="
+    text-2xl
+    font-black
+    text-white
+  "
+>
               R$ {total.toFixed(2)}
             </p>
           </div>

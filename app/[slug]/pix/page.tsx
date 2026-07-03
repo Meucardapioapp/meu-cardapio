@@ -16,6 +16,8 @@ import Link from "next/link";
 
 import { motion } from "framer-motion";
 
+import { useRestaurant } from "@/contexts/RestaurantContext";
+
 import {
   ArrowLeft,
   Clock3,
@@ -44,15 +46,16 @@ function PixContent() {
     return decodeURIComponent(qrCode);
   }, [qrCode]);
 
-  const [logo, setLogo] = useState("");
+const {
+  logo,
+  corPrincipal,
+} = useRestaurant();
 
-  const [banner, setBanner] = useState("");
+const [banner, setBanner] =
+  useState("");
 
-  const [nomeRestaurante, setNomeRestaurante] =
-    useState("");
-
-  const [corPrincipal, setCorPrincipal] =
-    useState("#6D1F2F");
+const [nomeRestaurante, setNomeRestaurante] =
+  useState("");
 
   const [copiado, setCopiado] =
     useState(false);
@@ -95,18 +98,11 @@ function PixContent() {
           ""
       );
 
-      setLogo(
-        aparencia?.logo_url || ""
-      );
-
       setBanner(
         aparencia?.banner_url || ""
       );
 
-      setCorPrincipal(
-        aparencia?.cor_primaria ||
-          "#6D1F2F"
-      );
+
     } finally {
       setLoading(false);
     }

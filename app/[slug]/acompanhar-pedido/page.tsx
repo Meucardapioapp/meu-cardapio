@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
+import { useRestaurant } from "@/contexts/RestaurantContext";
 
 type Pedido = {
   id: number
@@ -45,29 +46,12 @@ const pedidoId = searchParams.get("id");
   const [loading, setLoading] =
     useState(true)
 
-  const [corPrincipal, setCorPrincipal] =
-    useState("#6D1F2F")
+const {
+  logo,
+  corPrincipal,
+} = useRestaurant();
 
-  const [logo, setLogo] =
-    useState("")
 
-  useEffect(() => {
-    const cor =
-      localStorage.getItem(
-        "cor-principal"
-      )
-
-    const logoSalva =
-      localStorage.getItem(
-        "logo-restaurante"
-      )
-
-    if (cor)
-      setCorPrincipal(cor)
-
-    if (logoSalva)
-      setLogo(logoSalva)
-  }, [])
 
   async function buscarPedido() {
     try {
@@ -175,6 +159,30 @@ const pedidoId = searchParams.get("id");
     )
   }
 
+function nomePagamento() {
+  if (!pedido) return "-";
+
+  switch (pedido.payment_method) {
+    case "pix":
+      return "Pix";
+
+    case "credit_card":
+      return "Cartão de Crédito";
+
+    case "cash":
+      return "Dinheiro";
+
+    case "google_pay":
+      return "Google Pay";
+
+    case "apple_pay":
+      return "Apple Pay";
+
+    default:
+      return pedido.payment_method || "-";
+  }
+}
+
   const etapaAtual =
     pedido.status === "pendente"
       ? 1
@@ -187,15 +195,31 @@ const pedidoId = searchParams.get("id");
   return (
     <main className="min-h-screen bg-[#F4F1EA] p-5 pb-32">
 
-      <button
-        onClick={() =>
-          history.back()
-        }
-      >
-        <ArrowLeft
-          color={corPrincipal}
-        />
-      </button>
+<button
+  onClick={() => {
+    history.back();
+  }}
+  className="
+    w-12
+    h-12
+    rounded-full
+    bg-white
+    shadow-md
+    flex
+    items-center
+    justify-center
+    transition-all
+    hover:scale-105
+    active:scale-95
+  "
+>
+  <ArrowLeft
+    size={24}
+    style={{
+      color: corPrincipal,
+    }}
+  />
+</button>
 
       <div className="flex flex-col items-center mt-4">
 
@@ -368,9 +392,9 @@ const pedidoId = searchParams.get("id");
               Pagamento
             </p>
 
-            <p className="font-semibold">
-              {pedido.payment_method}
-            </p>
+<p className="font-semibold">
+  {nomePagamento()}
+</p>
           </div>
         </div>
 

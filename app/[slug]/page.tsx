@@ -9,6 +9,7 @@ import {
 } from "react"
 
 import { useParams } from "next/navigation"
+import { useRestaurant } from "@/contexts/RestaurantContext";
 
 import Header from "../components/Header"
 import Benefits from "../components/Benefits"
@@ -30,6 +31,12 @@ export default function CardapioPage() {
 const params = useParams()
 
 const slug = params.slug as string
+
+const {
+  logo,
+  corPrincipal,
+} = useRestaurant();
+
 console.log("SLUG ATUAL:", slug)
 
 useEffect(() => {
@@ -41,6 +48,9 @@ useEffect(() => {
 
   const [produtos, setProdutos] =
     useState<ProdutoFormatado[]>([])
+
+    const [produtosCarregados, setProdutosCarregados] =
+  useState(false);
 
   const [selectedProduct, setSelectedProduct] =
     useState<ProdutoFormatado | null>(null)
@@ -72,6 +82,9 @@ const categoriasRef =
   const categoriaRefs =
   useRef<{ [key: string]: HTMLDivElement | null }>({})
 
+  const botoesCategoriaRef =
+  useRef<{ [key: string]: HTMLButtonElement | null }>({})
+
   const [mostrarEsquerda, setMostrarEsquerda] =
   useState(false)
 
@@ -89,11 +102,6 @@ const [aparencia, setAparencia] =
 
 /* APARÊNCIA */
 
-const [themeColor, setThemeColor] =
-  useState("#7F1D1D")
-
-const corPrincipal =
-  themeColor || "#7F1D1D"
 
   useEffect(() => {
   document.documentElement.style.setProperty(
@@ -104,16 +112,11 @@ const corPrincipal =
 
 const corTextoBotao = "#FFFFFF"
 
-const [logo, setLogo] =
-  useState<string>("")
 
 const [banner, setBanner] =
   useState<string>("")
 
 const [lightMode, setLightMode] =
-  useState(true)
-
-const [loading, setLoading] =
   useState(true)
 
   useEffect(() => {
@@ -176,16 +179,20 @@ useEffect(() => {
 
     })
 
-    if (
-      categoriaAtual &&
-      categoriaAtual !== categoriaSelecionada
-    ) {
+if (
+  categoriaAtual &&
+  categoriaAtual !== categoriaSelecionada
+) {
 
-      setCategoriaSelecionada(
-        categoriaAtual
-      )
+  setCategoriaSelecionada(categoriaAtual)
 
-    }
+  botoesCategoriaRef.current[categoriaAtual]?.scrollIntoView({
+    behavior: "smooth",
+    inline: "center",
+    block: "nearest",
+  })
+
+}
 
   }
 
@@ -373,16 +380,7 @@ console.log(
 
 console.log("RESTAURANTE:", restaurante);
 
-  setThemeColor(
-    aparenciaData.cor_primaria ||
-    "#7F1D1D"
-  )
-
-  setLogo(
-    aparenciaData.logo_url ||
-    ""
-  )
-
+ 
   setBanner(
     aparenciaData.banner_url ||
     ""
@@ -394,10 +392,6 @@ console.log("RESTAURANTE:", restaurante);
   )
 
 } else {
-
-  setThemeColor("#7F1D1D")
-
-  setLogo("")
 
   setBanner("")
 
@@ -491,10 +485,13 @@ console.log(
           )
         )
 
-        setProdutos(
-        produtosFormatados
-      )
-      console.log(
+setProdutos(
+  produtosFormatados
+)
+
+setProdutosCarregados(true);
+
+console.log(
   "PRODUTOS:",
   produtosFormatados
 )
@@ -518,7 +515,6 @@ setCategorias(
   )
 }
 
-      setLoading(false)
 
     } catch (error) {
 
@@ -527,7 +523,6 @@ setCategorias(
         error
       )
 
-      setLoading(false)
     }
   }
 
@@ -836,29 +831,6 @@ function obterHorarioFechamento() {
   )
 }
 
-    if (loading) {
-
-    return (
-
-      <main className="
-        min-h-screen
-        flex
-        items-center
-        justify-center
-        bg-black
-        text-white
-      ">
-
-        <p className="
-          text-xl
-          font-bold
-        ">
-          Carregando cardápio...
-        </p>
-
-      </main>
-    )
-  }
 
   return (
 
@@ -1045,27 +1017,24 @@ object-cover
 
 </div>
 
+<div
+className="
+max-w-7xl
+mx-auto
+px-5
+pb-12
+"
+>        
 
-
-</section>
-
-      <section className="
-        max-w-7xl
-        mx-auto
-        px-5
-        pt-0
-        pb-12
-      ">
-
-        
-
-        <div className="
+<div
+className="
 sticky
-top-2
-z-20
-mt-0
-mb-6
-">
+top-0
+z-40
+bg-[#F4F1EA]
+pb-3
+"
+>
 
 <div
 className="
@@ -1108,16 +1077,26 @@ pr-10
   "
 >
 
-  <button
+<button
+   ref={(el) => {
+     botoesCategoriaRef.current[categoria] = el
+   }}
    id={`botao-${categoria}`}
    onClick={() => {
 
   setCategoriaSelecionada(categoria)
 
-  const element =
-    document.getElementById(
-      `categoria-${categoria}`
-    )
+const categoriaId =
+  categoria
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "-")
+
+const element =
+  document.getElementById(
+    `categoria-${categoriaId}`
+  )
 
   if (element) {
 
@@ -1247,6 +1226,7 @@ justify-center
 
         </div>
 
+
         {categorias.map((categoria) => {
 
   const produtosCategoria =
@@ -1261,17 +1241,23 @@ justify-center
     return null
   }
 
-  return (
+const categoriaId =
+  categoria
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "-")
 
-    <div
-  id={`categoria-${categoria}`}
+return (
+
+<div
+  id={`categoria-${categoriaId}`}
   key={categoria}
   ref={(el) => {
     categoriaRefs.current[categoria] = el
   }}
   className="mb-12"
 >
-
       <h3
         className={`
           text-xl
@@ -1293,17 +1279,52 @@ justify-center
 "
 >
 
+{!produtosCarregados ? (
 
-      {produtosCategoria.map((produto) => (
+  [...Array(6)].map((_, index) => (
 
-  <ProductCard
-    key={produto.id}
-    product={produto}
-    corPrincipal={corPrincipal}
-    onAdd={() => openProductModal(produto)}
-  />
+    <div
+      key={index}
+      className="
+        rounded-3xl
+        bg-white
+        shadow-sm
+        overflow-hidden
+        animate-pulse
+      "
+    >
+      <div className="w-full h-40 bg-zinc-200" />
 
-))} 
+      <div className="p-4">
+
+        <div className="h-5 w-3/4 bg-zinc-200 rounded" />
+
+        <div className="h-4 w-full bg-zinc-100 rounded mt-3" />
+
+        <div className="h-4 w-2/3 bg-zinc-100 rounded mt-2" />
+
+        <div className="h-8 w-24 bg-zinc-200 rounded-xl mt-5" />
+
+      </div>
+
+    </div>
+
+  ))
+
+) : (
+
+  produtosCategoria.map((produto) => (
+
+    <ProductCard
+      key={produto.id}
+      product={produto}
+      corPrincipal={corPrincipal}
+      onAdd={() => openProductModal(produto)}
+    />
+
+  ))
+
+)}
 
       </div>
 
@@ -1312,10 +1333,7 @@ justify-center
   )
 })}
 
-      </section>
-
       
-
       <ProductModal
   open={openModal}
   onClose={() => setOpenModal(false)}
@@ -1341,42 +1359,36 @@ justify-center
 />
 
 {cart.length > 0 && (
-  <div
-    className="
-      fixed
-      bottom-2
-      left-2
-      right-2
-      max-w-7xl
-mx-auto
-      z-[999]
-    "
-  >
-    <div
-      className="
-        rounded-2xl
-        shadow-2xl
-        px-2
-        py-1.5
-        flex
-        items-center
-        justify-between
-      "
-     style={{
-  background: `linear-gradient(
-    90deg,
-    ${corPrincipal},
-    ${corPrincipal}CC,
-    ${corPrincipal}
-  )`
+<div
+className="
+fixed
+bottom-0
+left-0
+right-0
+z-[999]
+shadow-2xl
+pb-[env(safe-area-inset-bottom)]
+"
+style={{
+  backgroundColor: corPrincipal,
 }}
-    >
+>
+
+<div
+  className="
+    px-5
+    py-6
+    flex
+    items-center
+    justify-between
+  "
+>
       <div className="flex items-center gap-3">
 
         <div
           className="
-            w-9
-            h-9
+            w-14
+            h-14
             rounded-xl
             overflow-hidden
             bg-white
@@ -1398,7 +1410,7 @@ mx-auto
 
         <div className="text-white">
 
-          <p className="font-bold text-[10px]">
+          <p className="font-bold text-sm">
             {cart.reduce(
               (acc, item) =>
                 acc + item.quantity,
@@ -1406,7 +1418,7 @@ mx-auto
             )} itens no carrinho
           </p>
 
-          <p className="text-white/80 text-[11px]">
+          <p className="text-white/80 text-[15px]">
             Total: R$ {total.toLocaleString(
   "pt-BR",
   {
@@ -1442,6 +1454,10 @@ mx-auto
   </div>
 )}
 
-    </main>
+</div>
+
+</section>
+
+</main>
   )
 }

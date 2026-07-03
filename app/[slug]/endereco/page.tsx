@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { supabase } from "@/lib/supabase";
+import { useRestaurant } from "@/contexts/RestaurantContext";
+import { ArrowLeft } from "lucide-react";
 
 export default function EnderecoPage() {
 
@@ -56,38 +58,16 @@ export default function EnderecoPage() {
       restaurante.id
     )
 
-    const { data: aparencia } =
-      await supabase
-        .from("aparencia")
-        .select("*")
-        .eq(
-          "restaurante_id",
-          restaurante.id
-        )
-        .single()
-
-    if (aparencia) {
-
-      setLogo(
-        aparencia.logo_url || ""
-      )
-
-      setCorPrincipal(
-        aparencia.cor_primaria ||
-        "#6D1F2F"
-      )
-    }
   }
-
+  
   carregarDados()
 
 }, [slug])
 
-  const [corPrincipal, setCorPrincipal] =
-  useState("#6D1F2F")
-
-const [logo, setLogo] =
-  useState("")
+const {
+  logo,
+  corPrincipal,
+} = useRestaurant();
 
 const [restauranteId, setRestauranteId] =
   useState("")
@@ -293,31 +273,31 @@ function resetarFrete() {
         "
       >
 
-        <button
-          onClick={() => {
-            window.location.href =
-              `/${slug}/carrinho`;
-          }}
-          className="
-            w-14
-            h-14
-            flex
-            items-center
-            justify-center
-          "
-        >
-          <span
-            className="
-              text-4xl
-              font-light
-            "
-            style={{
-              color: corPrincipal,
-            }}
-          >
-            ‹
-          </span>
-        </button>
+<button
+  onClick={() => {
+    window.location.href = `/${slug}/carrinho`;
+  }}
+  className="
+    w-12
+    h-12
+    rounded-full
+    bg-white
+    shadow-md
+    flex
+    items-center
+    justify-center
+    transition-all
+    hover:scale-105
+    active:scale-95
+  "
+>
+  <ArrowLeft
+    size={24}
+    style={{
+      color: corPrincipal,
+    }}
+  />
+</button>
 
         <div
           className="
@@ -946,17 +926,19 @@ taxaEntrega.toFixed(2)
 
       {/* RODAPÉ FIXO */}
 
-      <div
-        className="
-          fixed
-          bottom-0
-          left-0
-          right-0
-          bg-white
-          border-t
-          p-4
-        "
-      >
+<div
+  className="
+    fixed
+    bottom-0
+    left-0
+    right-0
+    p-4
+    shadow-2xl
+  "
+  style={{
+    backgroundColor: corPrincipal,
+  }}
+>
 
         <div
           className="
@@ -968,21 +950,22 @@ taxaEntrega.toFixed(2)
 
           <div>
 
-            <p
-              className="
-                text-sm
-                text-zinc-500
-              "
-            >
-              Total parcial
-            </p>
+<p
+  className="
+    text-sm
+    text-white/80
+  "
+>
+  Total parcial
+</p>
 
-            <p
-              className="
-                text-2xl
-                font-black
-              "
-            >
+<p
+  className="
+    text-2xl
+    font-black
+    text-white
+  "
+>
               R$ {
 (
 subtotal +

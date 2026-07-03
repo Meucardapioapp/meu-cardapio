@@ -245,3 +245,17 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+.loading-bar{
+    width:40%;
+    animation:loading 1.2s ease-in-out infinite;
+}
+
+@keyframes loading{
+    0%{
+        transform:translateX(-120%);
+    }
+
+    100%{
+        transform:translateX(320%);
+    }
+}

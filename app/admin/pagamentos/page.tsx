@@ -13,9 +13,8 @@ import {
 export default function PagamentosPage() {
   const [loading, setLoading] = useState(true);
 
- const [config, setConfig] = useState({
-  dinheiro: true,
-  cartao_entrega: true,
+const [config, setConfig] = useState({
+  dinheiro: false,
 });
 
   useEffect(() => {
@@ -39,13 +38,11 @@ export default function PagamentosPage() {
         .single();
 
       if (data) {
-       setConfig({
-  dinheiro:
-    data.dinheiro ?? true,
 
-  cartao_entrega:
-    data.cartao_entrega ?? true,
+setConfig({
+  dinheiro: data.dinheiro ?? false,
 });
+
       }
     } catch (error) {
       console.log(error);
@@ -63,23 +60,33 @@ export default function PagamentosPage() {
       return;
     }
 
-    const { error } = await supabase
-      .from("configuracoes_pagamento")
-      .upsert({
-        restaurante_id: restauranteId,
+console.log("SALVANDO...");
+console.log({
+  restauranteId,
+  dinheiro: config.dinheiro,
+});
 
-        dinheiro:
-          config.dinheiro,
-
-        cartao_entrega:
-          config.cartao_entrega,
-      });
-
-    if (error) {
-      console.log(error);
-      alert("Erro ao salvar");
-      return;
+const { data, error } = await supabase
+  .from("configuracoes_pagamento")
+  .upsert(
+    {
+      restaurante_id: restauranteId,
+      dinheiro: config.dinheiro,
+    },
+    {
+      onConflict: "restaurante_id",
     }
+  )
+  .select();
+
+console.log("RESULTADO:", data);
+console.log("ERRO:", error);
+
+  if (error) {
+  console.error(error);
+  alert(JSON.stringify(error, null, 2));
+  return;
+}  
 
     alert("Configurações salvas");
   }
@@ -133,7 +140,7 @@ export default function PagamentosPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-8">
+    <div className="max-w-7xl mx-auto p-8">
 
       <h1 className="text-5xl font-black text-zinc-900">
         Configurações de Pagamento
@@ -146,8 +153,7 @@ export default function PagamentosPage() {
 
       {/* ONLINE */}
 
-      <div className="bg-white rounded-[32px] border border-zinc-200 shadow-sm p-8 mb-8">
-
+<div className="bg-white rounded-[28px] border border-zinc-200 shadow-sm p-6 mb-6">
         <div className="flex items-center gap-4 mb-6">
           <h2 className="text-4xl font-black">
             Pagamento Online
@@ -164,10 +170,7 @@ export default function PagamentosPage() {
 
             {[
               "PIX",
-              "Cartão Online (Crédito e Débito)",
-              "Google Pay",
-              "Apple Pay",
-              "NuPay",
+              "Cartão de Crédito",
             ].map((item) => (
               <div
                 key={item}
@@ -188,24 +191,27 @@ export default function PagamentosPage() {
 
           </div>
 
-          <div className="bg-green-50 border border-green-200 rounded-[24px] p-6">
+<div className="bg-green-50 border border-green-200 rounded-2xl p-5">
 
-            <h3 className="text-green-800 font-black text-2xl mb-4">
-              Importante
-            </h3>
+  <div className="flex items-center gap-2 mb-4">
 
-            <p className="text-green-700 mb-4">
-              Os pagamentos online não
-              podem ser desativados.
-            </p>
+    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+      <Check size={16} className="text-green-700" />
+    </div>
 
-            <p className="text-green-700">
-              Eles ajudam a aumentar suas
-              vendas e agilizam o processo
-              de entrega.
-            </p>
+    <h3 className="text-lg font-black text-green-800">
+      Processamento automático
+    </h3>
 
-          </div>
+  </div>
+
+  <p className="text-green-700 leading-7">
+    Pix e Cartão de Crédito ficam
+    disponíveis automaticamente para
+    todos os clientes.
+  </p>
+
+</div>
 
         </div>
 
@@ -213,7 +219,7 @@ export default function PagamentosPage() {
 
       {/* ENTREGA */}
 
-      <div className="bg-white rounded-[32px] border border-zinc-200 shadow-sm p-8 mb-8">
+      <div className="bg-white rounded-[28px] border border-zinc-200 shadow-sm p-6 mb-6">
 
         <div className="flex items-center justify-between mb-8">
 
@@ -247,82 +253,60 @@ export default function PagamentosPage() {
                   <div>
 
                     <h3 className="font-bold text-xl">
-                      Dinheiro
+                       Aceitar dinheiro na entrega
                     </h3>
 
-                    <p className="text-zinc-500">
-                      Permitir que o cliente
-                      pague em dinheiro ao
-                      entregador
-                    </p>
+<p className="text-zinc-500 mt-1">
+  Quando ativado, esta opção será exibida
+  aos clientes durante o checkout.
+</p>
 
                   </div>
 
                 </div>
 
-                <Toggle
-                  checked={config.dinheiro}
-                  onChange={() =>
-                    setConfig({
-                      ...config,
-                      dinheiro:
-                        !config.dinheiro,
-                    })
-                  }
-                />
+<div className="flex flex-col items-end">
+
+  <span
+    className={`text-sm font-bold ${
+      config.dinheiro
+        ? "text-green-600"
+        : "text-zinc-400"
+    }`}
+  >
+    {config.dinheiro
+      ? "ATIVO"
+      : "DESATIVADO"}
+  </span>
+
+  <div className="mt-2">
+
+    <Toggle
+      checked={config.dinheiro}
+      onChange={() =>
+        setConfig({
+          ...config,
+          dinheiro: !config.dinheiro,
+        })
+      }
+    />
+
+  </div>
+
+</div>
 
               </div>
 
-              <div className="flex items-center justify-between p-6">
-
-                <div className="flex gap-4">
-
-                  <CreditCard
-                    className="text-red-700"
-                  />
-
-                  <div>
-
-                    <h3 className="font-bold text-xl">
-                      Cartão na Entrega
-                    </h3>
-
-                    <p className="text-zinc-500">
-                      Permitir que o cliente
-                      pague com cartão na
-                      entrega
-                    </p>
-
-                  </div>
-
-                </div>
-
-                <Toggle
-                  checked={
-                    config.cartao_entrega
-                  }
-                  onChange={() =>
-                    setConfig({
-                      ...config,
-                      cartao_entrega:
-                        !config.cartao_entrega,
-                    })
-                  }
-                />
-
-              </div>
+              
 
             </div>
 
-            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-[24px] p-5">
-
-              <p className="text-blue-700">
-                <strong>Observação:</strong>
-                {" "}
-                Se você não possui máquina
-                de cartão ou entregador,
-                desative as opções acima.
-              </p>
+<div className="mt-5 bg-zinc-50 border border-zinc-200 rounded-2xl p-5">
+             <p className="text-blue-600 leading-7">
+  <strong>Importante:</strong> Quando esta opção estiver
+  desativada, os clientes poderão finalizar pedidos
+  apenas utilizando Pix ou Cartão de Crédito.
+</p>
 
             </div>
           </>
@@ -331,30 +315,23 @@ export default function PagamentosPage() {
 
       {/* RODAPÉ */}
 
-      <div className="bg-white rounded-[32px] border border-zinc-200 shadow-sm p-8 flex flex-col lg:flex-row justify-between items-center gap-6">
+      <div className="bg-white rounded-[28px] border border-zinc-200 shadow-sm p-6 flex flex-col lg:flex-row justify-between items-center gap-6">
 
-        <div className="flex items-center gap-4">
+        <div>
 
-          <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
-
-            <Shield
-              className="text-red-700"
-            />
-
-          </div>
+ 
 
           <div>
 
-            <h3 className="font-black text-xl">
-              Suas alterações são salvas
-              automaticamente
-            </h3>
+ <h3 className="font-black text-xl">
+  Revise suas configurações
+</h3>
 
-            <p className="text-zinc-500">
-              Sempre que você modificar as
-              configurações elas serão
-              aplicadas imediatamente.
-            </p>
+<p className="text-zinc-500">
+  Após clicar em "Salvar Alterações",
+  as novas configurações serão aplicadas
+  imediatamente ao seu cardápio.
+</p>
 
           </div>
 
@@ -367,8 +344,8 @@ export default function PagamentosPage() {
             hover:bg-red-800
             text-white
             px-10
-            py-4
-            rounded-2xl
+            py-5
+            rounded-3xl
             font-black
             flex
             items-center

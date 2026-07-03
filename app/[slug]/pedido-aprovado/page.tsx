@@ -7,11 +7,14 @@ import {
 } from "next/navigation";
 
 import {
+  ArrowLeft,
   Check,
   Clock3,
   MapPin,
   CreditCard,
 } from "lucide-react";
+
+import { useRestaurant } from "@/contexts/RestaurantContext";
 
 export default function PedidoAprovadoPage() {
   const params = useParams();
@@ -22,11 +25,10 @@ export default function PedidoAprovadoPage() {
 
   const [pedido, setPedido] = useState<any>(null);
 
-  const [corPrincipal, setCorPrincipal] =
-    useState("#6D1F2F");
-
-  const [logo, setLogo] =
-    useState("");
+const {
+  logo,
+  corPrincipal,
+} = useRestaurant();
 
   useEffect(() => {
   async function carregarPedido() {
@@ -45,23 +47,6 @@ if (data.success) {
   setPedido(data.pedido);
 }
 
-    const cor =
-      localStorage.getItem(
-        "cor-principal"
-      );
-
-    if (cor) {
-      setCorPrincipal(cor);
-    }
-
-    const logo =
-      localStorage.getItem(
-        "logo-restaurante"
-      );
-
-    if (logo) {
-      setLogo(logo);
-    }
   }
 
   carregarPedido();
@@ -71,34 +56,63 @@ if (data.success) {
     return null;
   }
 
- function nomePagamento() {
+function nomePagamento() {
   switch (pedido.payment_method) {
     case "pix":
       return "Pix";
 
-    case "credito":
+    case "credit_card":
       return "Cartão de Crédito";
 
+    case "cash":
+      return "Dinheiro";
 
-    case "apple":
-      return "Apple Pay";
-
-    case "google":
+    case "google_pay":
       return "Google Pay";
 
+    case "apple_pay":
+      return "Apple Pay";
+
     default:
-      return "Pix";
+      return pedido.payment_method || "-";
   }
 }
 
   return (
-    <main
-      className="
+  <main
+    className="
+      relative
       min-h-screen
       bg-[#F4F1EA]
       p-5
-      "
-    >
+    "
+  >
+
+<div className="absolute top-6 left-6 z-10">
+  <button
+    onClick={() => history.back()}
+    className="
+      w-12
+      h-12
+      rounded-full
+      bg-white
+      shadow-md
+      flex
+      items-center
+      justify-center
+      transition-all
+      duration-200
+      hover:scale-105
+      active:scale-95
+    "
+  >
+    <ArrowLeft
+      size={24}
+      style={{ color: corPrincipal }}
+    />
+  </button>
+</div>
+
       <div
         className="
         max-w-md

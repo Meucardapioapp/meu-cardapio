@@ -8,12 +8,14 @@ declare global {
 import creditCardType from "credit-card-type";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useRestaurant } from "@/contexts/RestaurantContext";
 import {
   ShoppingCart,
   ArrowLeft,
   ShieldCheck,
   CreditCard,
-  Circle
+  Circle,
+  Banknote
 } from "lucide-react";
 
 import {
@@ -28,11 +30,10 @@ export default function PagamentoPage() {
   const params = useParams();
   const slug = params.slug as string;
 
-  const [corPrincipal, setCorPrincipal] =
-  useState("");
-
-const [logo, setLogo] =
-  useState("");
+const {
+  logo,
+  corPrincipal,
+} = useRestaurant();
 
 console.log("SLUG:", slug);
 console.log("LOGO:", logo);
@@ -50,6 +51,9 @@ console.log("LOGO:", logo);
 
   const [formaPagamento, setFormaPagamento] =
     useState("pix");
+
+    const [aceitaDinheiro, setAceitaDinheiro] =
+  useState(false);
 
     const [nome, setNome] = useState("");
 
@@ -81,11 +85,11 @@ const [googlePayToken, setGooglePayToken] = useState<any>(null);
 const [googlePayPronto, setGooglePayPronto] = useState(false);
 
 const bandeiras: Record<string, string> = {
-  visa: "/bandeiras/visa.png",
-  mastercard: "/bandeiras/mastercard.png",
-  elo: "/bandeiras/elo.png",
-  amex: "/bandeiras/amex.png",
-  hipercard: "/bandeiras/hipercard.png",
+  visa: "/bandeiras/visa.svg/visa.png",
+  mastercard: "/bandeiras/mastercard.svg/mastercard.png",
+  elo: "/bandeiras/elo.svg/elo.png",
+  hipercard: "/bandeiras/hipercard.svg/hipercard.png",
+  amex: "/bandeiras/amex.svg/amex.png",
 };
 
 const PUBLIC_KEY =
@@ -93,6 +97,9 @@ const PUBLIC_KEY =
   console.log("PUBLIC KEY:", PUBLIC_KEY);
 
   useEffect(() => {
+
+  async function carregarConfiguracaoPagamento() {
+
     const endereco =
       localStorage.getItem(
         `endereco-${slug}`
@@ -135,33 +142,31 @@ setComplemento(dados.complemento || "");
       );
     }
 
-const corSalva =
-  localStorage.getItem(
-    "cor-principal"
+const restauranteId =
+  localStorage.getItem("restaurante_id");
+
+console.log("RESTAURANTE ID:", restauranteId);
+
+if (restauranteId) {
+
+  const url =
+  `/api/configuracoes-pagamento?restauranteId=${restauranteId}`;
+
+console.log("URL:", url);
+
+const response = await fetch(url);
+
+ const config = await response.json();
+
+console.log("CONFIG:", config);
+
+  setAceitaDinheiro(
+    config?.dinheiro ?? false
   );
+  console.log("CONFIG PAGAMENTO:", config);
+console.log("ACEITA DINHEIRO:", config?.dinheiro);
 
-console.log(
-  "COR CARREGADA:",
-  corSalva
-);
-
-setCorPrincipal(
-  corSalva || "#571f5b"
-);
-
-const logoSalva =
-  localStorage.getItem(
-    "logo-restaurante"
-  );
-
-console.log(
-  "LOGO CARREGADA:",
-  logoSalva
-);
-
-setLogo(
-  logoSalva || ""
-);
+}
 
 const carrinho = JSON.parse(
   localStorage.getItem(
@@ -177,8 +182,11 @@ setQuantidadeItens(
   )
 );
 
+}
 
-  }, [slug]);
+carregarConfiguracaoPagamento();
+
+}, [slug]);
 
   const total =
     subtotal +
@@ -299,23 +307,30 @@ setQuantidadeItens(
         "
       >
         <button
-          onClick={() =>
-            (window.location.href =
-              `/${slug}/endereco`)
-          }
-          className="
-            w-10
-            h-10
-            flex
-            items-center
-            justify-center
-          "
-        >
-          <ArrowLeft
-            size={24}
-            color={corPrincipal}
-          />
-        </button>
+  onClick={() => {
+    window.location.href = `/${slug}/endereco`;
+  }}
+  className="
+    w-12
+    h-12
+    rounded-full
+    bg-white
+    shadow-md
+    flex
+    items-center
+    justify-center
+    transition-all
+    hover:scale-105
+    active:scale-95
+  "
+>
+  <ArrowLeft
+    size={24}
+    style={{
+      color: corPrincipal,
+    }}
+  />
+</button>
 
     <img
     
@@ -417,80 +432,21 @@ setQuantidadeItens(
   }
 />
 
+{aceitaDinheiro && (
+
 <MetodoPagamento
-  id="apple"
-  titulo="Apple Pay"
-  descricao=""
+  id="dinheiro"
+  titulo="Dinheiro"
+  descricao="Pagamento na entrega"
   icon={
-    <FaApplePay
-      size={34}
-      color="black"
+    <Banknote
+      size={22}
+      color="#16A34A"
     />
   }
 />
 
-<MetodoPagamento
-  id="google"
-  titulo="Google Pay"
-  descricao=""
-  icon={
-    <FaGooglePay
-      size={30}
-    />
-  }
-/>
-
-<GooglePayButton
-  environment="TEST"
-  paymentRequest={{
-    apiVersion: 2,
-    apiVersionMinor: 0,
-    allowedPaymentMethods: [
-  {
-    type: "CARD",
-    parameters: {
-      allowedAuthMethods: ["PAN_ONLY", "CRYPTOGRAM_3DS"],
-      allowedCardNetworks: [
-        "MASTERCARD",
-        "VISA",
-        "ELO",
-      ],
-    },
-tokenizationSpecification: {
-  type: "PAYMENT_GATEWAY",
-  parameters: {
-    gateway: "pagarme",
-    gatewayMerchantId: "SEU_GATEWAY_MERCHANT_ID",
-  },
-},
-  },
-],
-   merchantInfo: {
-  merchantId: "12345678901234567890",
-  merchantName: "MeuCardapio",
-},
-    transactionInfo: {
-      totalPriceStatus: "FINAL",
-      totalPrice: total.toFixed(2),
-      currencyCode: "BRL",
-      countryCode: "BR",
-    },
-  }}
-onLoadPaymentData={(paymentData) => {
-  console.log("GOOGLE PAY COMPLETO:", paymentData);
-
-  console.log(
-    "TOKENIZAÇÃO:",
-    paymentData.paymentMethodData.tokenizationData
-  );
-
-  setGooglePayToken(
-    paymentData.paymentMethodData.tokenizationData
-  );
-
-  setGooglePayPronto(true);
-}}
-/>
+)}
 
       
       </div>
@@ -512,37 +468,6 @@ onLoadPaymentData={(paymentData) => {
   Dados do cartão
 </h2>
 
-<input
-  value={numeroCartao}
-  onChange={(e) => {
-
-  const valor = e.target.value
-    .replace(/\D/g, "")
-    .slice(0, 16)
-    .replace(/(.{4})/g, "$1 ")
-    .trim();
-
-  setNumeroCartao(valor);
-
-  const numero = valor.replace(/\s/g, "");
-
-  const resultado = creditCardType(numero);
-
-  if (resultado.length > 0) {
-    setBandeira(resultado[0].type);
-  } else {
-    setBandeira("");
-  }
-
-}}
-
-  inputMode="numeric"
-  autoComplete="cc-number"
-
-  placeholder="Número do cartão"
-  className="w-full border rounded-xl p-3 mb-3"
-/>
-
 <div className="relative mb-3">
 
   <input
@@ -557,15 +482,20 @@ onLoadPaymentData={(paymentData) => {
 
       setNumeroCartao(valor);
 
-      const numero = valor.replace(/\s/g, "");
+const numero = valor.replace(/\s/g, "");
 
-      const resultado = creditCardType(numero);
+if (numero.length < 4) {
+  setBandeira("");
+  return;
+}
 
-      if (resultado.length > 0) {
-        setBandeira(resultado[0].type);
-      } else {
-        setBandeira("");
-      }
+const resultado = creditCardType(numero);
+
+if (resultado.length > 0) {
+  setBandeira(resultado[0].type);
+} else {
+  setBandeira("");
+}
 
     }}
 
@@ -592,16 +522,18 @@ onLoadPaymentData={(paymentData) => {
     <img
       src={bandeiras[bandeira]}
       alt={bandeira}
-      className="
-        absolute
-        right-4
-        top-1/2
-        -translate-y-1/2
-        h-6
-        object-contain
-        pointer-events-none
-      "
-    />
+className="
+absolute
+right-4
+top-1/2
+-translate-y-1/2
+w-10
+h-6
+object-contain
+border
+bg-red-200
+"
+/>
   )}
 
 </div>
@@ -727,31 +659,38 @@ onLoadPaymentData={(paymentData) => {
         >
           <div className="flex items-center gap-2">
 
-  <span>
-    Taxa operacional
-  </span>
+<span
+  className="
+    text-sm
+    text-zinc-500
+    font-medium
+  "
+>
+  Taxa operacional
+</span>
 
-  <span
-    className="
-      w-5
-      h-5
-      rounded-full
-      bg-zinc-400
-      text-white
-      text-xs
-      flex
-      items-center
-      justify-center
-    "
-  >
-    i
-  </span>
+<span
+  className="
+    w-4
+    h-4
+    rounded-full
+    bg-zinc-300
+    text-white
+    text-[10px]
+    flex
+    items-center
+    justify-center
+    font-semibold
+  "
+>
+  i
+</span>
 
 </div>
 
-          <span>
-            R$ 0,99
-          </span>
+<span className="text-sm text-zinc-500">
+  R$ 0,99
+</span>
         </div>
 
         <hr />
@@ -868,10 +807,12 @@ onLoadPaymentData={(paymentData) => {
 
       total,
 
-      payment_method:
-  formaPagamento === "credito"
-    ? "credit_card"
-    : "pix",
+ payment_method:
+formaPagamento === "credito"
+  ? "credit_card"
+  : formaPagamento === "dinheiro"
+  ? "cash"
+  : "pix",
     }),
   }
 );
@@ -891,6 +832,10 @@ console.log("PEDIDO RESULTADO:", pedidoResultado);
 console.log("PEDIDO:", pedido);
 
 console.log("PEDIDO ID:", pedido.id);
+
+const itens = JSON.parse(
+  localStorage.getItem(`cart-${slug}`) || "[]"
+);
 
 if (formaPagamento === "pix") {
 
@@ -1001,6 +946,10 @@ console.log("DADOS ENVIADOS PARA PAGAR.ME", {
   estado,
 });
 
+const itens = JSON.parse(
+  localStorage.getItem(`cart-${slug}`) || "[]"
+);
+
   const response = await fetch(
     "/api/pagarme/criar-pagamento",
     {
@@ -1008,7 +957,7 @@ console.log("DADOS ENVIADOS PARA PAGAR.ME", {
       headers: {
         "Content-Type": "application/json",
       },
-     body: JSON.stringify({
+  body: JSON.stringify({
   total,
   restauranteId: localStorage.getItem("restaurante_id"),
   pedidoId: pedido.id,
@@ -1025,6 +974,8 @@ console.log("DADOS ENVIADOS PARA PAGAR.ME", {
   cidade,
   estado,
   cep,
+
+  itens,
 
   paymentMethod: "credit_card",
 
@@ -1100,6 +1051,8 @@ cidade,
 estado,
 cep,
 
+itens,
+
         paymentMethod: "google_pay",
         googlePayToken,
       }),
@@ -1126,10 +1079,28 @@ alert(
 );
 }
 
-if (formaPagamento === "apple") {
-  alert("Apple Pay em desenvolvimento.");
+if (formaPagamento === "dinheiro") {
+
+  await fetch("/api/pedido/atualizar", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      pedidoId: pedido.id,
+      payment_status: "pending",
+      payment_method: "cash",
+      status: "pendente",
+    }),
+  });
+
+  window.location.href =
+    `/${slug}/pedido-aprovado?id=${pedido.id}`;
+
   return;
+
 }
+
 
 }}
 

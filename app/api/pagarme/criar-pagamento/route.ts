@@ -4,11 +4,20 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const ip =
+  request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+  request.headers.get("x-real-ip") ||
+  "";
+
+const userAgent =
+  request.headers.get("user-agent") || "";
 
 const {
   total,
   restauranteId,
   pedidoId,
+
+  itens,
 
   nome,
   email,
@@ -78,16 +87,26 @@ const payload = {
         number: whatsapp.replace(/\D/g, "").substring(2),
       },
     },
-  },
 
-  items: [
-    {
-      amount: Math.round(Number(total) * 100),
-      description: "Pedido MeuCardapio",
-      quantity: 1,
-      code: "pedido-" + Date.now(),
-    },
-  ],
+metadata: {
+  ip,
+  user_agent: userAgent,
+},
+
+},
+  
+
+ items: itens.map((item: any, index: number) => ({
+  amount: Math.round(Number(item.preco) * 100),
+
+  description: item.nome,
+
+  quantity: item.quantity,
+
+  code: item.id
+    ? String(item.id)
+    : `item-${index}`,
+})),
 
   payments: [
     {
@@ -186,12 +205,26 @@ if (!response.ok) {
   );
 }
 
-await supabaseAdmin
+const {
+  data: pedidoAtualizado,
+  error: updateError,
+} = await supabaseAdmin
   .from("pedidos")
   .update({
     pagarme_order_id: data.id,
+
+    payment_status:
+      data.status === "paid"
+        ? "paid"
+        : "pending",
   })
-  .eq("id", pedidoId);
+  .eq("id", pedidoId)
+  .select();
+
+console.log("ORDER ID PAGARME:", data.id);
+console.log("PEDIDO ID:", pedidoId);
+console.log("UPDATE:", pedidoAtualizado);
+console.log("ERRO UPDATE:", updateError);
 
 console.dir(
   data.charges?.[0]?.last_transaction,
