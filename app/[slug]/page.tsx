@@ -847,19 +847,17 @@ className="
 w-full
 max-w-7xl
 mx-auto
-pt-4
 "
 >
 
- <div
-  className="
-    w-full
-    h-[190px]
-    md:h-[340px]
-    rounded-b-[28px]
-    overflow-hidden
-    relative
-  "
+<div
+className="
+w-full
+h-[190px]
+md:h-[340px]
+overflow-hidden
+relative
+"
 
     style={{
       backgroundImage: banner
@@ -1009,15 +1007,15 @@ object-cover
 className="
 max-w-7xl
 mx-auto
-px-2 md:px-5
+px-0
+md:px-5
 pb-4
 ">
 
 <div
 className="
 sticky
-top-[190px]
-md:top-[340px]
+top-0
 z-50
 w-full
 bg-white
