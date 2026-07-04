@@ -856,7 +856,7 @@ pt-4
     w-full
     h-[190px]
     md:h-[340px]
-    rounded-[28px]
+    rounded-b-[28px]
     overflow-hidden
     relative
   "
@@ -1010,20 +1010,19 @@ className="
 max-w-7xl
 mx-auto
 px-2 md:px-5
-pt-5
 pb-4
 ">
 
 <div
 className="
 sticky
-top-0
+top-[190px]
+md:top-[340px]
 z-50
 w-full
 bg-white
 border-b
 border-[#ECE8E2]
-shadow-sm
 "
 >
 
