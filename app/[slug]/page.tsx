@@ -187,11 +187,11 @@ useEffect(() => {
       ) {
         setCategoriaSelecionada(categoriaAtual);
 
-        botoesCategoriaRef.current[categoriaAtual]?.scrollIntoView({
-          behavior: "smooth",
-          inline: "center",
-          block: "nearest",
-        });
+// botoesCategoriaRef.current[categoriaAtual]?.scrollIntoView({
+//   behavior: "smooth",
+//   inline: "center",
+//   block: "nearest",
+// });
       }
 
       ticking = false;
