@@ -161,61 +161,52 @@ const [lightMode, setLightMode] =
 }, [categorias])
 
 useEffect(() => {
+  let ticking = false;
 
   const handleScroll = () => {
+    if (ticking) return;
 
-    let categoriaAtual = ""
+    window.requestAnimationFrame(() => {
+      let categoriaAtual = "";
 
-    categorias.forEach((categoria) => {
+      categorias.forEach((categoria) => {
+        const elemento = categoriaRefs.current[categoria];
 
-      const elemento =
-        categoriaRefs.current[categoria]
+        if (!elemento) return;
 
-      if (!elemento) return
+        const rect = elemento.getBoundingClientRect();
 
-      const rect =
-        elemento.getBoundingClientRect()
+        if (rect.top <= 150 && rect.bottom >= 150) {
+          categoriaAtual = categoria;
+        }
+      });
 
       if (
-        rect.top <= 120 &&
-        rect.bottom >= 120
+        categoriaAtual &&
+        categoriaAtual !== categoriaSelecionada
       ) {
-        categoriaAtual = categoria
+        setCategoriaSelecionada(categoriaAtual);
+
+        botoesCategoriaRef.current[categoriaAtual]?.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
       }
 
-    })
+      ticking = false;
+    });
 
-if (
-  categoriaAtual &&
-  categoriaAtual !== categoriaSelecionada
-) {
+    ticking = true;
+  };
 
-  setCategoriaSelecionada(categoriaAtual)
-
-botoesCategoriaRef.current[categoriaAtual]?.scrollIntoView({
-  inline: "nearest",
-  block: "nearest",
-})
-
-}
-
-  }
-
-  window.addEventListener(
-    "scroll",
-    handleScroll
-  )
+  window.addEventListener("scroll", handleScroll, {
+    passive: true,
+  });
 
   return () =>
-    window.removeEventListener(
-      "scroll",
-      handleScroll
-    )
-
-}, [
-  categorias,
-  categoriaSelecionada
-])
+    window.removeEventListener("scroll", handleScroll);
+}, [categorias, categoriaSelecionada]);
 
   async function buscarProdutos() {
 
