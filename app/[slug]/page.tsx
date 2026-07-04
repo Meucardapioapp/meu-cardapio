@@ -192,11 +192,10 @@ if (
 
   setCategoriaSelecionada(categoriaAtual)
 
-  botoesCategoriaRef.current[categoriaAtual]?.scrollIntoView({
-    behavior: "smooth",
-    inline: "center",
-    block: "nearest",
-  })
+botoesCategoriaRef.current[categoriaAtual]?.scrollIntoView({
+  inline: "nearest",
+  block: "nearest",
+})
 
 }
 
@@ -1110,8 +1109,13 @@ const element =
   }
 }}
 className="
-px-6
-h-11
+px-4
+md:px-6
+
+h-10
+md:h-11
+text-sm
+md:text-base
 rounded-xl
 font-semibold
 whitespace-nowrap
@@ -1142,7 +1146,7 @@ className="
 h-9
 w-px
 bg-zinc-200
-mx-3
+mx-2 md:mx-3
 "
 />
 
@@ -1190,14 +1194,15 @@ return (
   ref={(el) => {
     categoriaRefs.current[categoria] = el
   }}
-  className="mb-14"
+  className="mb-8 md:mb-14"
 >
 <h2
   className="
-    text-[34px]
+    text-[28px]
+    md:text-[34px]
     font-black
     text-zinc-900
-    mb-6
+    mb-4 md:mb-6
   "
 >
   {categoria}
@@ -1209,10 +1214,10 @@ return (
       ? `
           flex
           flex-nowrap
-          gap-5
+          gap-3 md:gap-5
           overflow-x-auto
           overflow-y-hidden
-          px-2
+          px-1 md:px-2
           pb-3
           snap-x
           snap-mandatory
@@ -1221,7 +1226,7 @@ return (
       : `
           flex
           flex-col
-          gap-5
+          gap-3 md:gap-5
         `
   }
 >
