@@ -29,7 +29,7 @@ export default function ProductCard({
       className="
         relative
         bg-white
-        rounded-[22px]
+        rounded-[18px]
         md:rounded-[30px]
 
         border
@@ -37,17 +37,17 @@ export default function ProductCard({
 
         shadow-[0_6px_20px_rgba(0,0,0,0.06)]
 
-        px-4
+        px-3
         md:px-6
 
-        py-4
+        py-3
         md:py-5
 
         flex
         items-center
         justify-between
 
-        gap-4
+        gap-3
         md:gap-6
 
         transition-all
@@ -67,13 +67,13 @@ export default function ProductCard({
           min-w-0
           flex-1
 
-          min-h-[120px]
+          min-h-[100px]
           md:min-h-[150px]
         "
       >
         <h3
           className="
-            text-[18px]
+            text-[16px]
             md:text-[24px]
 
             font-extrabold
@@ -88,36 +88,36 @@ export default function ProductCard({
 
         <p
           className="
-            mt-2
+            mt-1
 
-            text-[14px]
+            text-[12px]
             md:text-[17px]
 
-            leading-5
+            leading-4
             md:leading-7
 
             text-zinc-500
 
-            line-clamp-3
+            line-clamp-2
           "
         >
           {product.descricao}
         </p>
 
-        <div className="mt-auto pt-3 md:pt-4">
+        <div className="mt-auto pt-2 md:pt-4">
           {product.precoAntigo &&
             product.precoAntigo > product.preco && (
               <div
                 className="
                   flex
                   items-center
-                  gap-2
+                  gap-1
                   mb-1
                 "
               >
                 <span
                   className="
-                    text-[12px]
+                    text-[11px]
                     md:text-[15px]
 
                     text-zinc-400
@@ -138,7 +138,7 @@ export default function ProductCard({
                   className="
                     text-white
 
-                    text-[10px]
+                    text-[9px]
                     md:text-[14px]
 
                     font-bold
@@ -146,7 +146,7 @@ export default function ProductCard({
                     px-2
                     md:px-3
 
-                    py-[2px]
+                    py-[1px]
                     md:py-1
 
                     rounded-full
@@ -166,7 +166,7 @@ export default function ProductCard({
 
           <p
             className="
-              text-[24px]
+              text-[20px]
               md:text-[30px]
 
               font-black
@@ -192,7 +192,7 @@ export default function ProductCard({
                 className="
                   mt-1
 
-                  text-[13px]
+                  text-[11px]
                   md:text-[17px]
 
                   font-semibold
@@ -218,19 +218,19 @@ export default function ProductCard({
         className="
           relative
           shrink-0
-          mr-1
+          mr-0
           md:mr-3
         "
       >
         <div
           className="
-            w-[135px]
-            h-[135px]
+            w-[105px]
+            h-[105px]
 
             md:w-[200px]
             md:h-[200px]
 
-            rounded-[18px]
+            rounded-[16px]
             md:rounded-[22px]
 
             overflow-hidden
@@ -276,8 +276,8 @@ export default function ProductCard({
 
             bottom-0
 
-            w-11
-            h-11
+            w-9
+            h-9
 
             md:w-14
             md:h-14
@@ -286,7 +286,7 @@ export default function ProductCard({
 
             text-white
 
-            text-2xl
+            text-xl
             md:text-3xl
 
             shadow-xl

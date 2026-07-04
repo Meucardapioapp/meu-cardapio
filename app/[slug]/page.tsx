@@ -1019,10 +1019,10 @@ object-cover
 className="
 max-w-7xl
 mx-auto
-px-5
+px-2 md:px-5
 pt-5
 pb-4
-">        
+">
 
 <div
 className="
@@ -1041,8 +1041,8 @@ rounded-xl
 shadow-md
 border
 border-[#ECE8E2]
-px-4
-py-4
+px-2 md:px-4
+py-3
 "
 >
 
@@ -1058,7 +1058,7 @@ overflow-x-auto
 scroll-smooth
 whitespace-nowrap
 scrollbar-hide
-pr-10
+pr-2 md:pr-10
 "
 >
 
@@ -1109,13 +1109,9 @@ const element =
   }
 }}
 className="
-px-4
-md:px-6
-
-h-10
-md:h-11
-text-sm
-md:text-base
+px-3 md:px-6
+h-9 md:h-11
+text-[13px] md:text-base
 rounded-xl
 font-semibold
 whitespace-nowrap
@@ -1146,7 +1142,7 @@ className="
 h-9
 w-px
 bg-zinc-200
-mx-2 md:mx-3
+mx-1 md:mx-3
 "
 />
 
@@ -1214,10 +1210,10 @@ return (
       ? `
           flex
           flex-nowrap
-          gap-3 md:gap-5
+          gap-2 md:gap-5
           overflow-x-auto
           overflow-y-hidden
-          px-1 md:px-2
+          px-0 md:px-2
           pb-3
           snap-x
           snap-mandatory
@@ -1341,8 +1337,8 @@ style={{
 
 <div
   className="
-    px-5
-    py-6
+    px-4
+    py-4
     flex
     items-center
     justify-between
@@ -1352,8 +1348,8 @@ style={{
 
         <div
           className="
-            w-14
-            h-14
+            w-12
+            h-12
             rounded-xl
             overflow-hidden
             bg-white
@@ -1435,7 +1431,7 @@ style={{
     disabled:opacity-70
     disabled:cursor-not-allowed
 
-    min-w-[155px]
+    min-w-[140px]
   "
 >
   {carregandoCarrinho ? (

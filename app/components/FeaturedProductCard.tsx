@@ -29,8 +29,8 @@ export default function FeaturedProductCard({
       className="
         flex-none
 
-        min-w-[185px]
-        max-w-[185px]
+        min-w-[150px]
+        max-w-[150px]
 
         md:min-w-[270px]
         md:max-w-[270px]
@@ -58,7 +58,7 @@ export default function FeaturedProductCard({
       <div
         className="
           relative
-          h-[135px]
+          h-[110px]
           md:h-[210px]
           overflow-hidden
           bg-zinc-100
@@ -101,12 +101,12 @@ export default function FeaturedProductCard({
 
               text-white
 
-              text-[11px]
+              text-[10px]
               md:text-[14px]
 
               font-extrabold
 
-              px-3
+              px-2
               md:px-4
 
               py-[3px]
@@ -127,10 +127,10 @@ export default function FeaturedProductCard({
 
       {/* CONTEÚDO */}
 
-      <div className="p-4 md:p-6">
+      <div className="p-3 md:p-6">
         <h3
           className="
-            text-[17px]
+            text-[15px]
             md:text-[22px]
 
             font-black
@@ -147,39 +147,39 @@ export default function FeaturedProductCard({
 
         <p
           className="
-            mt-2
+            mt-1
 
-            text-[13px]
+            text-[12px]
             md:text-[16px]
 
             text-zinc-500
 
-            leading-5
+            leading-4
             md:leading-6
 
             line-clamp-2
 
-            min-h-[42px]
+            min-h-[34px]
             md:min-h-[52px]
           "
         >
           {product.descricao}
         </p>
 
-        <div className="mt-3 md:mt-5">
+        <div className="mt-2 md:mt-5">
           {product.precoAntigo &&
             product.precoAntigo > product.preco && (
               <div
                 className="
                   flex
                   items-center
-                  gap-2
-                  mb-2
+                  gap-1
+                  mb-1
                 "
               >
                 <span
                   className="
-                    text-[12px]
+                    text-[11px]
                     md:text-[15px]
 
                     text-zinc-400
@@ -200,7 +200,7 @@ export default function FeaturedProductCard({
                   className="
                     text-white
 
-                    text-[10px]
+                    text-[9px]
                     md:text-[12px]
 
                     font-bold
@@ -223,7 +223,7 @@ export default function FeaturedProductCard({
 
           <p
             className="
-              text-[26px]
+              text-[18px]
               md:text-[34px]
 
               font-black
@@ -247,9 +247,9 @@ export default function FeaturedProductCard({
             product.precoAntigo > product.preco && (
               <p
                 className="
-                  mt-2
+                  mt-1
 
-                  text-[13px]
+                  text-[11px]
                   md:text-[16px]
 
                   font-semibold
