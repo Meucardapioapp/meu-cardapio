@@ -847,7 +847,6 @@ className="
 w-full
 max-w-7xl
 mx-auto
-px-4
 pt-4
 "
 >
@@ -1018,21 +1017,22 @@ pb-4
 <div
 className="
 sticky
-top-3
-z-40
-mb-8
+top-0
+z-50
+w-full
+bg-white
+border-b
+border-[#ECE8E2]
+shadow-sm
 "
 >
 
 <div
 className="
-w-full
-bg-white
-rounded-xl
-shadow-md
-border
-border-[#ECE8E2]
-px-2 md:px-4
+max-w-7xl
+mx-auto
+px-2
+md:px-5
 py-3
 "
 >
