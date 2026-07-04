@@ -14,9 +14,12 @@ import { useRestaurant } from "@/contexts/RestaurantContext";
 import Header from "../components/Header"
 import Benefits from "../components/Benefits"
 import ProductCard from "../components/ProductCard"
+import FeaturedProductCard from "../components/FeaturedProductCard";
 import ProductModal from "../components/ProductModal"
 import Cart from "../components/Cart"
 import CheckoutModal from "../components/CheckoutModal"
+import BottomNavigation from "../components/BottomNavigation";
+import RestaurantFooter from "../components/RestaurantFooter";
 
 import { supabase } from "@/lib/supabase"
 
@@ -847,30 +850,24 @@ function obterHorarioFechamento() {
       `}
     >
 
-      <Header
-  logo={logo}
-  cart={cart}
-  corPrincipal={corPrincipal}
-  openCart={() => {
-    window.location.href = `/${slug}/carrinho`
-  }}
-/>
-
       {/* HERO */}
 
-     <section className="
+<section
+className="
+w-full
 max-w-7xl
 mx-auto
-px-1
-pt-0
-">
+px-4
+pt-4
+"
+>
 
  <div
   className="
     w-full
-    h-[210px]
-    md:h-[420px]
-    rounded-3xl
+    h-[190px]
+    md:h-[340px]
+    rounded-[28px]
     overflow-hidden
     relative
   "
@@ -887,7 +884,7 @@ backgroundPosition: "center",
 
    {/* ESCURECER BANNER */}
 
-<div className="absolute inset-0 bg-black/50 rounded-3xl z-10" />
+<div className="absolute inset-0 bg-black/45 rounded-3xl z-10" />
 
 {/* TEXTO SOBRE O BANNER */}
 
@@ -896,8 +893,7 @@ backgroundPosition: "center",
     absolute
     left-6
     md:left-12
-    top-[50%]
-    -translate-y-1/2
+    bottom-7
     z-20
     text-white
   "
@@ -905,8 +901,8 @@ backgroundPosition: "center",
 
   <h1
     className="
-      text-xl
-      md:text-5xl
+      text-[34px]
+      md:text-6xl
       font-black
     "
   >
@@ -916,7 +912,7 @@ backgroundPosition: "center",
     }
   </h1>
 
-  <p className="mt-1 text-[10px]">
+  <p className="mt-1 text-base">
     {aparencia?.categoria_restaurante}
     {" • "}
     {aparencia?.tipo_atendimento}
@@ -958,9 +954,9 @@ text-[10px]
     rounded-full
     bg-white/15
     backdrop-blur-sm
-    px-3
-    py-1
-    text-[10px]
+    px-4
+    py-2
+    text-sm
     font-medium
   "
 >
@@ -1025,30 +1021,29 @@ className="
 max-w-7xl
 mx-auto
 px-5
-pb-12
-"
->        
+pt-5
+pb-4
+">        
 
 <div
 className="
 sticky
-top-0
+top-3
 z-40
-bg-[#F4F1EA]
-pb-3
+mb-8
 "
 >
 
 <div
 className="
+w-full
 bg-white
-rounded-2xl
-shadow-lg
+rounded-xl
+shadow-md
 border
-border-zinc-100
-px-3
-py-2
-overflow-hidden
+border-[#ECE8E2]
+px-4
+py-4
 "
 >
 
@@ -1114,15 +1109,15 @@ const element =
     })
   }
 }}
-    className="
-      px-5
-      h-10
-      rounded-2xl
-      font-semibold
-      whitespace-nowrap
-      transition-all
-      duration-300
-    "
+className="
+px-6
+h-11
+rounded-xl
+font-semibold
+whitespace-nowrap
+transition-all
+duration-300
+"
     style={{
       backgroundColor:
   categoriaSelecionada === categoria
@@ -1142,84 +1137,20 @@ const element =
 
   {index < categorias.length - 1 && (
 
-    <div
-      className="
-        h-8
-        w-px
-        bg-zinc-200
-        mx-2
-      "
-    />
+<div
+className="
+h-9
+w-px
+bg-zinc-200
+mx-3
+"
+/>
 
   )}
 
 </div>
 
 ))}
-
-{mostrarEsquerda && (
-
-<button
-onClick={() => {
-
-  categoriasRef.current?.scrollBy({
-    left: -250,
-    behavior: "smooth",
-  })
-
-}}
-className="
-absolute
-left-0
-top-[42%]
--translate-y-1/2
-z-20
-w-8
-h-8
-rounded-full
-bg-white
-shadow-md
-flex
-items-center
-justify-center
-"
->
-  ‹
-</button>
-
-)}
-
-{mostrarDireita && (
-
-<button
-onClick={() => {
-
-  categoriasRef.current?.scrollBy({
-    left: 250,
-    behavior: "smooth",
-  })
-
-}}
-className="
-absolute
-right-0
-top-[42%]
--translate-y-1/2
-z-20
-w-8
-h-8
-rounded-full
-bg-white
-shadow-md
-flex
-items-center
-justify-center
-"
->
-  ›
-</button>
-
-)}
 
 
 </div>
@@ -1230,7 +1161,7 @@ justify-center
         </div>
 
 
-        {categorias.map((categoria) => {
+        {categorias.map((categoria, indexCategoria) => {
 
   const produtosCategoria =
     produtosFiltrados.filter(
@@ -1259,27 +1190,40 @@ return (
   ref={(el) => {
     categoriaRefs.current[categoria] = el
   }}
-  className="mb-12"
+  className="mb-14"
 >
-      <h3
-        className={`
-          text-xl
-          font-black
-          mb-4
-          ${textPrimary}
-        `}
-      >
-        {categoria}
-      </h3>
+<h2
+  className="
+    text-[34px]
+    font-black
+    text-zinc-900
+    mb-6
+  "
+>
+  {categoria}
+</h2>
 
-   <div
- className="
-  grid
-  grid-cols-2
-  md:grid-cols-3
-  lg:grid-cols-3
-  gap-2
-"
+<div
+  className={
+    indexCategoria === 0
+      ? `
+          flex
+          flex-nowrap
+          gap-5
+          overflow-x-auto
+          overflow-y-hidden
+          px-2
+          pb-3
+          snap-x
+          snap-mandatory
+          scrollbar-hide
+        `
+      : `
+          flex
+          flex-col
+          gap-5
+        `
+  }
 >
 
 {!produtosCarregados ? (
@@ -1291,7 +1235,7 @@ return (
       className="
         rounded-3xl
         bg-white
-        shadow-sm
+      shadow-[0_8px_22px_rgba(0,0,0,0.07)]
         overflow-hidden
         animate-pulse
       "
@@ -1316,7 +1260,18 @@ return (
 
 ) : (
 
-  produtosCategoria.map((produto) => (
+produtosCategoria.map((produto) => (
+
+  indexCategoria === 0 ? (
+
+    <FeaturedProductCard
+      key={produto.id}
+      product={produto}
+      corPrincipal={corPrincipal}
+      onClick={() => openProductModal(produto)}
+    />
+
+  ) : (
 
     <ProductCard
       key={produto.id}
@@ -1325,7 +1280,9 @@ return (
       onAdd={() => openProductModal(produto)}
     />
 
-  ))
+  )
+
+))
 
 )}
 
@@ -1365,7 +1322,7 @@ return (
 <div
 className="
 fixed
-bottom-0
+bottom-[74px]
 left-0
 right-0
 z-[999]
@@ -1503,6 +1460,25 @@ style={{
 </div>
 
 </section>
+
+<div className="-mt-4">
+<RestaurantFooter
+  corPrincipal={corPrincipal}
+/>
+
+<div
+  className={
+    cart.length > 0
+      ? "h-28"
+      : "h-0"
+  }
+/>
+
+</div>
+
+<BottomNavigation
+  corPrincipal={corPrincipal}
+/>
 
 </main>
   )

@@ -274,3 +274,10 @@
     transform: translateX(320%);
   }
 }
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  scrollbar-width: none;
+}
