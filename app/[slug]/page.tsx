@@ -984,9 +984,9 @@ className="mx-auto text-zinc-500 mb-2"
       <p className="text-xs font-semibold mt-2 text-green-600">
         {obterStatusLoja()}
       </p>
-      <p className="mt-1 text-[11px] leading-5 text-zinc-500">
-        Fecha às {obterHorarioFechamento()}
-      </p>
+<p className="mt-1 text-[11px] leading-5 text-zinc-900 font-medium">
+  Fecha às {obterHorarioFechamento()}
+</p>
     </div>
 
     <div>
@@ -1022,7 +1022,7 @@ className="mx-auto text-zinc-500 mb-2"
 
   </div>
 
-<div className="mx-4 mt-1 mb-4 border-t border-zinc-100" />
+<div className="mx-4 -mt-1 border-t border-zinc-100" />
 
 <div
 className="
@@ -1041,8 +1041,8 @@ className="
 max-w-7xl
 mx-auto
 px-2
-pt-4
-pb-4
+pt-3
+pb-3
 "
 >
 
@@ -1183,8 +1183,11 @@ return (
 >
 <h2
   className="
-    px-3
+    px-4
     md:px-0
+
+    mt-5
+    md:mt-8
 
     text-[18px]
     md:text-[30px]
