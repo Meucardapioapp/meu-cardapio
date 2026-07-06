@@ -1007,7 +1007,7 @@ object-cover
 className="
 max-w-7xl
 mx-auto
-px-0
+px-2
 md:px-5
 pb-4
 ">
@@ -1178,15 +1178,15 @@ return (
   ref={(el) => {
     categoriaRefs.current[categoria] = el
   }}
-  className="mb-8 md:mb-14"
+  className="mb-5 md:mb-14"
 >
 <h2
   className="
-    text-[28px]
+    text-[22px]
     md:text-[34px]
     font-black
     text-zinc-900
-    mb-4 md:mb-6
+    mb-3 md:mb-6
   "
 >
   {categoria}
@@ -1201,7 +1201,7 @@ return (
           gap-2 md:gap-5
           overflow-x-auto
           overflow-y-hidden
-          px-0 md:px-2
+          px-2 md:px-2
           pb-3
           snap-x
           snap-mandatory
@@ -1210,7 +1210,7 @@ return (
       : `
           flex
           flex-col
-          gap-3 md:gap-5
+          gap-2 md:gap-5
         `
   }
 >
