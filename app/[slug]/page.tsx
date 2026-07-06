@@ -1041,7 +1041,7 @@ ref={categoriasRef}
 className="
 flex
 items-center
-gap-2
+gap-1
 overflow-x-auto
 scroll-smooth
 whitespace-nowrap
@@ -1178,15 +1178,16 @@ return (
   ref={(el) => {
     categoriaRefs.current[categoria] = el
   }}
-  className="mb-5 md:mb-14"
+  className="mb-2 md:mb-14"
 >
 <h2
   className="
+    mt-5
     text-[22px]
     md:text-[34px]
     font-black
     text-zinc-900
-    mb-3 md:mb-6
+    mb-2 md:mb-6
   "
 >
   {categoria}
@@ -1198,10 +1199,10 @@ return (
       ? `
           flex
           flex-nowrap
-          gap-2 md:gap-5
+          gap-[6px] md:gap-5
           overflow-x-auto
           overflow-y-hidden
-          px-2 md:px-2
+          px-3 md:px-2
           pb-3
           snap-x
           snap-mandatory
@@ -1210,7 +1211,7 @@ return (
       : `
           flex
           flex-col
-          gap-2 md:gap-5
+          gap-[6px] md:gap-5
         `
   }
 >

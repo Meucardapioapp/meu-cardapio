@@ -67,13 +67,13 @@ export default function ProductCard({
           min-w-0
           flex-1
 
-          min-h-[100px]
+          min-h-[92px]
           md:min-h-[150px]
         "
       >
         <h3
           className="
-            text-[16px]
+            text-[17px]
             md:text-[24px]
 
             font-extrabold
@@ -90,7 +90,7 @@ export default function ProductCard({
           className="
             mt-1
 
-            text-[12px]
+            text-[13px]
             md:text-[17px]
 
             leading-4
@@ -104,7 +104,7 @@ export default function ProductCard({
           {product.descricao}
         </p>
 
-        <div className="mt-auto pt-2 md:pt-4">
+        <div className="mt-auto pt-1 md:pt-4">
           {product.precoAntigo &&
             product.precoAntigo > product.preco && (
               <div
@@ -224,8 +224,8 @@ export default function ProductCard({
       >
         <div
           className="
-            w-[105px]
-            h-[105px]
+            w-[100px]
+            h-[100px]
 
             md:w-[200px]
             md:h-[200px]
