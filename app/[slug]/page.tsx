@@ -939,11 +939,11 @@ pointer-events-none
 
 <div
 className="
-bg-white
-pt-16
-pb-5
+pt-6
+pb-0
 shadow-sm
 "
+
 >
 
  <div 
@@ -1149,6 +1149,9 @@ duration-300
 
         </div>
 
+        </div>
+
+<div style={{ height: 1, background: "#FFFFFF" }} />
 
         {categorias.map((categoria, indexCategoria) => {
 
@@ -1158,6 +1161,7 @@ duration-300
         produto.categoria === categoria
     )
 
+    
   if (
     produtosCategoria.length === 0
   ) {
@@ -1170,6 +1174,7 @@ const categoriaId =
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "-")
+    
 
 return (
 
@@ -1294,6 +1299,8 @@ produtosCategoria.map((produto) => (
 
   )
 })}
+
+</section>
 
       
       <ProductModal
@@ -1459,8 +1466,6 @@ style={{
   </div>
 )}
 
-</div>
-
 
 <div className="-mt-4">
 <RestaurantFooter
@@ -1477,7 +1482,6 @@ style={{
 
 </div>
 
-</section>
 
 <BottomNavigation
   corPrincipal={corPrincipal}
