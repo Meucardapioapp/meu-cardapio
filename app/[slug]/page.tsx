@@ -899,7 +899,7 @@ className="
 absolute
 left-1/2
 -translate-x-1/2
--bottom-12
+-bottom-7
 z-50
 pointer-events-none
 "
