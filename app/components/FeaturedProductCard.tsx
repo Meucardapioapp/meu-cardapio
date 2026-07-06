@@ -127,13 +127,13 @@ export default function FeaturedProductCard({
 
       {/* CONTEÚDO */}
 
-      <div className="p-3 md:p-6">
+      <div className="p-2.5 md:p-5">
         <h3
           className="
-            text-[15px]
-            md:text-[22px]
+            text-[14px]
+            md:text-[20px]
 
-            font-black
+            font-semibold
 
             text-zinc-900
 
@@ -179,8 +179,8 @@ export default function FeaturedProductCard({
               >
                 <span
                   className="
-                    text-[11px]
-                    md:text-[15px]
+                    text-[12px]
+                    md:text-[16px]
 
                     text-zinc-400
 
@@ -223,10 +223,10 @@ export default function FeaturedProductCard({
 
           <p
             className="
-              text-[18px]
-              md:text-[34px]
+              text-[16px]
+              md:text-[30px]
 
-              font-black
+              font-bold
 
               leading-none
             "

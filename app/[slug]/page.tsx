@@ -1183,38 +1183,46 @@ return (
 >
 <h2
   className="
-    mt-5
-    text-[22px]
-    md:text-[34px]
-    font-black
+    px-3
+    md:px-0
+
+    text-[18px]
+    md:text-[30px]
+
+    font-semibold
+
     text-zinc-900
-    mb-2 md:mb-6
+
+    mb-2
+    md:mb-5
   "
 >
   {categoria}
 </h2>
 
 <div
-  className={
-    indexCategoria === 0
-      ? `
-          flex
-          flex-nowrap
-          gap-[6px] md:gap-5
-          overflow-x-auto
-          overflow-y-hidden
-          px-3 md:px-2
-          pb-3
-          snap-x
-          snap-mandatory
-          scrollbar-hide
-        `
-      : `
-          flex
-          flex-col
-          gap-[6px] md:gap-5
-        `
-  }
+className={
+  indexCategoria === 0
+    ? `
+        flex
+        flex-nowrap
+        gap-[6px] md:gap-5
+        overflow-x-auto
+        overflow-y-hidden
+        px-3 md:px-2
+        pb-3
+        snap-x
+        snap-mandatory
+        scrollbar-hide
+      `
+    : `
+        flex
+        flex-col
+        gap-[6px] md:gap-5
+        px-3
+        md:px-0
+      `
+}
 >
 
 {!produtosCarregados ? (

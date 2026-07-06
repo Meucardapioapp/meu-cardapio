@@ -38,10 +38,10 @@ export default function ProductCard({
         shadow-[0_6px_20px_rgba(0,0,0,0.06)]
 
         px-3
-        md:px-6
+        md:px-5
 
-        py-3
-        md:py-5
+        py-2.5
+        md:py-4
 
         flex
         items-center
@@ -73,10 +73,10 @@ export default function ProductCard({
       >
         <h3
           className="
-            text-[17px]
-            md:text-[24px]
+            text-[15px]
+            md:text-[21px]
 
-            font-extrabold
+            font-semibold
 
             text-zinc-900
 
@@ -117,8 +117,8 @@ export default function ProductCard({
               >
                 <span
                   className="
-                    text-[11px]
-                    md:text-[15px]
+                    text-[12px]
+                    md:text-[16px]
 
                     text-zinc-400
 
@@ -166,10 +166,10 @@ export default function ProductCard({
 
           <p
             className="
-              text-[20px]
-              md:text-[30px]
+              text-[16px]
+              md:text-[26px]
 
-              font-black
+              font-bold
 
               leading-none
             "
