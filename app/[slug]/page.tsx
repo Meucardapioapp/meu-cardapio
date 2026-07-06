@@ -8,6 +8,13 @@ import {
   useRef,
 } from "react"
 
+import {
+  Bike,
+  Clock3,
+  Wallet,
+  Star,
+} from "lucide-react";
+
 import { useParams } from "next/navigation"
 import { useRestaurant } from "@/contexts/RestaurantContext";
 
@@ -687,7 +694,7 @@ const total = cart.reduce((acc, item) => {
 
   /* TEMA */
 
-  const bgPage = "bg-[#F4F1EA]"
+  const bgPage = "bg-white"
 
   const cardBg = "bg-[#FFFDF9]"
 
@@ -845,8 +852,7 @@ function obterHorarioFechamento() {
 <section
 className="
 w-full
-max-w-7xl
-mx-auto
+bg-white
 "
 >
 
@@ -855,162 +861,168 @@ className="
 w-full
 h-[190px]
 md:h-[340px]
-overflow-hidden
 relative
 "
 
-    style={{
-      backgroundImage: banner
-        ? `url(${banner})`
-        : undefined,
-      backgroundSize: "cover",
-backgroundRepeat: "no-repeat",
-backgroundPosition: "center",
-    }}
+style={{
+  background: banner
+    ? `url(${banner})`
+    : `linear-gradient(
+        135deg,
+        ${corPrincipal} 0%,
+        ${corPrincipal}CC 55%,
+        #111827 100%
+      )`,
+
+  backgroundSize: "cover",
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "center",
+}}
   >
 
    {/* ESCURECER BANNER */}
 
-<div className="absolute inset-0 bg-black/45 rounded-3xl z-10" />
-
-{/* TEXTO SOBRE O BANNER */}
-
 <div
   className="
     absolute
-    left-6
-    md:left-12
-    bottom-7
-    z-20
-    text-white
+    inset-0
+    bg-black/65
+    z-10
   "
->
+/>
 
-  <h1
-    className="
-      text-[34px]
-      md:text-6xl
-      font-black
-    "
-  >
-    {
-      aparencia?.nome_restaurante ||
-      restaurante?.nome
-    }
-  </h1>
-
-  <p className="mt-1 text-base">
-    {aparencia?.categoria_restaurante}
-    {" • "}
-    {aparencia?.tipo_atendimento}
-  </p>
-
-  <div className="mt-4">
-
-    <div className="flex items-center gap-2 mt-2">
-  <span
-  className="
-font-semibold
-text-[10px]
-"
-  style={{
-    color: obterStatusLoja().includes("Aberto")
-      ? "#22C55E"
-      :"#FFFFFF"  
-
-  }}
->
-    
-    ● {obterStatusLoja()}
-  </span>
-
-  {obterStatusLoja().includes("Aberto") && (
-  <span className="text-white/80">
-    • Fecha às {obterHorarioFechamento()}
-  </span>
-)}
-</div>
-
-  </div>
-
-  <div
-  className="
-    mt-3
-    inline-flex
-    items-center
-    rounded-full
-    bg-white/15
-    backdrop-blur-sm
-    px-4
-    py-2
-    text-sm
-    font-medium
-  "
->
-  💰 Pedido mínimo R$ {
-    Number(
-      aparencia?.pedido_minimo || 0
-    ).toLocaleString(
-      "pt-BR",
-      {
-        minimumFractionDigits: 2,
-      }
-    )
-  }
-</div>
-
-</div>
+{/* LOGO CENTRAL */}
 
 {logo && (
-
 <div
 className="
 absolute
-right-8
-bottom-8
-z-30
+left-1/2
+-translate-x-1/2
+-bottom-12
+z-50
+pointer-events-none
 "
 >
+    <div
+      className="
+        w-28
+        h-28
+        md:w-40
+        md:h-40
 
-<div
-className="
-w-24
-h-24
-rounded-full
-bg-white
-shadow-2xl
-border-4
-border-white
-overflow-hidden
-"
->
+        rounded-full
+        bg-white
 
-<img
-src={logo}
-alt="Logo"
-className="
-w-full
-h-full
-object-cover
-"
-/>
+        border-4
+        border-white
 
-</div>
+        shadow-2xl
 
-</div>
-
+        overflow-hidden
+      "
+    >
+      <img
+        src={logo}
+        alt="Logo"
+        className="
+          w-full
+          h-full
+          object-cover
+        "
+      />
+    </div>
+  </div>
 )}
 
 </div>
 
 <div
 className="
-max-w-7xl
-mx-auto
-px-2
-md:px-5
-pb-4
-">
+bg-white
+pt-16
+pb-5
+shadow-sm
+"
+>
+
+ <div 
+className="
+grid
+grid-cols-4
+text-center
+px-4
+pb-6
+divide-x
+divide-zinc-200
+items-center
+"
+ >
+
+    <div>
+<Bike
+  size={22}
+  strokeWidth={1.8}
+  className="mx-auto text-zinc-500 mb-2"
+/>
+      <p className="text-xs font-semibold mt-2">
+        Delivery
+      </p>
+      <p className="mt-1 text-[11px] leading-5 text-zinc-500">
+        Taxa a partir de
+      </p>
+      <p className="text-sm">
+        R$ 5,00
+      </p>
+    </div>
+
+    <div>
+      <Clock3
+size={22}
+className="mx-auto text-zinc-500 mb-2"
+/>
+      <p className="text-xs font-semibold mt-2 text-green-600">
+        {obterStatusLoja()}
+      </p>
+      <p className="mt-1 text-[11px] leading-5 text-zinc-500">
+        Fecha às {obterHorarioFechamento()}
+      </p>
+    </div>
+
+    <div>
+<Wallet
+  size={22}
+  strokeWidth={1.8}
+  className="mx-auto text-zinc-500 mb-2"
+/>
+      <p className="text-xs font-semibold mt-2">
+        Pedido mínimo
+      </p>
+      <p className="text-sm">
+        R$ {Number(
+          aparencia?.pedido_minimo || 0
+        ).toLocaleString("pt-BR",{
+          minimumFractionDigits:2
+        })}
+      </p>
+    </div>
+
+    <div>
+      <Star
+size={22}
+className="mx-auto text-zinc-500 mb-2"
+/>
+      <p className="text-xs font-semibold mt-2">
+        Avaliação
+      </p>
+      <p className="text-sm">
+        4,9
+      </p>
+    </div>
+
+  </div>
+
+<div className="mx-4 mt-1 mb-4 border-t border-zinc-100" />
 
 <div
 className="
@@ -1029,25 +1041,27 @@ className="
 max-w-7xl
 mx-auto
 px-2
-md:px-5
-py-3
+pt-4
+pb-4
 "
 >
 
 <div className="relative">
 
 <div
-ref={categoriasRef}
-className="
-flex
-items-center
-gap-1
-overflow-x-auto
-scroll-smooth
-whitespace-nowrap
-scrollbar-hide
-pr-2 md:pr-10
-"
+  ref={categoriasRef}
+  className="
+    flex
+    items-center
+    justify-center
+    gap-2
+    overflow-x-auto
+    scroll-smooth
+    whitespace-nowrap
+    scrollbar-hide
+    px-4
+    md:px-0
+  "
 >
 
 {categorias.map((categoria, index) => (
@@ -1122,19 +1136,6 @@ duration-300
   >
     {categoria}
   </button>
-
-  {index < categorias.length - 1 && (
-
-<div
-className="
-h-9
-w-px
-bg-zinc-200
-mx-1 md:mx-3
-"
-/>
-
-  )}
 
 </div>
 
@@ -1449,7 +1450,6 @@ style={{
 
 </div>
 
-</section>
 
 <div className="-mt-4">
 <RestaurantFooter
@@ -1465,6 +1465,8 @@ style={{
 />
 
 </div>
+
+</section>
 
 <BottomNavigation
   corPrincipal={corPrincipal}
