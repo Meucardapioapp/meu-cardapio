@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { useSearchParams } from "next/navigation"
 
 type Extra = {
   id?: string;
@@ -53,11 +52,15 @@ function precoNumero(valor: string) {
   );
 }
 
-export default function NovoProdutoPage() {
+export default function NovoProdutoPage({
+  searchParams,
+}: {
+  searchParams: {
+    id?: string;
+  };
+}) {
 
-  const searchParams = useSearchParams()
-
-const produtoId = searchParams.get("id")
+const produtoId = searchParams.id ?? null;
 
   /* ===========================
       ESTADOS
