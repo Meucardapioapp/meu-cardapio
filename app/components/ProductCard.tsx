@@ -14,6 +14,8 @@ export default function ProductCard({
   onAdd,
   corPrincipal,
 }: Props) {
+
+
   const percentualDesconto =
     product.precoAntigo &&
     product.precoAntigo > product.preco
@@ -24,10 +26,13 @@ export default function ProductCard({
         )
       : 0;
 
+
   return (
     <div
+    onClick={onAdd}
       className="
         relative
+        cursor-pointer
         bg-white
         rounded-[18px]
         md:rounded-[30px]
@@ -266,8 +271,11 @@ export default function ProductCard({
           )}
         </div>
 
-        <button
-          onClick={onAdd}
+       <button
+  onClick={(e) => {
+  e.stopPropagation()
+  onAdd()
+}}
           className="
             absolute
 

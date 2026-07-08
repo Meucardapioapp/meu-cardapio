@@ -2,6 +2,8 @@
 
 export const dynamic = "force-dynamic"
 
+
+import SplashScreen from "../components/SplashScreen";
 import {
   useEffect,
   useState,
@@ -61,6 +63,9 @@ useEffect(() => {
 
     const [produtosCarregados, setProdutosCarregados] =
   useState(false);
+
+const [loadingInicial, setLoadingInicial] =
+  useState(true);
 
   const [selectedProduct, setSelectedProduct] =
     useState<ProdutoFormatado | null>(null)
@@ -450,6 +455,17 @@ console.log("RESTAURANTE:", restaurante);
                   "produto_id",
                   produto.id
                 )
+
+                const {
+  data: gruposObrigatorios,
+} = await supabase
+  .from("grupos_obrigatorios")
+  .select(`
+    *,
+    grupo_obrigatorio_opcoes(*)
+  `)
+  .eq("produto_id", produto.id);
+
 console.log(
   "SUPABASE PRODUTO:",
   produto
@@ -480,54 +496,62 @@ console.log(
     promocao:
   produto.promocao === true,
 
-  adicionais:
+adicionais:
   adicionais || [],
+
+gruposObrigatorios:
+  gruposObrigatorios || [],
 }
 
             }
           )
         )
 
-setProdutos(
-  produtosFormatados
-)
+    setProdutos(
+      produtosFormatados
+    )
 
-setProdutosCarregados(true);
+    setProdutosCarregados(true);
 
-console.log(
-  "PRODUTOS:",
-  produtosFormatados
-)
+    console.log(
+      "PRODUTOS:",
+      produtosFormatados
+    )
 
-const categoriasOrdenadas =
-  categoriasData?.map(
-    (categoria) =>
-      categoria.nome
-  ) || []
+    const categoriasOrdenadas =
+      categoriasData?.map(
+        (categoria) =>
+          categoria.nome
+      ) || []
 
-setCategorias(
-  categoriasOrdenadas
-)
+    setCategorias(
+      categoriasOrdenadas
+    )
 
-   if (
-  categoriasOrdenadas.length > 0 &&
-  categoriaSelecionada === null
-) {
-  setCategoriaSelecionada(
-    categoriasOrdenadas[0]
-  )
-}
+    if (
+      categoriasOrdenadas.length > 0 &&
+      categoriaSelecionada === null
+    ) {
+      setCategoriaSelecionada(
+        categoriasOrdenadas[0]
+      )
+    }
 
+    // 👇 ADICIONE ESTA LINHA
+    setLoadingInicial(false);
 
-    } catch (error) {
+  } catch (error) {
 
       console.log(
         "Erro geral:",
         error
       )
 
+      // 👇 E ESTA TAMBÉM
+      setLoadingInicial(false);
+
     }
-  }
+}
 
   useEffect(() => {
 
@@ -832,6 +856,10 @@ function obterHorarioFechamento() {
       `horario_${diaAtual}_fim`
     ] || ""
   )
+}
+
+if (loadingInicial) {
+  return <SplashScreen />;
 }
 
 
@@ -1174,7 +1202,7 @@ const categoriaId =
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "-")
-    
+
 
 return (
 

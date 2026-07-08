@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import Link from "next/link";
+import { useRouter } from "next/navigation"
 
 import {
   Plus,
@@ -40,6 +42,7 @@ promocao?: boolean
 
 export default function ProdutosPage() {
 
+  const router = useRouter()
   const [produtos, setProdutos] = useState<Produto[]>([])
 
 const [busca, setBusca] = useState("")
@@ -711,11 +714,8 @@ return true
     </p>
   </div>
 
-  <button
-  onClick={() => {
-    resetForm()
-    setProdutoModal(true)
-  }}
+<Link
+  href="/admin/produtos/novo-produto"
   className="
 bg-gradient-to-r
 from-[#7A1F3D]
@@ -731,10 +731,13 @@ active:scale-95
 hover:shadow-2xl
 transition-all
 duration-300
+inline-flex
+items-center
+justify-center
 "
 >
   + Novo Produto
-</button>
+</Link>
 
 </div>
 
@@ -1248,9 +1251,11 @@ mb-4
             <div className="flex justify-end gap-2">
 
               <button
-                onClick={() =>
-                  editarProduto(produto)
-                }
+  onClick={() =>
+    router.push(
+      `/admin/produtos/novo-produto?id=${produto.id}`
+    )
+  }
                 className="
                 border
                 border-zinc-200
@@ -1307,473 +1312,50 @@ duration-200
 
 </div>
 
-{produtoModal && (
-
-  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-
-    <div className="bg-white rounded-3xl w-full max-w-3xl p-8">
-
-      <div className="flex items-center justify-between mb-6">
-
-        <h2 className="text-3xl font-bold">
-
-          {editingId
-            ? "Editar Produto"
-            : "Novo Produto"}
-
-        </h2>
-
-        <button
-  onClick={fecharModal}
-        >
-          <X />
-        </button>
-
-      </div>
-
-      <div className="grid md:grid-cols-3 gap-4 mb-4">
-        <input
-          value={nome}
-          onChange={(e) =>
-            setNome(e.target.value)
-          }
-          placeholder="Nome do produto"
-          className="border rounded-2xl p-4"
-        />
-
-        <div className="relative">
-
-  <span
-    className="
-    absolute
-    left-4
-    top-1/2
-    -translate-y-1/2
-    text-zinc-500
-    font-medium
-    "
-  >
-    R$
-  </span>
-
-  <input
-    value={preco}
-    onChange={(e) =>
-      setPreco(e.target.value)
-    }
-    placeholder="Ex: 19,90"
-    className="
-    w-full
-    border
-    rounded-xl
-    p-4
-    pl-12
-    "
-  />
-
-</div>
-
-<div className="relative">
-
-  <span
-    className="
-    absolute
-    left-4
-    top-1/2
-    -translate-y-1/2
-    text-zinc-500
-    font-medium
-    "
-  >
-    R$
-  </span>
-
-  <input
-    value={precoAntigo}
-    onChange={(e) =>
-      setPrecoAntigo(e.target.value)
-    }
-    placeholder="Preço antigo"
-    className="
-    w-full
-    border
-    rounded-xl
-    p-4
-    pl-12
-    "
-  />
-<p className="text-xs text-zinc-500 mt-1">
-  Deixe vazio se não houver promoção
-</p>
-
-</div>
-
-    <select
-  value={categoria}
-  onChange={(e) =>
-    setCategoria(
-      e.target.value
-    )
-  }
-  className="
-    border
-    rounded-2xl
-    p-4
-    w-full
-  "
->
-
-  <option value="">
-    Selecione uma categoria
-  </option>
-
-  {categorias.map(
-    (categoriaItem) => (
-
-      <option
-        key={categoriaItem.id}
-        value={categoriaItem.nome}
-      >
-        {categoriaItem.nome}
-      </option>
-
-    )
-  )}
-
-</select>
-
-</div>
-
-<label
-  className="
-  flex
-  items-center
-  gap-3
-  mb-4
-  cursor-pointer
-  "
->
-  <input
-    type="checkbox"
-    checked={promocao}
-    onChange={(e) =>
-      setPromocao(e.target.checked)
-    }
-  />
-
-  <span className="font-medium">
-    Produto em promoção
-  </span>
-</label>
-
-<textarea
-  value={descricao}
-  onChange={(e) =>
-    setDescricao(e.target.value)
-  }
-  placeholder="Descrição"
-  className="
-  border
-  rounded-2xl
-  p-4
-  w-full
-  h-32
-  mb-4
-  "
-/>
-
-<div className="mt-6">
-
-  <h3 className="font-bold text-lg mb-3">
-    Adicionais
-  </h3>
-
-  <div className="grid grid-cols-3 gap-3">
-
-    <input
-      value={extraNome}
-      onChange={(e) =>
-        setExtraNome(e.target.value)
-      }
-      placeholder="Nome"
-      className="
-      border
-      rounded-xl
-      p-3
-      "
-    />
-
-    <input
-      value={extraPreco}
-      onChange={(e) =>
-        setExtraPreco(e.target.value)
-      }
-      placeholder="R$: 0,00"
-      className="
-      border
-      rounded-xl
-      p-3
-      "
-    />
-
-    <button
-      type="button"
-      onClick={adicionarExtra}
-      className="
-      bg-[#7A1F3D]
-      text-white
-      rounded-xl
-      font-semibold
-      "
-    >
-      Adicionar
-    </button>
-
-  </div>
-
-</div>
-
-      <div className="space-y-3">
-
-  <label className="font-semibold text-[#1F1720]">
-    Imagem do Produto
-  </label>
-
-  <label
-    htmlFor="imagem"
-    className="
-    border-2
-    border-dashed
-    border-zinc-300
-    rounded-2xl
-    h-52
-    flex
-    flex-col
-    items-center
-    justify-center
-    cursor-pointer
-    hover:border-[#7A1F3D]
-    transition
-    bg-zinc-50
-    "
-  >
-
-    {imagem || previewImagem ? (
-
-  <img
-    src={
-      imagem
-        ? URL.createObjectURL(imagem)
-        : previewImagem
-    }
-    className="
-    w-full
-    h-full
-    object-cover
-    rounded-2xl
-    "
-  />
-
-) : (
-
-  <>
-    <div className="text-5xl">
-      📷
     </div>
-
-    <p className="font-semibold mt-3">
-      Arraste uma imagem aqui
-    </p>
-
-    <span className="text-sm text-zinc-500">
-  ou clique para selecionar
-</span>
-
-<p className="text-xs text-zinc-400 mt-2">
-  Recomendado: 1000x1000 pixels
-</p>
-  </>
-)}
-
-  </label>
-
-  <input
-    id="imagem"
-    type="file"
-    accept="image/*"
-    className="hidden"
-    onChange={(e) => {
-
-  const file =
-    e.target.files?.[0]
-
-  if (!file) return
-
-  setImagem(file)
-
-  setPreviewImagem(
-    URL.createObjectURL(file)
-  )
-
-}}
-  />
-
-</div>
-
-      <div className="flex gap-4">
-
-        <button
-       onClick={fecharModal}
-         className="
-flex-1
-border
-rounded-2xl
-py-4
-hover:bg-zinc-100
-hover:scale-105
-active:scale-95
-transition-all
-duration-300
-"
-        >
-          Cancelar
-        </button>
-
-        {editingId ? (
-
-          <button
-           onClick={async () => {
-
-  const sucesso = await salvarEdicao()
-
-  if (sucesso) {
-    setProdutoModal(false)
-  }
-
-}}
-            className="
-flex-1
-bg-[#7A1F3D]
-text-white
-rounded-2xl
-py-4
-hover:scale-105
-active:scale-95
-hover:shadow-xl
-transition-all
-duration-300
-"
-          >
-            {loading ? "Salvando..." : "Salvar Alterações"}
-          </button>
-
-        ) : (
-
-          <button
-            onClick={async () => {
-
-  const sucesso = await criarProduto()
-
-  if (sucesso) {
-    setProdutoModal(false)
-  }
-
-}}
-            className="
-            flex-1
-            bg-[#7A1F3D]
-text-white
-rounded-2xl
-py-4
-hover:scale-105
-active:scale-95
-hover:shadow-xl
-transition-all
-duration-300
-            "
-          >
-           {loading ? "Criando..." : "Criar Produto"}
-          </button>
-
-        )}
-
-      </div>
-
-    </div>
-
-  </div>
-
-)}
 
 {deleteModal && (
 
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
 
     <div className="bg-white rounded-3xl p-8 w-full max-w-md">
 
-      <h2 className="text-2xl font-bold mb-4">
-
-        Excluir Produto
-
+      <h2 className="text-2xl font-black">
+        Excluir produto?
       </h2>
 
-      <div className="mb-6">
+      <p className="text-zinc-500 mt-3">
+        Essa ação não poderá ser desfeita.
+      </p>
 
-  <p className="text-zinc-500 mb-2">
-    Você está prestes a excluir:
-  </p>
-
-  <p className="font-bold text-lg mb-4">
-    {
-      produtos.find(
-        p => p.id === deleteModal
-      )?.nome
-    }
-  </p>
-
-  <p className="text-zinc-500">
-    Esta ação não poderá ser desfeita.
-  </p>
-
-</div>
-
-      <div className="flex gap-4">
+      <div className="flex justify-end gap-3 mt-8">
 
         <button
-          onClick={() =>
-            setDeleteModal(null)
-          }
+          onClick={() => setDeleteModal(null)}
           className="
-          flex-1
-          border
-          rounded-xl
+          px-5
           py-3
+          rounded-xl
+          border
           "
         >
           Cancelar
         </button>
 
         <button
-          onClick={() =>
-            excluirProduto(deleteModal)
-          }
+          onClick={() => excluirProduto(deleteModal)}
           className="
-flex-1
-bg-red-500
-text-white
-rounded-xl
-py-3
-hover:bg-red-600
-hover:scale-105
-active:scale-95
-transition-all
-duration-300
-"
+          px-5
+          py-3
+          rounded-xl
+          bg-red-600
+          text-white
+          "
         >
-          🗑️ Excluir
+          Excluir
         </button>
 
-          </div>
+      </div>
 
     </div>
 
@@ -1781,7 +1363,6 @@ duration-300
 
 )}
 
-    </div>
   </main>
 )
 }

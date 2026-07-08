@@ -281,3 +281,21 @@
 .scrollbar-hide {
   scrollbar-width: none;
 }
+
+.loading-bar {
+  width: 35%;
+  height: 100%;
+  background: #fff;
+  border-radius: 999px;
+  animation: loadingBar 1.2s linear infinite;
+}
+
+@keyframes loadingBar {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(320%);
+  }
+}
