@@ -1,3 +1,4 @@
+
 "use client"
 
 import {
@@ -16,7 +17,8 @@ import {
   TrendingUp,
 } from "lucide-react"
 
-export default function Benefits() {
+
+export default function BenefitsDesktop() {
   return (
     <section
       id="beneficios"
@@ -35,8 +37,7 @@ export default function Benefits() {
             para:
           </h2>
 
-          <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-8">
-
+<div className="mt-10 grid grid-cols-4 gap-4 lg:grid-cols-8">
             {[
               {
                 icon: Beef,
@@ -402,6 +403,7 @@ export default function Benefits() {
                 <button className="mt-6 w-full rounded-2xl bg-[#6D1F2F] py-4 font-bold transition hover:bg-[#531723]">
                   Ver todos os pedidos
                 </button>
+                
 
               </div>
 
@@ -415,3 +417,4 @@ export default function Benefits() {
     </section>
   )
 }
+

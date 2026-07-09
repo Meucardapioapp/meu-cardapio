@@ -9,7 +9,7 @@ import {
   ArrowUpRight,
 } from "lucide-react"
 
-export default function Footer() {
+export default function FooterDesktop() {
   return (
     <footer className="bg-[#0B0B0D] px-4 pt-24 pb-10 text-white">
       <div className="mx-auto max-w-7xl">

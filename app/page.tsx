@@ -1,12 +1,9 @@
-import Navbar from "./components/landing/Navbar"
-import Hero from "./components/landing/Hero"
-import Benefits from "./components/landing/Benefits"
-import Features from "./components/landing/Features"
-import DashboardPreview from "./components/landing/DashboardPreview"
-import Testimonials from "./components/landing/Testimonials"
-import Pricing from "./components/landing/Pricing"
-import FAQ from "./components/landing/FAQ"
-import Footer from "./components/landing/Footer"
+import Navbar from "./components/landing/Navbar/Navbar"
+import Hero from "./components/landing/hero/Hero"
+import Benefits from "./components/landing/Benefits/Benefits"
+import Features from "./components/landing/features/Features"
+import FAQ from "./components/landing/faq/FAQ"
+import Footer from "./components/landing/Footer/Footer"
 
 export default function Home() {
   return (
@@ -22,15 +19,6 @@ export default function Home() {
 
       {/* FEATURES */}
       <Features />
-
-      {/* DASHBOARD */}
-      <DashboardPreview />
-
-      {/* TESTIMONIALS */}
-      <Testimonials />
-
-      {/* PRICING */}
-      <Pricing />
 
       {/* FAQ */}
       <FAQ />

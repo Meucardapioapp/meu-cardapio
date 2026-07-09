@@ -9,7 +9,7 @@ import {
   Globe,
 } from "lucide-react"
 
-export default function Features() {
+export default function FeaturesDesktop() {
   return (
     <section className="bg-[#F8F6F4] px-4 pb-24">
       <div className="mx-auto max-w-7xl">

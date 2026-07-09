@@ -4,7 +4,7 @@ import {
   ChevronDown,
 } from "lucide-react"
 
-export default function FAQ() {
+export default function FAQDesktop() {
   return (
     <section
       id="faq"
