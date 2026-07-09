@@ -196,7 +196,7 @@ function nomePagamento() {
       : 4
 
   return (
-    <main className="min-h-screen bg-[#F4F1EA] p-5 pb-32">
+    <main className="min-h-screen bg-white p-5 pb-32">
 
 <button
   onClick={() => {

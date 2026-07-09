@@ -55,6 +55,44 @@ export default function DadosBancariosPage() {
     setRestauranteId(id);
   }, []);
 
+  useEffect(() => {
+  if (!restauranteId) return;
+
+  carregarDados();
+}, [restauranteId]);
+
+async function carregarDados() {
+  try {
+    const response = await fetch(
+      `/api/restaurante?id=${restauranteId}`
+    );
+
+    const resultado = await response.json();
+
+    if (!resultado.success) return;
+
+    const restaurante = resultado.restaurante;
+
+    setCpfCnpj(restaurante.cpf_cnpj || "");
+    setBanco(restaurante.banco || "");
+    setAgencia(restaurante.agencia || "");
+    setConta(restaurante.conta || "");
+    setTipoConta(restaurante.tipo_conta || "corrente");
+
+    if (restaurante.banco) {
+      const bancoEncontrado = bancos.find(
+        (b) => b.codigo === restaurante.banco
+      );
+
+      if (bancoEncontrado) {
+        setBuscaBanco(bancoEncontrado.nome);
+      }
+    }
+  } catch (error) {
+    console.log(error);
+  }
+}
+
   async function salvarDados() {
     try {
       setLoading(true);

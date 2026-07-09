@@ -1,175 +1,214 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+import {
+  Lightbulb,
+  Lock,
+  User,
+} from "lucide-react";
 
 export default function ConfiguracoesPage() {
+
+const [restauranteId, setRestauranteId] =
+  useState("");
+
+const [nome, setNome] =
+  useState("");
+
+const [email, setEmail] =
+  useState("");
+
+const [whatsapp, setWhatsapp] =
+  useState("");
+
+useEffect(() => {
+  carregarDados();
+}, []);
+
+function formatarTelefone(valor: string) {
+  const numero = valor.replace(/\D/g, "");
+
+  return numero
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+async function carregarDados() {
+  const id =
+    localStorage.getItem("restaurante_id") || "";
+
+  if (!id) return;
+
+  setRestauranteId(id);
+
+  const response = await fetch(
+    `/api/configuracoes/${id}`
+  );
+
+  const restaurante =
+    await response.json();
+
+  setNome(restaurante.nome_responsavel || "");
+
+  setEmail(restaurante.email || "");
+
+setWhatsapp(
+  formatarTelefone(restaurante.whatsapp || "")
+);
+}
+
+async function salvarAlteracoes() {
+  await fetch("/api/configuracoes", {
+    method: "PUT",
+
+    headers: {
+      "Content-Type":
+        "application/json",
+    },
+
+    body: JSON.stringify({
+      restauranteId,
+      nome,
+    }),
+  });
+
+  alert("Dados atualizados.");
+}
+
   return (
-    <main className="space-y-8 pb-10">
-      {/* HEADER */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-black text-white">
-            Configurações
-          </h1>
 
-          <p className="text-zinc-400 mt-2">
-            Gerencie sua conta e personalize seu restaurante
-          </p>
-        </div>
 
-        <Button className="bg-green-500 hover:bg-green-400 text-black font-bold rounded-2xl h-12 px-6 shadow-lg shadow-green-500/20">
-          Salvar Tudo
-        </Button>
+    <main className="max-w-5xl space-y-8 pb-10">
+
+      <div>
+        <h1 className="text-4xl font-black">
+          Configurações
+        </h1>
+
+        <p className="mt-2 text-zinc-500">
+          Gerencie sua conta e mantenha seus dados sempre atualizados.
+        </p>
       </div>
 
-      {/* PERFIL */}
-      <div className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-3xl p-6">
-        <div className="flex items-center gap-5">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-3xl font-black text-black shadow-lg shadow-green-500/20">
-            M
+      {/* CONTA */}
+
+      <div className="rounded-3xl border bg-white p-8 shadow-sm">
+
+        <div className="mb-8 flex items-center gap-3">
+
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F8F1F3]">
+            <User className="text-[#6D1F2F]" />
           </div>
 
           <div>
-            <h2 className="text-2xl font-bold text-white">
-              Meu Restaurante
+            <h2 className="text-2xl font-bold">
+              Informações da conta
             </h2>
 
-            <p className="text-zinc-400 mt-1">
-              Plano Professional
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* GRID */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* CONTA */}
-        <div className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-3xl p-6">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-white">
-              Conta
-            </h2>
-
-            <p className="text-zinc-400 mt-1">
-              Informações pessoais da conta
+            <p className="text-zinc-500">
+              Atualize seus dados de contato.
             </p>
           </div>
 
-          <div className="space-y-5">
-            <div>
-              <label className="text-sm font-medium text-zinc-300">
-                Nome
-              </label>
-
-              <Input
-                placeholder="Seu nome"
-                className="mt-2 h-12 rounded-2xl bg-zinc-950/80 border-zinc-700 focus:border-green-500 text-white placeholder:text-zinc-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-zinc-300">
-                Email
-              </label>
-
-              <Input
-                placeholder="seuemail@gmail.com"
-                className="mt-2 h-12 rounded-2xl bg-zinc-950/80 border-zinc-700 focus:border-green-500 text-white placeholder:text-zinc-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-zinc-300">
-                WhatsApp
-              </label>
-
-              <Input
-                placeholder="(92) 99999-9999"
-                className="mt-2 h-12 rounded-2xl bg-zinc-950/80 border-zinc-700 focus:border-green-500 text-white placeholder:text-zinc-500"
-              />
-            </div>
-
-            <Button className="w-full h-12 rounded-2xl bg-green-500 hover:bg-green-400 text-black font-bold shadow-lg shadow-green-500/20">
-              Salvar Alterações
-            </Button>
-          </div>
         </div>
 
-        {/* RESTAURANTE */}
-        <div className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-3xl p-6">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-white">
-              Restaurante
-            </h2>
+        <div className="space-y-5">
 
-            <p className="text-zinc-400 mt-1">
-              Informações exibidas aos clientes
-            </p>
-          </div>
-
-          <div className="space-y-5">
-            <div>
-              <label className="text-sm font-medium text-zinc-300">
-                Nome do Restaurante
-              </label>
-
-              <Input
-                placeholder="Meu Restaurante"
-                className="mt-2 h-12 rounded-2xl bg-zinc-950/80 border-zinc-700 focus:border-green-500 text-white placeholder:text-zinc-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-zinc-300">
-                Taxa de Entrega
-              </label>
-
-              <Input
-                placeholder="R$ 5,00"
-                className="mt-2 h-12 rounded-2xl bg-zinc-950/80 border-zinc-700 focus:border-green-500 text-white placeholder:text-zinc-500"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-zinc-300">
-                Tempo Médio de Entrega
-              </label>
-
-              <Input
-                placeholder="30-40 min"
-                className="mt-2 h-12 rounded-2xl bg-zinc-950/80 border-zinc-700 focus:border-green-500 text-white placeholder:text-zinc-500"
-              />
-            </div>
-
-            <Button className="w-full h-12 rounded-2xl bg-green-500 hover:bg-green-400 text-black font-bold shadow-lg shadow-green-500/20">
-              Salvar Restaurante
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* SEGURANÇA */}
-      <div className="bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 rounded-3xl p-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-white">
-              Segurança
-            </h2>
+            <label className="mb-2 block font-medium">
+              Nome do responsável
+            </label>
 
-            <p className="text-zinc-400 mt-1">
-              Gerencie senha e segurança da conta
-            </p>
+<Input
+  value={nome}
+  onChange={(e) =>
+    setNome(e.target.value)
+  }
+  className="h-12 rounded-xl"
+/>
+</div>
+
+
+          <div>
+            <label className="mb-2 block font-medium">
+              E-mail
+            </label>
+
+ <Input
+  value={email}
+  disabled
+  className="h-12 rounded-xl bg-zinc-100 cursor-not-allowed"
+/>
           </div>
 
-          <Button
-            variant="outline"
-            className="border-zinc-700 bg-zinc-950 text-white hover:bg-zinc-800 rounded-2xl"
-          >
-            Alterar Senha
-          </Button>
+          <div>
+            <label className="mb-2 block font-medium">
+              WhatsApp
+            </label>
+
+<Input
+  value={whatsapp}
+  disabled
+  className="h-12 rounded-xl bg-zinc-100 cursor-not-allowed"
+/>
+
+<p className="text-sm text-zinc-500">
+  🔒 O e-mail e o WhatsApp são utilizados
+  para login e recuperação da conta.
+</p>
+
+          </div>
+
+          <div className="flex justify-end">
+
+<Button
+  onClick={salvarAlteracoes}
+  className="rounded-xl bg-[#6D1F2F] px-8 hover:bg-[#531723]"
+>              Salvar alterações
+            </Button>
+
+          </div>
+
         </div>
+
       </div>
+
+     
+
+      {/* DICA */}
+
+      <div className="rounded-3xl border border-[#F4DDE3] bg-[#FFF8F9] p-6">
+
+        <div className="flex gap-4">
+
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F9E9ED]">
+
+            <Lightbulb className="text-[#6D1F2F]" />
+
+          </div>
+
+          <div>
+
+            <h3 className="font-bold text-[#6D1F2F]">
+              Dica
+            </h3>
+
+            <p className="mt-2 text-zinc-600 leading-7">
+              Horários, aparência, endereço do restaurante,
+              pagamentos, taxa de entrega e dados bancários
+              possuem menus específicos no painel ao lado.
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
     </main>
-  )
+  );
 }

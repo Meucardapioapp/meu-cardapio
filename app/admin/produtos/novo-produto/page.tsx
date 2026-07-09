@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 
 type Extra = {
   id?: string;
@@ -52,15 +54,11 @@ function precoNumero(valor: string) {
   );
 }
 
-export default function NovoProdutoPage({
-  searchParams,
-}: {
-  searchParams: {
-    id?: string;
-  };
-}) {
+export default function NovoProdutoPage() {
 
-const produtoId = searchParams.id ?? null;
+  const searchParams = useSearchParams();
+
+  const produtoId = searchParams.get("id");
 
   /* ===========================
       ESTADOS
@@ -100,6 +98,7 @@ const produtoId = searchParams.id ?? null;
   const [extraPreco, setExtraPreco] =
     useState("");
 
+
   /* ===========================
       ITENS OBRIGATÓRIOS
   =========================== */
@@ -116,18 +115,25 @@ type GrupoObrigatorio = {
   nome: string;
   minimo: number;
   maximo: number;
+
+  inputNome: string;
+  inputPreco: string;
+
   opcoes: OpcaoObrigatoria[];
 };
 
 const [gruposObrigatorios, setGruposObrigatorios] =
   useState<GrupoObrigatorio[]>([
-    {
-      id: crypto.randomUUID(),
-      nome: "",
-      minimo: 1,
-      maximo: 2,
+ {
+  id: crypto.randomUUID(),
+  nome: "",
+  minimo: 1,
+  maximo: 2,
 
-      opcoes: [
+  inputNome: "",
+  inputPreco: "",
+
+  opcoes: [
         {
           id: crypto.randomUUID(),
           nome: "",
@@ -227,17 +233,22 @@ if (grupos && grupos.length > 0) {
         .eq("grupo_id", grupo.id)
         .order("ordem")
 
-      return {
+return {
 
-        id: grupo.id,
+  id: grupo.id,
 
-        nome: grupo.nome,
+  nome: grupo.nome,
 
-        minimo: grupo.minimo,
+  minimo: grupo.minimo,
 
-        maximo: grupo.maximo,
+  maximo: grupo.maximo,
 
-        opcoes:
+  inputNome: "",
+
+  inputPreco: "",
+
+  opcoes:
+
           (opcoes || []).map((o: any) => ({
 
             id: o.id,
@@ -352,17 +363,16 @@ preco: formatarPreco(extraPreco),
 
     ...atual,
 
-    {
+{
+  id: crypto.randomUUID(),
+  nome: "",
+  minimo: 1,
+  maximo: 2,
 
-      id: crypto.randomUUID(),
+  inputNome: "",
+  inputPreco: "",
 
-      nome: "",
-
-      minimo: 1,
-
-      maximo: 2,
-
-      opcoes:[
+  opcoes:[
         {
           id: crypto.randomUUID(),
           nome:"",
@@ -389,81 +399,48 @@ grupo=>grupo.id!==id
 
 }
 
-function adicionarOpcao(
-grupoId:string
-){
+function adicionarOpcao(grupoId: string) {
 
-setGruposObrigatorios((atual)=>
+  setGruposObrigatorios((atual) =>
 
-atual.map((grupo)=>{
+    atual.map((grupo) => {
 
-if(grupo.id!==grupoId)
-return grupo
+      if (grupo.id !== grupoId) return grupo;
 
-return{
+      if (!grupo.inputNome || !grupo.inputPreco)
+        return grupo;
 
-...grupo,
+      return {
 
-opcoes:[
+        ...grupo,
 
-...grupo.opcoes,
+        inputNome: "",
 
-{
+        inputPreco: "",
 
-id:crypto.randomUUID(),
+        opcoes: [
 
-nome:"",
+          ...grupo.opcoes,
 
-preco:"",
+          {
 
-imagem:""
+            id: crypto.randomUUID(),
 
-}
+            nome: grupo.inputNome,
 
-]
+            preco: formatarPreco(grupo.inputPreco),
 
-}
+            imagem: "",
 
-})
+          },
 
-)
+        ],
 
-}
+      };
 
-function removerOpcao(
+    })
 
-grupoId:string,
-
-opcaoId:string
-
-){
-
-setGruposObrigatorios((atual)=>
-
-atual.map((grupo)=>{
-
-if(grupo.id!==grupoId)
-return grupo
-
-return{
-
-...grupo,
-
-opcoes:
-
-grupo.opcoes.filter(
-
-opcao=>
-
-opcao.id!==opcaoId
-
-)
-
-}
-
-})
-
-)
+  );
 
 }
 
@@ -524,6 +501,45 @@ maximo
 )
 
 }
+
+function alterarInputNomeGrupo(
+  grupoId: string,
+  valor: string
+) {
+
+  setGruposObrigatorios((atual)=>
+
+    atual.map((grupo)=>
+
+      grupo.id===grupoId
+        ? { ...grupo, inputNome: valor }
+        : grupo
+
+    )
+
+  );
+
+}
+
+function alterarInputPrecoGrupo(
+  grupoId: string,
+  valor: string
+) {
+
+  setGruposObrigatorios((atual)=>
+
+    atual.map((grupo)=>
+
+      grupo.id===grupoId
+        ? { ...grupo, inputPreco: valor }
+        : grupo
+
+    )
+
+  );
+
+}
+
 
 function alterarOpcao(
 
@@ -984,6 +1000,10 @@ setGruposObrigatorios([
     nome: "",
     minimo: 1,
     maximo: 2,
+
+    inputNome: "",
+    inputPreco: "",
+
     opcoes: [
       {
         id: crypto.randomUUID(),
@@ -1021,34 +1041,33 @@ setGruposObrigatorios([
 
         <div>
 
-          <Link
-            href="/admin/produtos"
-            className="
-            text-sm
-            font-semibold
-            text-zinc-500
-            hover:text-[#7A1F3D]
-            transition
-            "
-          >
-            ← Voltar para produtos
-          </Link>
+<Link
+  href="/admin/produtos"
+  className="
+    inline-flex
+    items-center
+    gap-2
+    h-11
+    px-5
+    rounded-2xl
+    border
+    border-zinc-200
+    bg-white
+    text-zinc-600
+    font-semibold
+    shadow-sm
+    hover:border-[#7A1F3D]
+    hover:text-[#7A1F3D]
+    hover:shadow-md
+    transition-all
+    duration-200
+"
+>
+  <ArrowLeft size={18} />
+  Voltar para produtos
+</Link>
 
-          <h1
-            className="
-            text-[42px]
-            font-black
-            text-[#1F1720]
-            mt-3
-            "
-          >
-            Novo Produto
-          </h1>
-
-          <p className="text-zinc-500 mt-2 text-lg">
-            Cadastre um produto para o seu cardápio.
-          </p>
-
+          
         </div>
 
       </div>
@@ -1566,8 +1585,7 @@ cursor-pointer
               px-5
               "
 
-            >
-
+            >  
               <option value={1}>
                 Até 1 opção
               </option>
@@ -1584,184 +1602,139 @@ cursor-pointer
                 Até 4 opções
               </option>
 
+<option value={999}>ilimitado</option>
+
+
             </select>
 
           </div>
 
         </div>
 
-        <div className="mt-8 space-y-4">
-
-          {grupo.opcoes.map((opcao)=>(
-
-            <div
-
-              key={opcao.id}
-
-              className="
-              grid
-              grid-cols-[72px_1fr_170px_60px]
-              gap-5
-              items-center
-              "
-
-            >
-
-              <label
-                className="
-                h-[72px]
-                w-[72px]
-                rounded-2xl
-                border-2
-                border-dashed
-                border-zinc-300
-                flex
-                items-center
-                justify-center
-                cursor-pointer
-                "
-              >
-
-                📷
-
-                <input
-                  hidden
-                  type="file"
-                />
-
-              </label>
-
-<input
-  value={opcao.nome}
-  onChange={(e)=>
-    alterarOpcao(
-      grupo.id,
-      opcao.id,
-      "nome",
-      e.target.value
-    )
-  }
-  placeholder="Nome"
+ <div
   className="
+  grid
+  grid-cols-[1fr_220px_180px]
+  gap-5
+  mt-8
+  "
+>
+
+  <input
+   value={grupo.inputNome}
+    onChange={(e)=>
+  alterarInputNomeGrupo(grupo.id, e.target.value)
+}
+    placeholder="Nome"
+    className="
     h-16
     border
     rounded-2xl
     px-5
-  "
-/>
+    "
+  />
 
-<div className="relative">
+  <div className="relative">
 
-  <span
-    className="
+    <span
+      className="
       absolute
       left-5
       top-1/2
       -translate-y-1/2
       text-zinc-500
       font-semibold
-      pointer-events-none
-    "
-  >
-    R$
-  </span>
+      "
+    >
+      R$
+    </span>
 
-  <input
-    value={opcao.preco}
-    onChange={(e)=>
-      alterarOpcao(
-        grupo.id,
-        opcao.id,
-        "preco",
-        e.target.value
-      )
-    }
-    onBlur={(e)=>
-      alterarOpcao(
-        grupo.id,
-        opcao.id,
-        "preco",
-        formatarPreco(e.target.value)
-      )
-    }
-    placeholder="0,00"
-    className="
+    <input
+      value={grupo.inputPreco}
+      onChange={(e)=>
+  alterarInputPrecoGrupo(grupo.id, e.target.value)
+}
+onBlur={()=>
+
+  alterarInputPrecoGrupo(
+
+    grupo.id,
+
+    formatarPreco(grupo.inputPreco)
+
+  )
+
+}
+      placeholder="0,00"
+      className="
       w-full
       h-16
       border
       rounded-2xl
       pl-14
       pr-5
+      "
+    />
+
+  </div>
+
+  <button
+    onClick={()=>adicionarOpcao(grupo.id)}
+    className="
+    bg-[#7A1F3D]
+    text-white
+    rounded-2xl
+    font-bold
     "
-  />
+  >
+    Adicionar
+  </button>
 
 </div>
 
-              <button
+<div className="space-y-3 mt-7">
 
-                onClick={()=>
+  {grupo.opcoes.map((opcao)=>(
 
-                  removerOpcao(
+    <div
+      key={opcao.id}
+      className="
+      flex
+      justify-between
+      items-center
+      rounded-2xl
+      border
+      p-4
+      "
+    >
 
-                    grupo.id,
+      <div>
 
-                    opcao.id
+        <p className="font-bold">
+          {opcao.nome}
+        </p>
 
-                  )
+        <p className="text-zinc-500">
+          R$ {opcao.preco}
+        </p>
 
-                }
+      </div>
 
-                className="
-                h-[72px]
-                rounded-2xl
-                bg-red-50
-                text-red-500
-                font-bold
-                "
+      <button
 
-              >
+        className="
+        text-red-500
+        font-semibold
+        "
+      >
+        Excluir
+      </button>
 
-                🗑
+    </div>
 
-              </button>
+  ))}
 
-            </div>
-
-          ))}
-
-        </div>
-
-        <button
-
-          onClick={()=>
-
-            adicionarOpcao(
-
-              grupo.id
-
-            )
-
-          }
-
-          className="
-          mt-7
-          border-2
-          border-dashed
-          border-zinc-300
-          rounded-2xl
-          h-[72px]
-          w-full
-          font-semibold
-          hover:border-[#7A1F3D]
-          hover:text-[#7A1F3D]
-          transition
-          "
-
-        >
-
-          + Adicionar opção
-
-        </button>
+</div>
 
       </div>
 

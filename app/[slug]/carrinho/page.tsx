@@ -230,7 +230,7 @@ if (produtos) {
     <main
       className="
       min-h-screen
-      bg-[#F4F1EA]
+      bg-white
       p-4
       pb-32
     "
@@ -584,7 +584,7 @@ style={{
     rounded-full
     overflow-hidden
     mx-auto
-    bg-zinc-100
+    bg-white
     flex
     items-center
     justify-center

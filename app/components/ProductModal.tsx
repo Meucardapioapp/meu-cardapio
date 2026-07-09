@@ -62,6 +62,34 @@ useState<Record<string,string[]>>({})
 
 useEffect(() => {
 
+  if (!open) return;
+
+  const scrollY = window.scrollY;
+
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${scrollY}px`;
+  document.body.style.left = "0";
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+  document.body.style.overflow = "hidden";
+
+  return () => {
+
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.width = "";
+    document.body.style.overflow = "";
+
+    window.scrollTo(0, scrollY);
+
+  };
+
+}, [open]);
+
+useEffect(() => {
+
   if (!open || !product) return
 
   async function carregarGrupos() {
@@ -184,7 +212,7 @@ const total =
 
   return (
 
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5">
+ <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center px-3 pt-3 pb-0">
 
       <div
   className={`
@@ -192,45 +220,111 @@ const total =
     rounded-3xl
     w-full
     max-w-[520px]
-    max-h-[90vh]
-    overflow-y-auto
+h-[96dvh]
+max-h-[96dvh]
+flex
+flex-col
   `}
 >
 
-        {product.imagem && (
+<div className="relative">
 
-          <img
-            src={product.imagem}
-            alt={product.nome}
-            className="w-full h-36 object-cover"
-          />
+  <button
+    onClick={onClose}
+    aria-label="Fechar"
+    className="
+      absolute
+      top-5
+      right-5
+      w-11
+      h-11
+      rounded-full
+      bg-white
+      border
+      border-zinc-200
+      shadow-md
+      flex
+      items-center
+      justify-center
+      z-20
+    "
+  >
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 6L6 18" />
+      <path d="M6 6l12 12" />
+    </svg>
+  </button>
 
-        )}
+</div>
 
-        <div className="p-4">
+<div className="flex-1 overflow-y-auto p-6 pb-32">
 
-          <div className="flex items-start justify-between gap-4">
+  {product.imagem && (
 
-            <div>
+    <div className="flex justify-center">
 
-              <h2 className={`text-2xl font-black ${textPrimary}`}>
-                {product.nome}
-              </h2>
+      <img
+        src={product.imagem}
+        alt={product.nome}
+        className="
+          w-44
+          h-44
+          rounded-3xl
+          object-cover
+          shadow-lg
+        "
+      />
 
-              <p className={`${textSecondary} mt-2`}>
-                {product.descricao}
-              </p>
+    </div>
 
-            </div>
+  )}
 
-            <button
-              onClick={onClose}
-              className={`${textSecondary} hover:opacity-70 text-2xl`}
-            >
-              ×
-            </button>
+  <div className="text-center mt-6">
 
-          </div>
+    <h2
+      className="
+        text-4xl
+        font-black
+        text-zinc-900
+      "
+    >
+      {product.nome}
+    </h2>
+
+    <p
+      className="
+        mt-3
+        text-zinc-500
+        leading-7
+        max-w-sm
+        mx-auto
+      "
+    >
+      {product.descricao}
+    </p>
+
+    <h3
+      className="text-4xl font-black mt-5"
+      style={{
+        color: corPrincipal,
+      }}
+    >
+      R$ {Number(product.preco).toFixed(2)}
+    </h3>
+
+  </div>
+
+  <div className="border-t border-zinc-200 my-8" />
 
           {gruposObrigatorios.map((grupo) => {
 
@@ -266,10 +360,14 @@ text-zinc-900
 
 <p className="mt-1 text-sm text-zinc-500">
 
-            Escolha de {grupo.minimo} até {grupo.maximo}
+  {grupo.maximo === 999
+    ? `Selecione pelo menos ${grupo.minimo} opção${grupo.minimo > 1 ? "ões" : ""}`
+    : grupo.minimo === grupo.maximo
+      ? `Selecione ${grupo.minimo} opção${grupo.minimo > 1 ? "ões" : ""}`
+      : `Selecione de ${grupo.minimo} até ${grupo.maximo} opções`
+  }
 
-          </p>
-
+</p>
         </div>
 
 <span
@@ -318,33 +416,38 @@ hover:border-zinc-300
   checked={
     (obrigatoriosSelecionados[grupo.id] || []).includes(opcao.id)
   }
-  onChange={() => {
+ onChange={() => {
 
-    const atuais =
-      obrigatoriosSelecionados[grupo.id] || []
+  const atuais =
+    obrigatoriosSelecionados[grupo.id] || []
 
-    let novos
+  let novos: string[]
 
-    if (atuais.includes(opcao.id)) {
+  if (atuais.includes(opcao.id)) {
 
-      novos = atuais.filter(
-        (id: string) => id !== opcao.id
-      )
+    novos = atuais.filter(
+      (id: string) => id !== opcao.id
+    )
 
-    } else {
+  } else {
 
-      if (atuais.length >= grupo.maximo) return
-
-      novos = [...atuais, opcao.id]
-
+    if (
+      grupo.maximo !== 999 &&
+      atuais.length >= grupo.maximo
+    ) {
+      return
     }
 
-    setObrigatoriosSelecionados({
-      ...obrigatoriosSelecionados,
-      [grupo.id]: novos,
-    })
+    novos = [...atuais, opcao.id]
 
-  }}
+  }
+
+  setObrigatoriosSelecionados({
+    ...obrigatoriosSelecionados,
+    [grupo.id]: novos,
+  })
+
+}}
 />
 
 <div>
@@ -493,95 +596,91 @@ hover:border-zinc-300
               `}
             />
 
-          </div>
+</div> {/* fecha o scroll */}
 
-         <div
+<div
 className="
-sticky
-bottom-0
 bg-white
-px-1
-pt-3
-pb-3
-mt-6
+border-t
+border-zinc-200
+px-6
+py-4
 flex
 items-center
 justify-between
-border-t
-border-zinc-200
+shrink-0
 "
 >
-            <div>
 
-              <p className={`${textSecondary} text-sm`}>
-                Total
-              </p>
+  <div>
 
-              <h3
-                className="text-2xl font-black"
-                style={{
-                  color:
-                    corPrincipal,
-                }}
-              >
-                R$ {total.toFixed(2)}
-              </h3>
+    <p className={`${textSecondary} text-sm`}>
+      Total
+    </p>
 
-            </div>
+    <h3
+      className="text-2xl font-black"
+      style={{
+        color: corPrincipal,
+      }}
+    >
+      R$ {total.toFixed(2)}
+    </h3>
 
-            <button
-              type="button"
-              onClick={() => {
+  </div>
 
-for (const grupo of gruposObrigatorios) {
+  <button
+    type="button"
+    onClick={() => {
 
-  const selecionados =
-    obrigatoriosSelecionados[grupo.id] || []
+      for (const grupo of gruposObrigatorios) {
 
-  if (selecionados.length < grupo.maximo) {
+        const selecionados =
+          obrigatoriosSelecionados[grupo.id] || []
 
-    alert(
-      `Selecione ${grupo.maximo} itens de "${grupo.nome}".`
-    )
+if (selecionados.length < grupo.minimo) {
 
-    return
-  }
+  alert(
+    `Selecione pelo menos ${grupo.minimo} item(ns) de "${grupo.nome}".`
+  )
+
+  return
 
 }
 
-onAdd(
-  product,
-  observation,
-  adicionaisSelecionados
+      }
+
+      onAdd(
+        product,
+        observation,
+        adicionaisSelecionados
+      )
+
+      onClose()
+
+    }}
+    className="
+      transition
+      px-6
+      py-3
+      rounded-xl
+      font-bold
+      text-base
+      text-white
+      hover:scale-105
+    "
+    style={{
+      backgroundColor: corPrincipal,
+    }}
+  >
+    Adicionar
+  </button>
+
+</div>
+</div>
+
+</div> 
+
+</div> 
 )
-
-onClose()
-
-              }}
-              className="
-                transition
-                px-6
-                py-3
-                rounded-xl
-                font-bold
-                text-base
-                text-white
-                hover:scale-105
-              "
-              style={{
-                backgroundColor:
-                  corPrincipal,
-              }}
-            >
-              Adicionar
-            </button>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-  )
 }

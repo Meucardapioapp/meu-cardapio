@@ -89,7 +89,7 @@ function nomePagamento() {
     className="
       relative
       min-h-screen
-      bg-[#F4F1EA]
+      bg-white
       p-5
     "
   >

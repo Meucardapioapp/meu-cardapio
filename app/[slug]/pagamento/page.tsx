@@ -326,7 +326,7 @@ carregarConfiguracaoPagamento();
     <main
       className="
         min-h-screen
-        bg-[#F4F1EA]
+        bg-white
         p-4
         pb-40
       "

@@ -206,9 +206,7 @@ export default function CadastroPage() {
         {/* LADO ESQUERDO */}
         <div className="hidden lg:flex flex-col justify-center bg-gradient-to-br from-[#6D1F2F] via-[#7B2335] to-[#43111B] p-12 text-white">
 
-         <span className="inline-flex w-fit rounded-full bg-white/10 px-5 py-3 text-base font-black backdrop-blur">
-  🚀 TESTE GRÁTIS POR 7 DIAS
-</span>
+
 
           <h1 className="mt-6 text-6xl font-black leading-tight">
   Comece a vender online ainda hoje
@@ -243,29 +241,16 @@ export default function CadastroPage() {
 
             <div className="flex items-center gap-3">
               <span>✅</span>
-              <span>WhatsApp Integrado</span>
+              <span>Sem Mensalidade</span>
             </div>
 
             <div className="flex items-center gap-3">
  
   <span>✅</span>
   <span>Suporte Premium</span>
+  
 </div>
 
-<div className="mt-12 rounded-3xl border border-white/10 bg-white/5 p-6">
-  <p className="text-sm uppercase tracking-widest text-white/60">
-    TESTE GRATUITO
-  </p>
-
-  <p className="mt-3 text-4xl font-black">
-    7 Dias
-  </p>
-
-  <p className="mt-2 text-white/80">
-    Explore todos os recursos da plataforma
-    antes de assinar.
-  </p>
-</div>
 
 </div>
 
@@ -404,10 +389,6 @@ export default function CadastroPage() {
               ? "Criando conta..."
               : "Criar Minha Conta Grátis"}
           </button>
-
-          <p className="mt-4 text-center text-sm text-zinc-500">
-            7 dias grátis • Cancele quando quiser
-          </p>
 
           <p className="mt-6 text-center text-zinc-500">
             Já possui conta?{" "}

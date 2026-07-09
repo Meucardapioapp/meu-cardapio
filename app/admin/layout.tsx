@@ -112,7 +112,7 @@ w-72
 bg-[#1F1C21]
 border-r
 border-[#332D35]
-p-6
+px-5 py-5
 flex
 flex-col
 shadow-2xl
@@ -126,7 +126,7 @@ ${menuAberto ? "translate-x-0" : "-translate-x-full"}
 lg:translate-x-0
 `}
 >
-      <div className="flex items-center justify-between mb-10">
+      <div className="flex items-center justify-between mb-6">
 
   <h1 className="text-3xl font-black text-white">
     MeuCardápio
@@ -151,40 +151,44 @@ lg:translate-x-0
 
 </div>
 
-        <nav className="flex flex-col gap-3">
-          {menus.map((item) => (
-            <Link
-              key={item.link}
-              href={item.link}
-              onClick={() => setMenuAberto(false)}
-              className={`p-4 rounded-xl transition font-semibold ${
-                pathname === item.link
-? "bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white shadow-lg"
-: "bg-[#2B2630] hover:bg-[#39323F] text-white"
-              }`}
-            >
-              {item.nome}
-            </Link>
-          ))}
-        </nav>
+       <nav className="flex flex-col gap-3">
+  {menus.map((item) => (
+    <Link
+      key={item.link}
+      href={item.link}
+      onClick={() => setMenuAberto(false)}
+      className={`p-4 rounded-xl transition font-semibold ${
+        pathname === item.link
+          ? "bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white shadow-lg"
+          : "bg-[#2B2630] hover:bg-[#39323F] text-white"
+      }`}
+    >
+      {item.nome}
+    </Link>
+  ))}
 
-        <button
-          onClick={sair}
-         className="
-mt-auto
-bg-gradient-to-r
-from-[#7A1F3D]
-to-[#542129]
-hover:opacity-90
-transition
-p-4
-rounded-xl
-font-bold
-text-white
-"
-        >
-          Sair
-        </button>
+
+</nav>
+
+
+  <button
+    onClick={sair}
+    className="
+    mt-3
+      p-4
+      rounded-xl
+      font-semibold
+      text-white
+      bg-gradient-to-r
+      from-[#7A1F3D]
+      to-[#542129]
+      hover:opacity-90
+      transition
+    "
+  >
+    Sair
+  </button>
+
       </aside>
 
  <main
