@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -54,7 +54,16 @@ function precoNumero(valor: string) {
   );
 }
 
+
 export default function NovoProdutoPage() {
+  return (
+    <Suspense fallback={null}>
+      <NovoProdutoContent />
+    </Suspense>
+  );
+}
+
+function NovoProdutoContent() {
 
   const searchParams = useSearchParams();
 
