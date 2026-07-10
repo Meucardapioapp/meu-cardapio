@@ -41,6 +41,12 @@ export default function EntregaPage() {
   const [taxaFixa, setTaxaFixa] =
     useState(5)
 
+    const [valorDigitado, setValorDigitado] = useState<Record<number, string>>({});
+
+const [taxaFixaDigitada, setTaxaFixaDigitada] = useState("");
+
+const [editandoTaxaFixa, setEditandoTaxaFixa] = useState(false);
+
   const [faixas, setFaixas] = useState<
     FaixaEntrega[]
   >([
@@ -403,16 +409,50 @@ return (
               Taxa Fixa (R$)
             </label>
 
-            <input
-              type="number"
-              value={taxaFixa}
-              onChange={(e) =>
-                setTaxaFixa(
-                  Number(e.target.value)
-                )
-              }
-              className="w-full mt-2 bg-white border rounded-2xl p-5"
-            />
+<input
+  type="text"
+  inputMode="decimal"
+  placeholder="0,00"
+
+value={
+  editandoTaxaFixa
+    ? taxaFixaDigitada
+    : taxaFixa === 0
+      ? ""
+      : taxaFixa.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+}
+
+onChange={(e) => {
+  setEditandoTaxaFixa(true);
+  setTaxaFixaDigitada(e.target.value);
+}}
+
+
+onBlur={() => {
+  setEditandoTaxaFixa(false);
+
+  if (taxaFixaDigitada.trim() === "") {
+    setTaxaFixa(0);
+    setTaxaFixaDigitada("");
+    return;
+  }
+
+  const numero = Number(
+    taxaFixaDigitada.replace(",", ".")
+  );
+
+  setTaxaFixa(
+    isNaN(numero) ? 0 : numero
+  );
+
+  setTaxaFixaDigitada("");
+}}
+
+  className="w-full mt-2 bg-white border rounded-2xl p-5"
+/>
           </div>
         )}
 
@@ -522,32 +562,59 @@ return (
   </span>
 
   <input
-  type="number"
-  step="0.01"
-  value={faixa.valor}
+  type="text"
+  inputMode="decimal"
   placeholder="0,00"
-  onChange={(e) => {
-    const nova = [...faixas]
+value={
+  valorDigitado[index] ??
+  (faixa.valor === 0
+    ? ""
+    : faixa.valor.toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }))
+}
+onChange={(e) => {
+  setValorDigitado({
+    ...valorDigitado,
+    [index]: e.target.value,
+  });
+}}
 
-    nova[index].valor =
-      Number(e.target.value)
+onBlur={() => {
+  const texto = valorDigitado[index] ?? "";
 
-    setFaixas(nova)
-  }}
+  const numero = Number(
+    texto.replace(",", ".")
+  );
 
-    className="
-      w-full
-      bg-[#F5F2F4]
-      border
-      border-zinc-200
-      rounded-2xl
-      p-4
-      pl-12
-      focus:outline-none
-      focus:ring-2
-      focus:ring-[#7A1F3D]
-    "
-  />
+  const nova = [...faixas];
+
+  nova[index].valor = isNaN(numero)
+    ? 0
+    : numero;
+
+  setFaixas(nova);
+
+  setValorDigitado((prev) => {
+    const copia = { ...prev };
+    delete copia[index];
+    return copia;
+  });
+}}
+  className="
+    w-full
+    bg-[#F5F2F4]
+    border
+    border-zinc-200
+    rounded-2xl
+    p-4
+    pl-12
+    focus:outline-none
+    focus:ring-2
+    focus:ring-[#7A1F3D]
+  "
+/>
 </div>
 
                  <button

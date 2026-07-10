@@ -224,10 +224,13 @@ carregarConfiguracaoPagamento();
 
 }, [slug]);
 
-  const total =
-    subtotal +
-    taxaEntrega +
-    taxaOperacional;
+const totalPedido =
+  subtotal +
+  taxaEntrega;
+
+const totalPagamento =
+  totalPedido +
+  taxaOperacional;
 
   function MetodoPagamento({
     id,
@@ -666,7 +669,7 @@ bg-red-200
           </span>
 
           <span>
-            R$ {subtotal.toFixed(2)}
+             R$ {subtotal.toFixed(2)}
           </span>
         </div>
 
@@ -758,7 +761,7 @@ bg-red-200
       color: corPrincipal
     }}
   >
-    R$ {total.toFixed(2)}
+    R$ {totalPagamento.toFixed(2)}
   </span>
 </div>
       
@@ -814,7 +817,14 @@ if (!validarCPF(cpf)) {
   localStorage.getItem("restaurante_id")
 );
 
-    const pedidoResponse = await fetch(
+console.log("====== VALORES DO PEDIDO ======");
+console.log("subtotal:", subtotal);
+console.log("taxaEntrega:", taxaEntrega);
+console.log("totalPedido:", totalPedido);
+console.log("totalPagamento:", totalPagamento);
+console.log("===============================");
+
+const pedidoResponse = await fetch(
   "/api/pedido/criar",
   {
     method: "POST",
@@ -823,6 +833,7 @@ if (!validarCPF(cpf)) {
       "Content-Type": "application/json",
     },
 
+    
     body: JSON.stringify({
 
       restauranteId:
@@ -834,13 +845,19 @@ if (!validarCPF(cpf)) {
 
       endereco: `${rua}, ${numero}`,
 
-      bairro,
+bairro,
 
-      rua,
+rua,
 
-      numero,
+numero,
 
-      observacoes: "",
+complemento,
+
+referencia: localStorage.getItem(`endereco-${slug}`)
+  ? JSON.parse(localStorage.getItem(`endereco-${slug}`)!).referencia
+  : "",
+
+observacoes: "",
 
       itens: JSON.parse(
         localStorage.getItem(
@@ -848,13 +865,20 @@ if (!validarCPF(cpf)) {
         ) || "[]"
       ),
 
-      subtotal,
+  subtotal,
 
-      taxaEntrega,
+taxaEntrega,
 
-      total,
+taxaOperacional,
 
- payment_method:
+total: totalPedido,
+
+totalPago: totalPagamento,
+
+payment_method:
+
+
+
 formaPagamento === "credito"
   ? "credit_card"
   : formaPagamento === "dinheiro"
@@ -895,7 +919,7 @@ if (formaPagamento === "pix") {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        total,
+        total: totalPagamento,
         restauranteId: localStorage.getItem("restaurante_id"),
         pedidoId: pedido.id,
         nome,
@@ -1006,7 +1030,7 @@ const itens = JSON.parse(
         "Content-Type": "application/json",
       },
   body: JSON.stringify({
-  total,
+  total: totalPagamento,
   restauranteId: localStorage.getItem("restaurante_id"),
   pedidoId: pedido.id,
 
@@ -1085,7 +1109,7 @@ console.log("DADOS ENVIADOS PARA PAGAR.ME", {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        total,
+        total: totalPagamento,
         restauranteId: localStorage.getItem("restaurante_id"),
         pedidoId: pedido.id,
 

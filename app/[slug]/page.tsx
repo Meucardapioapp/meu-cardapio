@@ -597,10 +597,15 @@ gruposObrigatorios:
     setOpenModal(true)
   }
 
- function addToCart(
+function addToCart(
   produto: ProdutoFormatado,
   observacao?: string,
-  adicionaisSelecionados?: Adicional[]
+  adicionaisSelecionados?: Adicional[],
+  obrigatoriosSelecionados?: {
+  grupo: string;
+  nome: string;
+  preco: number;
+}[]
 ) {
 
     const totalAdicionais =
@@ -616,24 +621,35 @@ gruposObrigatorios:
         0
       ) || 0
 
-    const novoItem: CartItem = {
+      const totalObrigatorios =
+  obrigatoriosSelecionados?.reduce(
+    (acc, item) => {
+      return acc + Number(item.preco)
+    },
+    0
+  ) || 0
 
-      ...produto,
+const novoItem: CartItem = {
 
-      uniqueId:
-        crypto.randomUUID(),
+  ...produto,
 
-      quantity: 1,
+  uniqueId: crypto.randomUUID(),
 
-      observacao,
+  quantity: 1,
 
-      adicionaisSelecionados:
-        adicionaisSelecionados || [],
+  observacao,
 
-      preco:
-        Number(produto.preco) +
-        totalAdicionais,
-    }
+  adicionaisSelecionados:
+    adicionaisSelecionados || [],
+
+obrigatoriosSelecionados:
+  obrigatoriosSelecionados || [],
+
+preco:
+  Number(produto.preco) +
+  totalAdicionais +
+  totalObrigatorios,
+}
 
     setCart((prev) => [
       ...prev,

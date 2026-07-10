@@ -25,7 +25,10 @@ type Pedido = {
   bairro: string
   rua: string
   numero: string
+
   total: number
+  total_pago: number | null
+
   status: string
   payment_method: string
   created_at: string
@@ -415,7 +418,7 @@ function nomePagamento() {
             }}
           >
             R$ {Number(
-              pedido.total
+              pedido.total_pago ?? pedido.total
             ).toFixed(2)}
           </span>
 

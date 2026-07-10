@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const {
-  total,
+  total: totalPagamento,
   restauranteId,
   pedidoId,
   nome,
@@ -48,15 +48,15 @@ console.log("RESTAURANTES NO BANCO:", restaurantes);
       );
     }
 
-    const taxaMarketplace =
-      Number(total) * 0.01;
+ const taxaMarketplace =
+  Number(totalPagamento) * 0.01;
 
     const taxaFixa = 0.99;
 
-    const valorRestaurante =
-      Number(total) -
-      taxaMarketplace -
-      taxaFixa;
+const valorRestaurante =
+  Number(totalPagamento) -
+  taxaMarketplace -
+  taxaFixa;
 
     const response = await fetch(
       "https://api.pagar.me/core/v5/orders",
@@ -101,9 +101,9 @@ customer: {
 },
   items: [
             {
-              amount: Math.round(
-                Number(total) * 100
-              ),
+amount: Math.round(
+  Number(totalPagamento) * 100
+),
 
               description:
                 "Pedido MeuCardapio",

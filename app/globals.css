@@ -299,3 +299,11 @@
     transform: translateX(320%);
   }
 }
+
+@media print {
+
+  body {
+    margin: 0;
+  }
+
+}

@@ -15,6 +15,13 @@ type Adicional = {
 
 import type { ProdutoFormatado } from "../types"
 
+
+type ObrigatorioSelecionado = {
+  grupo: string;
+  nome: string;
+  preco: number;
+};
+
 type Props = {
   open: boolean
 
@@ -24,11 +31,13 @@ type Props = {
 
   corPrincipal: string
 
-  onAdd: (
-    produto: ProdutoFormatado,
-    observation?: string,
-    adicionaisSelecionados?: Adicional[]
-  ) => void
+
+onAdd: (
+  produto: ProdutoFormatado,
+  observation?: string,
+  adicionaisSelecionados?: Adicional[],
+  obrigatoriosSelecionados?: ObrigatorioSelecionado[]
+) => void
 }
 
 export default function ProductModal({
@@ -650,11 +659,31 @@ if (selecionados.length < grupo.minimo) {
 
       }
 
-      onAdd(
-        product,
-        observation,
-        adicionaisSelecionados
-      )
+const obrigatoriosFormatados = gruposObrigatorios.flatMap((grupo) => {
+
+  const selecionados =
+    obrigatoriosSelecionados[grupo.id] || [];
+
+  return opcoesObrigatorias
+    .filter(
+      (opcao) =>
+        opcao.grupo_id === grupo.id &&
+        selecionados.includes(opcao.id)
+    )
+    .map((opcao) => ({
+      grupo: grupo.nome,
+      nome: opcao.nome,
+      preco: Number(opcao.preco),
+    }));
+
+});
+
+onAdd(
+  product,
+  observation,
+  adicionaisSelecionados,
+  obrigatoriosFormatados
+);
 
       onClose()
 

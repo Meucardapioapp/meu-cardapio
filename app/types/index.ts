@@ -59,6 +59,12 @@ export interface CartItem extends ProdutoFormatado {
   observacao?: string
 
   adicionaisSelecionados?: Adicional[]
+
+  obrigatoriosSelecionados?: {
+  grupo: string;
+  nome: string;
+  preco: number;
+}[]
 }
 
 export interface Pedido {

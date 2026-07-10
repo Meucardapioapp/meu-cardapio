@@ -5,23 +5,40 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const {
-      restauranteId,
-      nome,
-      telefone,
-      endereco,
-      bairro,
-      rua,
-      numero,
-      observacoes,
-      itens,
-      subtotal,
-      taxaEntrega,
-      total,
-      payment_method,
-    } = body;
+const {
+  restauranteId,
+  nome,
+  telefone,
+  endereco,
+  bairro,
+  rua,
+  numero,
+  complemento,
+  referencia,
+  observacoes,
+  itens,
+  subtotal,
+  taxaEntrega,
+  taxaOperacional,
+  total,
+  totalPago,
+  payment_method,
+} = body;
 
-    const { data, error } =
+console.log("BODY RECEBIDO:");
+console.dir(body, { depth: null });
+
+console.log("ITENS RECEBIDOS:");
+console.dir(itens, { depth: null });
+
+console.log("================================");
+console.log("CRIANDO PEDIDO");
+console.log("subtotal:", subtotal);
+console.log("taxaEntrega:", taxaEntrega);
+console.log("total:", total);
+console.log("================================");
+
+const { data, error } =
       await supabaseAdmin
         .from("pedidos")
         .insert({
@@ -34,17 +51,27 @@ export async function POST(req: NextRequest) {
 
           endereco,
 
-          bairro,
-          rua,
-          numero,
+bairro,
+rua,
+numero,
+complemento,
+referencia,
 
-          observacoes,
+observacoes,
 
-          itens,
+itens,
 
-          total,
+subtotal,
 
-          payment_method,
+taxa_entrega: taxaEntrega,
+
+taxa_operacional: taxaOperacional,
+
+total,
+
+total_pago: totalPago,
+
+payment_method,
 
           payment_status: "pending",
 

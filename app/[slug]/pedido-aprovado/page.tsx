@@ -414,7 +414,7 @@ function nomePagamento() {
             >
               R${" "}
               {Number(
-                pedido.total
+                pedido.total_pago ?? pedido.total
               ).toFixed(2)}
             </p>
           </div>

@@ -5,16 +5,29 @@ import { supabase } from "@/lib/supabase"
 
 type Pedido = {
   id: number
+
   cliente: string
   telefone: string
+
   bairro: string
   rua: string
   numero: string
+
+  complemento: string
+  referencia: string
+
   observacoes: string
+
+  payment_method: string
   pagamento: string
+
   total: number
+  total_pago: number
+
   status: string
-  items: any[]
+
+  itens: any[]
+
   created_at: string
   restaurante_id: string
 }
@@ -521,7 +534,7 @@ Itens
 
   <div className="font-semibold text-zinc-900">
 
-    {pedido.items?.length || 0} itens
+    {pedido.itens?.length || 0} itens
 
   </div>
 
@@ -864,17 +877,29 @@ Endereço
 
 </p>
 
-<p className="font-semibold text-lg mt-4">
+<div className="mt-4">
 
-{pedidoSelecionado.rua}, {pedidoSelecionado.numero}
+  <p className="font-semibold text-lg">
+    {pedidoSelecionado.rua}, {pedidoSelecionado.numero}
+  </p>
 
-</p>
+  {pedidoSelecionado.complemento && (
+    <p className="text-zinc-600 mt-2">
+      Complemento: {pedidoSelecionado.complemento}
+    </p>
+  )}
 
-<p className="text-zinc-500 mt-2">
+  {pedidoSelecionado.referencia && (
+    <p className="text-zinc-600">
+      Referência: {pedidoSelecionado.referencia}
+    </p>
+  )}
 
-{pedidoSelecionado.bairro}
+  <p className="text-zinc-500 mt-2">
+    {pedidoSelecionado.bairro}
+  </p>
 
-</p>
+</div>
 
 </div>
 
@@ -888,7 +913,19 @@ Pagamento
 
 <div className="mt-4 inline-flex px-4 py-2 rounded-full bg-green-50 text-green-700 font-semibold">
 
-{pedidoSelecionado.pagamento}
+{
+  pedidoSelecionado.payment_method === "cash"
+    ? "Dinheiro"
+    : pedidoSelecionado.payment_method === "pix"
+    ? "Pix"
+    : pedidoSelecionado.payment_method === "credit_card"
+    ? "Cartão de Crédito"
+    : pedidoSelecionado.payment_method === "apple_pay"
+    ? "Apple Pay"
+    : pedidoSelecionado.payment_method === "google_pay"
+    ? "Google Pay"
+    : pedidoSelecionado.payment_method
+}
 
 </div>
 
@@ -902,7 +939,7 @@ Total
 
 </p>
 
-<h2 className="text-5xl font-black mt-4">
+<h2 className="text-3xl font-black mt-4">
 
 R$ {Number(pedidoSelecionado.total).toFixed(2)}
 
@@ -924,10 +961,10 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
 
       {
   (
-    Array.isArray(pedidoSelecionado.items)
-      ? pedidoSelecionado.items
-      : typeof pedidoSelecionado.items === "string"
-      ? JSON.parse(pedidoSelecionado.items || "[]")
+    Array.isArray(pedidoSelecionado.itens)
+      ? pedidoSelecionado.itens
+      : typeof pedidoSelecionado.itens === "string"
+      ? JSON.parse(pedidoSelecionado.itens || "[]")
       : []
   ).length
 } itens
@@ -939,14 +976,14 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
   <div className="mt-5 space-y-4">
 
   {(
-  Array.isArray(pedidoSelecionado.items)
-    ? pedidoSelecionado.items
-    : typeof pedidoSelecionado.items === "string"
-    ? JSON.parse(pedidoSelecionado.items || "[]")
+  Array.isArray(pedidoSelecionado.itens)
+    ? pedidoSelecionado.itens
+    : typeof pedidoSelecionado.itens === "string"
+    ? JSON.parse(pedidoSelecionado.itens || "[]")
     : []
 ).map((item: any, index: number) => {
 
-  console.log(item)
+ console.dir(item, { depth: null })
 
   return (
 
@@ -995,25 +1032,69 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
 
         </div>
 
-        <div>
+<div>
 
-          <p className="font-bold">
+  <p className="font-bold">
+    {item.quantity || 1}x {item.nome}
+  </p>
 
-            {item.quantidade || 1}x {item.nome}
+  {item.descricao && (
+    <p className="text-sm text-zinc-500 mt-1">
+      {item.descricao}
+    </p>
+  )}
 
-          </p>
+  {item.obrigatoriosSelecionados?.length > 0 && (
+    <div className="mt-3">
+      <p className="text-xs uppercase font-bold text-zinc-400">
+        Obrigatórios
+      </p>
 
-          {item.descricao && (
-
-            <p className="text-sm text-zinc-500 mt-1">
-
-              {item.descricao}
-
-            </p>
-
-          )}
-
+      {item.obrigatoriosSelecionados.map((opcao: any, index: number) => (
+        <div
+          key={index}
+          className="text-sm text-zinc-700"
+        >
+          • {opcao.grupo}: {opcao.nome}
+          {opcao.preco > 0 &&
+            ` (+R$ ${Number(opcao.preco).toFixed(2)})`}
         </div>
+      ))}
+    </div>
+  )}
+
+  {item.adicionaisSelecionados?.length > 0 && (
+    <div className="mt-3">
+      <p className="text-xs uppercase font-bold text-zinc-400">
+        Adicionais
+      </p>
+
+      {item.adicionaisSelecionados.map((adicional: any, index: number) => (
+        <div
+          key={index}
+          className="text-sm text-zinc-700"
+        >
+          • {adicional.nome}
+          {adicional.preco > 0 &&
+            ` (+R$ ${Number(adicional.preco).toFixed(2)})`}
+        </div>
+      ))}
+    </div>
+  )}
+
+  {item.observacao && (
+    <div className="mt-3">
+      <p className="text-xs uppercase font-bold text-zinc-400">
+        Observação
+      </p>
+
+      <p className="text-sm italic text-zinc-700">
+        {item.observacao}
+      </p>
+    </div>
+  )}
+
+</div>
 
       </div>
 
@@ -1032,229 +1113,217 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
 
 </div>
 
-<div className="mt-8 border rounded-2xl p-6">
+<div className="mt-6">
 
-  <h3 className="font-bold text-lg mb-6">
+  <button
+    onClick={() =>
+      window.open(
+        `/imprimir/${pedidoSelecionado.id}`,
+        "_blank"
+      )
+    }
+    className="
+      w-full
+      h-14
+      rounded-2xl
+      bg-[#1E1E22]
+      hover:bg-black
+      text-white
+      font-bold
+      transition
+      flex
+      items-center
+      justify-center
+      gap-3
+    "
+  >
+    🖨️ Imprimir pedido
+  </button>
 
-    Histórico do pedido
+</div>
 
+<div className="mt-8 border rounded-3xl bg-white p-6">
+
+  <h3 className="font-bold text-lg mb-8">
+    Atualizar status do pedido
   </h3>
 
-  <div className="space-y-6">
+  <div className="flex items-center justify-between">
 
-    <div className="flex items-start gap-4">
+    <div className="flex flex-col items-center flex-1">
 
-      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+      <div
+        className={`
+          w-14
+          h-14
+          rounded-full
+          flex
+          items-center
+          justify-center
+          text-2xl
 
-        ✅
-
+          ${
+            pedidoSelecionado.status === "pendente"
+              ? "bg-[#6D1F2F] text-white"
+              : "bg-green-100"
+          }
+        `}
+      >
+        🕒
       </div>
 
-      <div>
-
-        <p className="font-semibold">
-
-          Pedido recebido
-
-        </p>
-
-        <p className="text-sm text-zinc-500">
-
-          {new Date(
-            pedidoSelecionado.created_at
-          ).toLocaleString("pt-BR")}
-
-        </p>
-
-      </div>
+      <span className="mt-3 text-sm font-medium">
+        Aguardando
+      </span>
 
     </div>
 
-    <div className="flex items-start gap-4">
+    <div className="flex-1 h-[2px] bg-zinc-200" />
 
-      <div className={`
+    <div className="flex flex-col items-center flex-1">
 
-        w-10
-        h-10
-        rounded-full
-        flex
-        items-center
-        justify-center
+      <div
+        className={`
+          w-14
+          h-14
+          rounded-full
+          flex
+          items-center
+          justify-center
+          text-2xl
 
-        ${
-          pedidoSelecionado.status === "aceito"
-
-          ? "bg-blue-100"
-
-          : "bg-zinc-100"
-
-        }
-
-      `}>
-
+          ${
+            pedidoSelecionado.status === "aceito"
+              ? "bg-[#6D1F2F] text-white"
+              : pedidoSelecionado.status === "entrega" ||
+                pedidoSelecionado.status === "concluido"
+              ? "bg-green-100"
+              : "bg-zinc-100"
+          }
+        `}
+      >
         👨‍🍳
-
       </div>
 
-      <p className="font-medium">
-
-        Em preparação
-
-      </p>
+      <span className="mt-3 text-sm">
+        Preparo
+      </span>
 
     </div>
 
-    <div className="flex items-start gap-4">
+    <div className="flex-1 h-[2px] bg-zinc-200" />
 
-      <div className={`
+    <div className="flex flex-col items-center flex-1">
 
-        w-10
-        h-10
-        rounded-full
-        flex
-        items-center
-        justify-center
+      <div
+        className={`
+          w-14
+          h-14
+          rounded-full
+          flex
+          items-center
+          justify-center
+          text-2xl
 
-        ${
-          pedidoSelecionado.status === "entrega"
-
-          ? "bg-violet-100"
-
-          : "bg-zinc-100"
-
-        }
-
-      `}>
-
+          ${
+            pedidoSelecionado.status === "entrega"
+              ? "bg-[#6D1F2F] text-white"
+              : pedidoSelecionado.status === "concluido"
+              ? "bg-green-100"
+              : "bg-zinc-100"
+          }
+        `}
+      >
         🛵
-
       </div>
 
-      <p className="font-medium">
-
-        Saiu para entrega
-
-      </p>
+      <span className="mt-3 text-sm">
+        Entrega
+      </span>
 
     </div>
 
-    <div className="flex items-start gap-4">
+    <div className="flex-1 h-[2px] bg-zinc-200" />
 
-      <div className={`
+    <div className="flex flex-col items-center flex-1">
 
-        w-10
-        h-10
-        rounded-full
-        flex
-        items-center
-        justify-center
+      <div
+        className={`
+          w-14
+          h-14
+          rounded-full
+          flex
+          items-center
+          justify-center
+          text-2xl
 
-        ${
-          pedidoSelecionado.status === "concluido"
-
-          ? "bg-green-100"
-
-          : "bg-zinc-100"
-
-        }
-
-      `}>
-
+          ${
+            pedidoSelecionado.status === "concluido"
+              ? "bg-green-600 text-white"
+              : "bg-zinc-100"
+          }
+        `}
+      >
         ✔
-
       </div>
 
-      <p className="font-medium">
-
-        Pedido entregue
-
-      </p>
+      <span className="mt-3 text-sm">
+        Entregue
+      </span>
 
     </div>
 
   </div>
 
-</div>
-
-<div className="mt-8 grid grid-cols-2 gap-3">
-
   <button
     onClick={() => {
-      atualizarStatus(pedidoSelecionado.id, "aceito")
-      fecharPedido()
+
+      let novoStatus = "";
+
+      if (pedidoSelecionado.status === "pendente")
+        novoStatus = "aceito";
+
+      else if (pedidoSelecionado.status === "aceito")
+        novoStatus = "entrega";
+
+      else if (pedidoSelecionado.status === "entrega")
+        novoStatus = "concluido";
+
+      if (!novoStatus) return;
+
+      atualizarStatus(
+        pedidoSelecionado.id,
+        novoStatus
+      );
+
+      fecharPedido();
+
     }}
     className="
+      w-full
       h-14
       rounded-2xl
-      bg-blue-500
-      hover:bg-blue-600
+      mt-8
+      bg-[#6D1F2F]
+      hover:bg-[#531723]
       text-white
-      font-semibold
+      font-bold
       transition
     "
   >
 
-    Aceitar
+    {
+      pedidoSelecionado.status === "pendente"
+        ? "Confirmar pedido"
 
-  </button>
+      : pedidoSelecionado.status === "aceito"
+        ? "Marcar como saiu para entrega"
 
-  <button
-    onClick={() => {
-      atualizarStatus(pedidoSelecionado.id, "preparo")
-      fecharPedido()
-    }}
-    className="
-      h-14
-      rounded-2xl
-      bg-yellow-500
-      hover:bg-yellow-600
-      text-white
-      font-semibold
-      transition
-    "
-  >
+      : pedidoSelecionado.status === "entrega"
+        ? "Marcar como entregue"
 
-    Em preparação
-
-  </button>
-
-  <button
-    onClick={() => {
-      atualizarStatus(pedidoSelecionado.id, "entrega")
-      fecharPedido()
-    }}
-    className="
-      h-14
-      rounded-2xl
-      bg-violet-600
-      hover:bg-violet-700
-      text-white
-      font-semibold
-      transition
-    "
-  >
-
-    Saiu para entrega
-
-  </button>
-
-  <button
-    onClick={() => {
-      atualizarStatus(pedidoSelecionado.id, "concluido")
-      fecharPedido()
-    }}
-    className="
-      h-14
-      rounded-2xl
-      bg-green-600
-      hover:bg-green-700
-      text-white
-      font-semibold
-      transition
-    "
-  >
-
-    Entregue
+      : "Pedido finalizado"
+    }
 
   </button>
 
