@@ -59,6 +59,9 @@ async function carregarRestaurante() {
 
 async function carregarDashboard() {
  
+const restauranteId = localStorage.getItem("restaurante_id");
+
+if (!restauranteId) return;
 
   const hoje = new Date();
 
@@ -77,6 +80,7 @@ inicioPeriodo.setDate(
 const { data: pedidos } = await supabase
   .from("pedidos")
   .select("*")
+  .eq("restaurante_id", restauranteId)
   .gte(
     "created_at",
     inicioPeriodo.toISOString()
