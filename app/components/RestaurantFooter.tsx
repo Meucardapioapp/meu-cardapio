@@ -10,7 +10,7 @@ export default function RestaurantFooter({
   corPrincipal,
 }: Props) {
   return (
-    <div className="mt-0 mb-24 md:mb-28">
+    <div className="mt-10 mb-20 md:mb-24">
 
       <div className="border-t border-zinc-200 pt-3 md:pt-4">
 
@@ -20,101 +20,23 @@ export default function RestaurantFooter({
 
           <div className="text-center">
 
-            <p
-              className="
-                text-[12px]
-                md:text-[14px]
-                text-zinc-500
-              "
-            >
-              Site desenvolvido por
-            </p>
+<p className="text-xs text-zinc-500">
+  Desenvolvido por
+</p>
 
-            <h2
-              className="
-                mt-1
+<a
+  href="https://meucardapioapp.com"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="mt-1 inline-block text-2xl md:text-3xl font-black transition-opacity hover:opacity-80"
+  style={{ color: corPrincipal }}
+>
+  MeuCardápioApp
+</a>
 
-                text-[24px]
-                md:text-[32px]
-
-                font-black
-
-                tracking-tight
-              "
-              style={{
-                color: corPrincipal,
-              }}
-            >
-              MeuCardápioApp
-            </h2>
-
-            <p
-              className="
-                mt-2
-
-                text-[12px]
-                md:text-[14px]
-
-                text-zinc-500
-
-                leading-5
-                md:leading-6
-              "
-            >
-              Venda mais sem depender de aplicativos de
-              delivery.
-            </p>
-
-            <button
-              onClick={() =>
-                window.open(
-                  "https://meucardapioapp.com",
-                  "_blank"
-                )
-              }
-              className="
-                mt-4
-                md:mt-5
-
-                w-full
-                max-w-[320px]
-                md:max-w-[360px]
-
-                h-11
-                md:h-12
-
-                mx-auto
-
-                rounded-full
-
-                border-2
-
-                flex
-                items-center
-                justify-center
-                gap-2
-                md:gap-3
-
-                text-[15px]
-                md:text-[18px]
-
-                font-bold
-
-                transition-all
-                duration-300
-
-                hover:scale-[1.02]
-                active:scale-[0.98]
-              "
-              style={{
-                borderColor: corPrincipal,
-                color: corPrincipal,
-              }}
-            >
-              <Rocket size={18} />
-
-              Crie o seu agora
-            </button>
+<p className="mt-2 text-sm text-zinc-500">
+  Venda mais sem depender de aplicativos de delivery.
+</p>
 
           </div>
 
@@ -149,18 +71,7 @@ export default function RestaurantFooter({
                 Todos os direitos reservados.
               </p>
 
-              <p
-                className="
-                  mt-1
 
-                  text-[11px]
-                  md:text-[13px]
-
-                  text-zinc-500
-                "
-              >
-                CNPJ: 67.583.816/0001-66
-              </p>
 
             </div>
 

@@ -16,6 +16,20 @@ function gerarSlug(texto: string) {
     .replace(/\s+/g, "-")
 }
 
+function formatarTelefone(valor: string) {
+  const numero = valor.replace(/\D/g, "").slice(0, 11);
+
+  if (numero.length <= 2) {
+    return numero;
+  }
+
+  if (numero.length <= 7) {
+    return `(${numero.slice(0, 2)}) ${numero.slice(2)}`;
+  }
+
+  return `(${numero.slice(0, 2)}) ${numero.slice(2, 7)}-${numero.slice(7)}`;
+}
+
 export default function CadastroPage() {
   const router = useRouter()
 
@@ -36,6 +50,34 @@ export default function CadastroPage() {
   const [email, setEmail] = useState("")
   const [senha, setSenha] = useState("")
   const [confirmarSenha, setConfirmarSenha] = useState("")
+  const [buscaCidade, setBuscaCidade] = useState("");
+const [cidades, setCidades] = useState<any[]>([]);
+const [mostrarLista, setMostrarLista] = useState(false);
+
+async function buscarCidade(valor: string) {
+  setBuscaCidade(valor);
+
+  if (valor.length < 2) {
+    setCidades([]);
+    setMostrarLista(false);
+    return;
+  }
+
+  const resposta = await fetch(
+    "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
+  );
+
+  const dados = await resposta.json();
+
+  const filtrados = dados
+    .filter((cidade: any) =>
+      cidade.nome.toLowerCase().includes(valor.toLowerCase())
+    )
+    .slice(0, 8);
+
+  setCidades(filtrados);
+  setMostrarLista(true);
+}
 
   async function cadastrar() {
     try {
@@ -303,7 +345,7 @@ export default function CadastroPage() {
               placeholder="Telefone"
               value={telefone}
               onChange={(e) =>
-                setTelefone(e.target.value)
+                setTelefone(formatarTelefone(e.target.value))
               }
               className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
             />
@@ -313,20 +355,42 @@ export default function CadastroPage() {
               placeholder="WhatsApp"
               value={whatsapp}
               onChange={(e) =>
-                setWhatsapp(e.target.value)
+                setWhatsapp(formatarTelefone(e.target.value))
               }
               className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
             />
 
-      <input
-  type="text"
-  placeholder="Cidade / Estado"
-  value={cidade}
-  onChange={(e) =>
-    setCidade(e.target.value)
-  }
-  className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
-/>
+<div className="relative">
+  <input
+    type="text"
+    placeholder="Cidade e Estado"
+    value={buscaCidade}
+    onChange={(e) => buscarCidade(e.target.value)}
+    className="w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+  />
+
+  {mostrarLista && cidades.length > 0 && (
+    <div className="absolute z-50 mt-2 w-full rounded-2xl border bg-white shadow-xl max-h-64 overflow-auto">
+      {cidades.map((cidadeItem: any) => (
+        <button
+          type="button"
+          key={cidadeItem.id}
+          onClick={() => {
+            const texto =
+              `${cidadeItem.nome} - ${cidadeItem.microrregiao.mesorregiao.UF.sigla}`;
+
+            setCidade(texto);
+            setBuscaCidade(texto);
+            setMostrarLista(false);
+          }}
+          className="block w-full px-4 py-3 text-left hover:bg-zinc-100"
+        >
+          {cidadeItem.nome} - {cidadeItem.microrregiao.mesorregiao.UF.sigla}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
 
 <select
   
