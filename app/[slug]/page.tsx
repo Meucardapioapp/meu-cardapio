@@ -11,7 +11,6 @@ type Props = {
 export async function generateMetadata(
   { params }: Props
 ): Promise<Metadata> {
-
   const { slug } = await params;
 
   const { data: restaurante } = await supabase
@@ -23,6 +22,7 @@ export async function generateMetadata(
   if (!restaurante) {
     return {
       title: "Cardápio",
+      description: "Cardápio Online",
     };
   }
 
@@ -32,66 +32,50 @@ export async function generateMetadata(
     .eq("restaurante_id", restaurante.id)
     .single();
 
+  const titulo = `${restaurante.nome_restaurante} | Cardápio Online`;
+
+  const descricao = `Faça seu pedido no cardápio online da ${restaurante.nome_restaurante}.`;
+
+  const logo = aparencia?.logo_url || undefined;
+
   return {
+    title: titulo,
 
-    title:
-      `${restaurante.nome} | Cardápio Online`,
-
-    description:
-      restaurante.descricao ||
-      `Faça seu pedido no cardápio online da ${restaurante.nome}.`,
+    description: descricao,
 
     alternates: {
-      canonical: `/${slug}`,
+      canonical: `https://meucardapioapp.com/${slug}`,
     },
 
     openGraph: {
-
-      title:
-        `${restaurante.nome} | Cardápio Online`,
-
-      description:
-        restaurante.descricao ||
-        `Faça seu pedido online.`,
-
-      url:
-        `https://meucardapioapp.com/${slug}`,
-
-      siteName:
-        "MeuCardápioApp",
-
-      locale:
-        "pt_BR",
-
-      type:
-        "website",
-
-      images:
-        aparencia?.logo_url
-          ? [
-              {
-                url: aparencia.logo_url,
-              },
-            ]
-          : [],
+      title: titulo,
+      description: descricao,
+      url: `https://meucardapioapp.com/${slug}`,
+      siteName: "MeuCardápioApp",
+      locale: "pt_BR",
+      type: "website",
+      images: logo
+        ? [
+            {
+              url: logo,
+              width: 512,
+              height: 512,
+              alt: restaurante.nome_restaurante,
+            },
+          ]
+        : [],
     },
 
     twitter: {
+      card: "summary_large_image",
+      title: titulo,
+      description: descricao,
+      images: logo ? [logo] : [],
+    },
 
-      card:
-        "summary_large_image",
-
-      title:
-        `${restaurante.nome}`,
-
-      description:
-        restaurante.descricao ||
-        "",
-
-      images:
-        aparencia?.logo_url
-          ? [aparencia.logo_url]
-          : [],
+    robots: {
+      index: true,
+      follow: true,
     },
   };
 }
