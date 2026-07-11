@@ -51,12 +51,47 @@ export const metadata: Metadata = {
     siteName: "MeuCardápioApp",
     locale: "pt_BR",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "MeuCardápioApp",
+      },
+    ],
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: "MeuCardápioApp",
+    description:
+      "Crie seu cardápio digital em menos de 5 minutos.",
+    images: ["/og-image.png"],
   },
 
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
+
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+
+
+};
+
+export const viewport = {
+  themeColor: "#6D1F2F",
 };
 
 export default function RootLayout({
@@ -66,9 +101,16 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
-    >
+  lang="pt-BR"
+  className={cn(
+    "h-full",
+    "antialiased",
+    geistSans.variable,
+    geistMono.variable,
+    "font-sans",
+    inter.variable
+  )}
+>
       <body className="min-h-full flex flex-col">
   {children}
 
