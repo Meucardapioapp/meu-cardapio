@@ -814,6 +814,8 @@ if (!valido) return;
       const restauranteId =
         localStorage.getItem("restaurante_id");
 
+        console.log("RESTAURANTE:", restauranteId);
+
       if (!restauranteId) {
 
         toast.error("Restaurante não encontrado");
