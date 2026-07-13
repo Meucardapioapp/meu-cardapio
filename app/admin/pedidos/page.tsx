@@ -47,6 +47,8 @@ const [pedidoSelecionado, setPedidoSelecionado] =
 
   async function buscarPedidos() {
 
+    console.log("========== BUSCANDO PEDIDOS ==========");
+
     const restauranteId =
       localStorage.getItem("restaurante_id")
 
@@ -71,7 +73,10 @@ const { data, error } =
       return
     }
 
-    setPedidos(data || [])
+    console.log("========== DADOS VINDOS DO SUPABASE ==========");
+console.table(data);
+
+setPedidos(data || []);
 
     setLoading(false)
   }
