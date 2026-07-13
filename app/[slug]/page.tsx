@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { supabase } from "@/lib/supabase";
 import CardapioClient from "./CardapioClient";
+import RestaurantSchema from "../components/seo/RestaurantSchema";
 
 type Props = {
   params: Promise<{
@@ -80,6 +81,31 @@ export async function generateMetadata(
   };
 }
 
-export default function Page() {
-  return <CardapioClient />;
+export default async function Page({ params }: Props) {
+  const { slug } = await params;
+
+  const { data: restaurante } = await supabase
+    .from("restaurantes")
+    .select("*")
+    .eq("slug", slug)
+    .single();
+
+  const { data: aparencia } = await supabase
+    .from("aparencia")
+    .select("*")
+    .eq("restaurante_id", restaurante?.id)
+    .single();
+
+  return (
+    <>
+      {restaurante && (
+        <RestaurantSchema
+          restaurante={restaurante}
+          aparencia={aparencia}
+        />
+      )}
+
+      <CardapioClient />
+    </>
+  );
 }
