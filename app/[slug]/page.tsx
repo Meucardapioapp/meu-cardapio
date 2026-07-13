@@ -33,9 +33,20 @@ export async function generateMetadata(
     .eq("restaurante_id", restaurante.id)
     .single();
 
-  const titulo = `${restaurante.nome_restaurante} | Cardápio Online`;
+  const categoria =
+    restaurante.categoria || "Restaurante";
 
-  const descricao = `Faça seu pedido no cardápio online da ${restaurante.nome_restaurante}.`;
+  const cidade =
+    restaurante.cidade || "";
+
+  const estado =
+    restaurante.estado || "";
+
+  const titulo = `${restaurante.nome_restaurante} | ${categoria} em ${cidade} ${estado} | Delivery`;
+
+  const descricao =
+    restaurante.descricao ||
+    `Peça no ${restaurante.nome_restaurante} em ${cidade}. Cardápio online com entrega, Pix e cartão.`;
 
   const logo = aparencia?.logo_url || undefined;
 
@@ -44,17 +55,36 @@ export async function generateMetadata(
 
     description: descricao,
 
+    keywords: [
+      restaurante.nome_restaurante,
+      categoria,
+      cidade,
+      estado,
+      "Delivery",
+      "Cardápio Online",
+      "Cardápio Digital",
+      "Pedido Online",
+      "Pix",
+      "Restaurante",
+    ],
+
     alternates: {
       canonical: `https://meucardapioapp.com/${slug}`,
     },
 
     openGraph: {
       title: titulo,
+
       description: descricao,
+
       url: `https://meucardapioapp.com/${slug}`,
+
       siteName: "MeuCardápioApp",
+
       locale: "pt_BR",
+
       type: "website",
+
       images: logo
         ? [
             {
@@ -69,8 +99,11 @@ export async function generateMetadata(
 
     twitter: {
       card: "summary_large_image",
+
       title: titulo,
+
       description: descricao,
+
       images: logo ? [logo] : [],
     },
 
