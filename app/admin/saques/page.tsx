@@ -75,6 +75,15 @@ useEffect(() => {
   carregarHistorico();
   carregarDadosBancarios();
 
+  const interval = setInterval(() => {
+    carregarSaldo();
+    carregarHistorico();
+  }, 10000);
+
+  return () => {
+    clearInterval(interval);
+  };
+
 }, [restauranteId]);
 
 useEffect(() => {
