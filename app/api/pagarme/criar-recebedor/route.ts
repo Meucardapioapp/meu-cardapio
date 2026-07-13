@@ -168,6 +168,41 @@ if (!responsePagarme.ok) {
   );
 }
 
+const responseTransferSettings = await fetch(
+  `https://api.pagar.me/core/v5/recipients/${recipient.id}/transfer-settings`,
+  {
+    method: "PATCH",
+    headers: {
+      Authorization:
+        "Basic " +
+        Buffer.from(
+          process.env.PAGARME_SECRET_KEY + ":"
+        ).toString("base64"),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      transfer_enabled: true,
+      transfer_interval: "daily",
+      transfer_day: 0,
+    }),
+  }
+);
+
+const transferSettings =
+  await responseTransferSettings.json();
+
+console.log(
+  "TRANSFER SETTINGS:",
+  transferSettings
+);
+
+if (!responseTransferSettings.ok) {
+  console.error(
+    "Erro ao configurar transferência:",
+    transferSettings
+  );
+}
+
 
    await supabaseAdmin
   .from("restaurantes")
