@@ -63,9 +63,9 @@ export default function DadosBancariosPage() {
 
 async function carregarDados() {
   try {
-    const response = await fetch(
-      `/api/restaurante?id=${restauranteId}`
-    );
+const response = await fetch(
+  `/api/restaurante?restauranteId=${restauranteId}`
+);
 
     const resultado = await response.json();
 
