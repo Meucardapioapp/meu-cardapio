@@ -52,14 +52,17 @@ const [pedidoSelecionado, setPedidoSelecionado] =
 
     if (!restauranteId) return
 
-    const { data, error } =
-      await supabase
-        .from("pedidos")
-        .select("*")
-        .eq("restaurante_id", restauranteId)
-        .order("created_at", {
-          ascending: false,
-        })
+const { data, error } =
+  await supabase
+    .from("pedidos")
+    .select("*")
+    .eq("restaurante_id", restauranteId)
+    .or(
+      "payment_method.eq.cash,payment_status.eq.approved"
+    )
+    .order("created_at", {
+      ascending: false,
+    })
 
     if (error) {
 

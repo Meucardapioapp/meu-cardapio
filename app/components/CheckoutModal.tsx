@@ -346,6 +346,13 @@ console.log("SUCCESS:", resultado.success);
 
 console.log("QRCODE:", resultado.qrCode);
 
+await supabase
+  .from("pedidos")
+  .update({
+    pagarme_order_id: resultado.pagarmeOrderId,
+  })
+  .eq("id", data.id);
+
 console.log("VAI REDIRECIONAR");
 
 window.location.href =

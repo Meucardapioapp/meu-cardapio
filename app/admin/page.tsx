@@ -81,6 +81,7 @@ const { data: pedidos } = await supabase
   .from("pedidos")
   .select("*")
   .eq("restaurante_id", restauranteId)
+  .eq("payment_status", "approved")
   .gte(
     "created_at",
     inicioPeriodo.toISOString()
