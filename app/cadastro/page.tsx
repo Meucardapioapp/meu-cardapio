@@ -313,7 +313,7 @@ async function buscarCidade(valor: string) {
 
             <input
               type="text"
-              placeholder="Seu nome"
+              placeholder="Seu nome completo"
               value={nomeResponsavel}
               onChange={(e) =>
                 setNomeResponsavel(e.target.value)

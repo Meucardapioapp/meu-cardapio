@@ -1,50 +1,48 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-
     const restauranteId =
-      searchParams.get("restauranteId");
+      req.nextUrl.searchParams.get("restauranteId");
 
     if (!restauranteId) {
       return NextResponse.json(
         {
           success: false,
-          error: "ID do restaurante não informado",
+          error: "Restaurante não informado",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
     const { data, error } =
       await supabaseAdmin
-        .from("restaurantes")
+        .from("saques")
         .select("*")
-        .eq("id", restauranteId)
-        .single();
+        .eq("restaurante_id", restauranteId)
+        .order("created_at", {
+          ascending: false,
+        });
 
-    if (error || !data) {
+    if (error) {
       return NextResponse.json(
         {
           success: false,
-          error: "Restaurante não encontrado",
+          error,
         },
         {
-          status: 404,
+          status: 500,
         }
       );
     }
 
     return NextResponse.json({
       success: true,
-      restaurante: data,
+      saques: data,
     });
+
   } catch (error: any) {
-    console.error(error);
 
     return NextResponse.json(
       {
@@ -55,5 +53,6 @@ export async function GET(request: Request) {
         status: 500,
       }
     );
+
   }
 }
