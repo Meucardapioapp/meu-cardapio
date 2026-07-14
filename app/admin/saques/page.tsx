@@ -366,29 +366,50 @@ async function carregarDadosBancarios() {
     });
 
   const badge = (status: string) => {
-    switch (status) {
-      case "Pago":
-        return (
-          <span className="rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold">
-            Pago
-          </span>
-        );
+  switch (status) {
+    case "pending":
+      return (
+        <span className="rounded-full bg-yellow-100 text-yellow-700 px-3 py-1 text-xs font-semibold">
+          Pendente
+        </span>
+      );
 
-      case "Em processamento":
-        return (
-          <span className="rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-semibold">
-            Em processamento
-          </span>
-        );
+    case "processing":
+      return (
+        <span className="rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-semibold">
+          Em processamento
+        </span>
+      );
 
-      default:
-        return (
-          <span className="rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs font-semibold">
-            Cancelado
-          </span>
-        );
-    }
-  };
+    case "paid":
+      return (
+        <span className="rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold">
+          Pago
+        </span>
+      );
+
+    case "failed":
+      return (
+        <span className="rounded-full bg-red-100 text-red-700 px-3 py-1 text-xs font-semibold">
+          Falhou
+        </span>
+      );
+
+    case "canceled":
+      return (
+        <span className="rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs font-semibold">
+          Cancelado
+        </span>
+      );
+
+    default:
+      return (
+        <span className="rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs font-semibold">
+          {status}
+        </span>
+      );
+  }
+};
 
 async function solicitarSaque() {
 
@@ -988,7 +1009,7 @@ setValor(
                   </th>
 
                   <th className="text-left py-4 font-semibold">
-                    Valor solicitado
+                    Saldo utilizado
                   </th>
 
                   <th className="text-left py-4 font-semibold">
@@ -1034,7 +1055,9 @@ setValor(
                   >
 
                     <td className="py-5">
-                      {new Date(item.created_at).toLocaleString("pt-BR")}
+                      {new Date(item.created_at).toLocaleString("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+})}
                     </td>
 
                     <td>
