@@ -1055,9 +1055,7 @@ setValor(
                   >
 
                     <td className="py-5">
-                      {new Date(item.created_at).toLocaleString("pt-BR", {
-  timeZone: "America/Sao_Paulo",
-})}
+{new Date(item.created_at).toLocaleString("pt-BR")}
                     </td>
 
                     <td>
