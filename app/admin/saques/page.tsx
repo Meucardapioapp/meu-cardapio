@@ -55,7 +55,9 @@ const [restauranteId, setRestauranteId] =
     return Number(valor.replace(/\./g, "").replace(",", ".")) || 0;
   }, [valor]);
 
-  const liquido = Math.max(valorNumerico - TAXA_SAQUE, 0);
+const valorReceber = valorNumerico;
+
+const saldoConsumido = valorReceber + TAXA_SAQUE;
 
 useEffect(() => {
   const id = localStorage.getItem("restaurante_id");
@@ -395,7 +397,7 @@ async function solicitarSaque() {
     return;
   }
 
-  if (valorNumerico > saldoDisponivel) {
+if (saldoConsumido > saldoDisponivel) {
     alert("Saldo insuficiente para realizar o saque.");
     return;
   }
@@ -416,7 +418,7 @@ if (!restauranteId) {
         },
         body: JSON.stringify({
           restauranteId,
-          valor: valorNumerico,
+          valor: valorReceber,
         }),
       }
     );
@@ -438,11 +440,7 @@ alert("Saque solicitado com sucesso!");
 await carregarSaldo();
 await carregarHistorico();
 
-setValor(
-  saldoDisponivel
-    .toFixed(2)
-    .replace(".", ",")
-);
+setValor("");
 
   } catch (err) {
 
@@ -666,8 +664,12 @@ setValor(
             <div className="mt-8">
 
               <label className="font-medium">
-                Valor do saque
+                Quanto deseja receber?
               </label>
+
+              <p className="text-sm text-gray-500 mt-1">
+Informe o valor líquido que deseja receber em sua conta.
+</p>
 
               <div className="flex gap-4 mt-3">
 
@@ -689,11 +691,11 @@ setValor(
                   variant="outline"
                   className="border-[#6D1F2F] text-[#6D1F2F] h-12 px-8"
                   onClick={() =>
-                    setValor(
-                      saldoDisponivel
-                        .toFixed(2)
-                        .replace(".", ",")
-                    )
+setValor(
+  Math.max(saldoDisponivel - TAXA_SAQUE, 0)
+    .toFixed(2)
+    .replace(".", ",")
+)
                   }
                 >
                   Usar saldo total
@@ -710,11 +712,11 @@ setValor(
                 <div className="flex justify-between">
 
                   <span>
-                    Valor solicitado
+                    Saldo utilizado
                   </span>
 
                   <span className="font-semibold">
-                    {dinheiro(valorNumerico)}
+                    {dinheiro(saldoConsumido)}
                   </span>
 
                 </div>
@@ -738,7 +740,7 @@ setValor(
                   </span>
 
                   <span className="text-3xl font-bold text-green-600">
-                    {dinheiro(liquido)}
+                    {dinheiro(valorReceber)}
                   </span>
 
                 </div>

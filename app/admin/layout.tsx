@@ -23,7 +23,13 @@ const [menuAberto, setMenuAberto] = useState(false)
   }
 
   const menus = [
-  {
+  
+   {
+    nome: "Primeiros Passos",
+    link: "/admin/primeiros-passos",
+  },
+  
+    {
     nome: "Dashboard",
     link: "/admin",
   },

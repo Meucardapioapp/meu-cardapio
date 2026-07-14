@@ -70,6 +70,12 @@ export async function POST(req: NextRequest) {
     console.log("TRANSFER:");
     console.log(transfer);
 
+const taxa = 3.67;
+
+const valorLiquido = valor;
+
+const saldoConsumido = valorLiquido + taxa;
+
     if (!response.ok) {
       return NextResponse.json(
         {
@@ -86,12 +92,18 @@ const { error: insertError } = await supabaseAdmin
   .from("saques")
   .insert({
     restaurante_id: restauranteId,
-    pagarme_recipient_id: restaurante.pagarme_recipient_id,
+    pagarme_recipient_id:
+      restaurante.pagarme_recipient_id,
     pagarme_withdrawal_id: transfer.id,
-    valor,
-    taxa: 3.67,
-    valor_liquido: valor - 3.67,
-    status: transfer.status ?? "processing",
+
+    valor: saldoConsumido,
+
+    taxa,
+
+    valor_liquido: valorLiquido,
+
+    status:
+      transfer.status ?? "processing",
   });
 
 if (insertError) {
