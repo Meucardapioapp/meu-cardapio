@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const { data, error } =
       await supabaseAdmin
         .from("configuracoes_pagamento")
-        .select("dinheiro")
+        .select("dinheiro, cartao_entrega")
         .eq("restaurante_id", restauranteId)
         .single();
 
@@ -26,15 +26,18 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({
-      dinheiro: data?.dinheiro ?? false,
-    });
+return NextResponse.json({
+  dinheiro: data?.dinheiro ?? false,
+  cartao_entrega: data?.cartao_entrega ?? false,
+});
 
   } catch (error) {
     console.error(error);
 
-    return NextResponse.json({
-      dinheiro: false,
-    });
+return NextResponse.json({
+  dinheiro: false,
+  cartao_entrega: false,
+});
+
   }
 }

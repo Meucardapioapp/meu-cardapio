@@ -15,6 +15,7 @@ export default function PagamentosPage() {
 
 const [config, setConfig] = useState({
   dinheiro: false,
+  cartao_entrega: true,
 });
 
   useEffect(() => {
@@ -41,6 +42,7 @@ const [config, setConfig] = useState({
 
 setConfig({
   dinheiro: data.dinheiro ?? false,
+  cartao_entrega: data.cartao_entrega ?? true,
 });
 
       }
@@ -68,11 +70,11 @@ console.log({
 
 const { data, error } = await supabase
   .from("configuracoes_pagamento")
-  .upsert(
-    {
-      restaurante_id: restauranteId,
-      dinheiro: config.dinheiro,
-    },
+  .upsert({
+  restaurante_id: restauranteId,
+  dinheiro: config.dinheiro,
+  cartao_entrega: config.cartao_entrega,
+},
     {
       onConflict: "restaurante_id",
     }
@@ -170,7 +172,6 @@ console.log("ERRO:", error);
 
             {[
               "PIX",
-              "Cartão de Crédito",
             ].map((item) => (
               <div
                 key={item}
@@ -206,9 +207,9 @@ console.log("ERRO:", error);
   </div>
 
   <p className="text-green-700 leading-7">
-    Pix e Cartão de Crédito ficam
-    disponíveis automaticamente para
-    todos os clientes.
+Pix fica disponível
+automaticamente para todos os
+clientes.
   </p>
 
 </div>
@@ -301,11 +302,62 @@ console.log("ERRO:", error);
 
             </div>
 
+            <div className="flex items-center justify-between p-6 border-b">
+
+  <div className="flex gap-4">
+
+    <CreditCard className="text-red-700" />
+
+    <div>
+
+      <h3 className="font-bold text-xl">
+        Aceitar cartão de crédito ou débito
+      </h3>
+
+      <p className="text-zinc-500 mt-1">
+        Quando ativado, o cliente poderá pagar com cartão de crédito ou débito na entrega.
+      </p>
+
+    </div>
+
+  </div>
+
+  <div className="flex flex-col items-end">
+
+    <span
+      className={`text-sm font-bold ${
+        config.cartao_entrega
+          ? "text-green-600"
+          : "text-zinc-400"
+      }`}
+    >
+      {config.cartao_entrega
+        ? "ATIVO"
+        : "DESATIVADO"}
+    </span>
+
+    <div className="mt-2">
+
+      <Toggle
+        checked={config.cartao_entrega}
+        onChange={() =>
+          setConfig({
+            ...config,
+            cartao_entrega: !config.cartao_entrega,
+          })
+        }
+      />
+
+    </div>
+
+  </div>
+
+</div>
+
 <div className="mt-5 bg-zinc-50 border border-zinc-200 rounded-2xl p-5">
              <p className="text-blue-600 leading-7">
-  <strong>Importante:</strong> Quando esta opção estiver
-  desativada, os clientes poderão finalizar pedidos
-  apenas utilizando Pix ou Cartão de Crédito.
+  <strong>Importante:</strong> 
+Quando as opções de pagamento na entrega estiverem desativadas, os clientes poderão finalizar pedidos apenas utilizando Pix.
 </p>
 
             </div>

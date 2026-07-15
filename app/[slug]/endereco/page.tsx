@@ -12,8 +12,10 @@ export default function EnderecoPage() {
 
   const params = useParams();
   const slug = params.slug as string;
-const [carregandoPagamento, setCarregandoPagamento] = useState(false);
-  useEffect(() => {
+  const [carregandoPagamento, setCarregandoPagamento] = useState(false);
+  const [lojaAberta, setLojaAberta] = useState(true);
+
+useEffect(() => {
 
   async function carregarDados() {
 
@@ -45,18 +47,76 @@ const [carregandoPagamento, setCarregandoPagamento] = useState(false);
       subtotalCarrinho
     )
 
-    const { data: restaurante } =
-      await supabase
-        .from("restaurantes")
-        .select("*")
-        .eq("slug", slug)
-        .single()
+const { data: restaurante } =
+  await supabase
+    .from("restaurantes")
+    .select("*")
+    .eq("slug", slug)
+    .single()
 
-    if (!restaurante) return
+if (!restaurante) return
 
-    setRestauranteId(
-      restaurante.id
+setRestauranteId(restaurante.id)
+
+const { data: aparencia } =
+  await supabase
+    .from("aparencia")
+    .select("*")
+    .eq("restaurante_id", restaurante.id)
+    .single()
+
+if (aparencia) {
+
+  const agora = new Date()
+
+  const dias = [
+    "dom",
+    "seg",
+    "ter",
+    "qua",
+    "qui",
+    "sex",
+    "sab",
+  ]
+
+  const dia = dias[agora.getDay()]
+
+  const inicio =
+    aparencia[`horario_${dia}_inicio`]
+
+  const fim =
+    aparencia[`horario_${dia}_fim`]
+
+  if (inicio && fim) {
+
+    const [hi, mi] =
+      inicio.split(":").map(Number)
+
+    const [hf, mf] =
+      fim.split(":").map(Number)
+
+    const agoraMin =
+      agora.getHours() * 60 +
+      agora.getMinutes()
+
+    const inicioMin =
+      hi * 60 + mi
+
+    const fimMin =
+      hf * 60 + mf
+
+    setLojaAberta(
+      agoraMin >= inicioMin &&
+      agoraMin <= fimMin
     )
+
+  } else {
+
+    setLojaAberta(false)
+
+  }
+
+}
 
   }
   
@@ -84,6 +144,12 @@ const [subtotal, setSubtotal] =
   const [cep, setCep] =
   useState("")
 
+  const [buscaEndereco, setBuscaEndereco] =
+  useState("")
+
+const [resultadosBusca, setResultadosBusca] =
+  useState<any[]>([])
+
 const [rua, setRua] =
   useState("")
 
@@ -108,8 +174,6 @@ const [numero, setNumero] =
 const [cpf, setCpf] =
   useState("")
 
-  const [email, setEmail] = useState("");
-
 const [complemento, setComplemento] = useState("");
 const [referencia, setReferencia] = useState("");
 
@@ -129,7 +193,7 @@ useEffect(() => {
   setNome(endereco.nome || "");
   setWhatsapp(endereco.whatsapp || "");
   setCpf(endereco.cpf || "");
-  setEmail(endereco.email || "");
+ 
 
   setCep(endereco.cep || "");
   setRua(endereco.rua || "");
@@ -154,7 +218,7 @@ useEffect(() => {
       nome,
       whatsapp,
       cpf,
-      email,
+
 
       cep,
       rua,
@@ -174,7 +238,6 @@ useEffect(() => {
   nome,
   whatsapp,
   cpf,
-  email,
   cep,
   rua,
   numero,
@@ -271,6 +334,40 @@ async function buscarCEP() {
   )
 }
 
+
+async function buscarEndereco(texto: string) {
+
+  setBuscaEndereco(texto);
+
+  if (texto.trim().length < 3) {
+
+    setResultadosBusca([]);
+
+    return;
+
+  }
+
+  try {
+
+    const response = await fetch(
+      `/api/autocomplete?search=${encodeURIComponent(texto)}`
+    );
+
+    const data = await response.json();
+
+    setResultadosBusca(data);
+
+  } catch (error) {
+
+    console.error(error);
+
+    setResultadosBusca([]);
+
+  }
+
+}
+
+
 async function calcularFrete() {
 
   setCarregandoFrete(true)
@@ -350,6 +447,79 @@ function resetarFrete() {
   setFreteCalculado(false)
 
   setTaxaEntrega(0)
+
+}
+
+async function usarMinhaLocalizacao() {
+
+  if (!navigator.geolocation) {
+
+    alert("Seu navegador não suporta localização.");
+
+    return;
+
+  }
+
+  navigator.geolocation.getCurrentPosition(
+
+    async (position) => {
+
+      try {
+
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+
+        const response = await fetch(
+
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+
+        );
+
+        const data = await response.json();
+
+setCep(data.address.postcode || "");
+
+setRua(data.address.road || "");
+
+// O cliente informa o número manualmente
+setNumero("");
+
+setBairro(
+  data.address.suburb ||
+  data.address.neighbourhood ||
+  data.address.city_district ||
+  ""
+);
+
+setCidade(
+  data.address.city ||
+  data.address.town ||
+  data.address.village ||
+  ""
+);
+
+setEstado(
+  data.address.state ||
+  "AM"
+);
+
+
+
+      } catch {
+
+        alert("Não foi possível localizar seu endereço.");
+
+      }
+
+    },
+
+    () => {
+
+      alert("Permita o acesso à localização.");
+
+    }
+
+  );
 
 }
 
@@ -717,37 +887,6 @@ autoComplete="tel"
 
 </div>
 
-<div
-  className="
-    bg-white
-    rounded-xl
-    border
-    p-4
-    mt-4
-  "
->
-  <p
-    className="
-      text-xs
-      font-semibold
-      mb-2
-      text-zinc-600
-    "
-  >
-    E-mail
-  </p>
-
-  <input
-    value={email}
-    onChange={(e) => setEmail(e.target.value)}
-    placeholder="email@exemplo.com"
-    className="
-      w-full
-      outline-none
-      font-semibold
-    "
-  />
-</div>
 
 <h2
   className="
@@ -760,68 +899,116 @@ autoComplete="tel"
   Endereço de entrega
 </h2>
 
-  {/* CEP */}
 
-  <div>
+<div>
 
-    <p
-      className="
-        text-xs
-        font-semibold
-        mb-1
-        text-zinc-700
-      "
-    >
-      CEP
-    </p>
+<p
+className="
+text-xs
+font-semibold
+mb-1
+text-zinc-700
+"
+>
+Buscar endereço
+</p>
 
-    <div
-      className="
-        flex
-        bg-white
-        rounded-xl
-        border
-        overflow-hidden
-      "
-    >
+<input
 
-      <input
-        value={cep}
-        onChange={(e) => {
+value={buscaEndereco}
 
-  const valor = e.target.value
-    .replace(/\D/g, "")
-    .slice(0, 8)
-    .replace(/(\d{5})(\d)/, "$1-$2");
+onChange={(e)=>
+buscarEndereco(e.target.value)
+}
 
-  setCep(valor);
+placeholder="Digite sua rua..."
 
-  resetarFrete();
+className="
+w-full
+bg-white
+rounded-xl
+border
+p-4
+"
+
+/>
+
+</div>
+
+
+{resultadosBusca.length > 0 && (
+
+<div
+className="
+bg-white
+border
+rounded-xl
+overflow-hidden
+shadow-lg
+mt-2
+"
+>
+
+{resultadosBusca.map((item,index)=>(
+
+<button
+
+key={index}
+
+type="button"
+
+className="
+w-full
+text-left
+p-4
+hover:bg-zinc-100
+border-b
+"
+
+onClick={()=>{
+
+setBuscaEndereco("");
+
+setRua(item.properties.street || "");
+
+setNumero("");
+
+setBairro(
+  item.properties.suburb ||
+  item.properties.district ||
+  ""
+);
+
+setCidade(
+  item.properties.city ||
+  ""
+);
+
+setEstado(
+  item.properties.state_code ||
+  ""
+);
+
+setCep(
+  item.properties.postcode ||
+  ""
+);
+
+setResultadosBusca([]);
 
 }}
-inputMode="numeric"
-autoComplete="postal-code"
-placeholder="69000-000"
-        className="
-          flex-1
-          p-4
-          outline-none
-        "
-      />
 
-      <button
-        onClick={buscarCEP}
-        className="px-4 font-bold"
-        style={{
-          color: corPrincipal
-        }}
-      >
-        Buscar CEP
-      </button>
+>
 
-    </div>
+{item.properties.formatted}
 
-  </div>
+</button>
+
+))}
+
+</div>
+
+)}
 
   {/* RUA */}
 
@@ -833,6 +1020,7 @@ placeholder="69000-000"
 
     <input
       value={rua}
+      readOnly
       onChange={(e) => {
         setRua(e.target.value)
         resetarFrete()
@@ -864,12 +1052,19 @@ placeholder="69000-000"
         Número
       </p>
 
-      <input
-        value={numero}
-        onChange={(e) => {
-          setNumero(e.target.value)
-          resetarFrete()
-        }}
+<input
+  value={numero}
+  onChange={(e) => {
+
+    setNumero(e.target.value);
+
+    resetarFrete();
+
+    if (e.target.value.trim().length > 0) {
+
+    }
+
+  }}
         className="
           w-full
           bg-white
@@ -1145,11 +1340,24 @@ taxaEntrega
 
 <button
   disabled={!freteCalculado || carregandoPagamento}
-  onClick={() => {
 
-    if (carregandoPagamento) return;
 
-    if (!validarCPF(cpf)) {
+onClick={() => {
+
+  if (!lojaAberta) {
+
+    alert(
+      "O restaurante está fechado e não está recebendo pedidos."
+    );
+
+    return;
+
+  }
+
+  if (carregandoPagamento) return;
+
+  if (!validarCPF(cpf)) {
+
       alert("Informe um CPF válido.");
       return;
     }
@@ -1162,7 +1370,6 @@ taxaEntrega
         nome,
         whatsapp,
         cpf,
-        email,
 
         cep,
         rua,

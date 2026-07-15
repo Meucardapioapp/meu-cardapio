@@ -59,9 +59,9 @@ const { data, error } =
     .from("pedidos")
     .select("*")
     .eq("restaurante_id", restauranteId)
-    .or(
-      "payment_method.eq.cash,payment_status.eq.approved"
-    )
+.or(
+  "payment_method.eq.cash,payment_method.eq.card_delivery,payment_status.eq.approved"
+)
     .order("created_at", {
       ascending: false,
     })
@@ -926,6 +926,8 @@ Pagamento
     ? "Dinheiro"
     : pedidoSelecionado.payment_method === "pix"
     ? "Pix"
+    : pedidoSelecionado.payment_method === "card_delivery"
+    ? "Cartão de Crédito/Débito"
     : pedidoSelecionado.payment_method === "credit_card"
     ? "Cartão de Crédito"
     : pedidoSelecionado.payment_method === "apple_pay"
@@ -1160,25 +1162,38 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
 
     <div className="flex flex-col items-center flex-1">
 
-      <div
-        className={`
-          w-14
-          h-14
-          rounded-full
-          flex
-          items-center
-          justify-center
-          text-2xl
 
-          ${
-            pedidoSelecionado.status === "pendente"
-              ? "bg-[#6D1F2F] text-white"
-              : "bg-green-100"
-          }
-        `}
-      >
-        🕒
-      </div>
+
+<button
+  onClick={() => {
+    atualizarStatus(pedidoSelecionado.id, "pendente");
+
+    setPedidoSelecionado({
+      ...pedidoSelecionado,
+      status: "pendente",
+    });
+  }}
+  className={`
+    w-14
+    h-14
+    rounded-full
+    flex
+    items-center
+    justify-center
+    text-2xl
+    cursor-pointer
+
+    ${
+      pedidoSelecionado.status === "pendente"
+        ? "bg-[#6D1F2F] text-white"
+        : "bg-green-100"
+    }
+  `}
+>
+  🕒
+</button>
+
+
 
       <span className="mt-3 text-sm font-medium">
         Aguardando
@@ -1190,28 +1205,37 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
 
     <div className="flex flex-col items-center flex-1">
 
-      <div
-        className={`
-          w-14
-          h-14
-          rounded-full
-          flex
-          items-center
-          justify-center
-          text-2xl
+<button
+  onClick={() => {
+    atualizarStatus(pedidoSelecionado.id, "aceito");
 
-          ${
-            pedidoSelecionado.status === "aceito"
-              ? "bg-[#6D1F2F] text-white"
-              : pedidoSelecionado.status === "entrega" ||
-                pedidoSelecionado.status === "concluido"
-              ? "bg-green-100"
-              : "bg-zinc-100"
-          }
-        `}
-      >
-        👨‍🍳
-      </div>
+    setPedidoSelecionado({
+      ...pedidoSelecionado,
+      status: "aceito",
+    });
+  }}
+  className={`
+    w-14
+    h-14
+    rounded-full
+    flex
+    items-center
+    justify-center
+    text-2xl
+    cursor-pointer
+
+    ${
+      pedidoSelecionado.status === "aceito"
+        ? "bg-[#6D1F2F] text-white"
+        : pedidoSelecionado.status === "entrega" ||
+          pedidoSelecionado.status === "concluido"
+        ? "bg-green-100"
+        : "bg-zinc-100"
+    }
+  `}
+>
+  👨‍🍳
+</button>
 
       <span className="mt-3 text-sm">
         Preparo
@@ -1223,27 +1247,36 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
 
     <div className="flex flex-col items-center flex-1">
 
-      <div
-        className={`
-          w-14
-          h-14
-          rounded-full
-          flex
-          items-center
-          justify-center
-          text-2xl
+<button
+  onClick={() => {
+    atualizarStatus(pedidoSelecionado.id, "entrega");
 
-          ${
-            pedidoSelecionado.status === "entrega"
-              ? "bg-[#6D1F2F] text-white"
-              : pedidoSelecionado.status === "concluido"
-              ? "bg-green-100"
-              : "bg-zinc-100"
-          }
-        `}
-      >
-        🛵
-      </div>
+    setPedidoSelecionado({
+      ...pedidoSelecionado,
+      status: "entrega",
+    });
+  }}
+  className={`
+    w-14
+    h-14
+    rounded-full
+    flex
+    items-center
+    justify-center
+    text-2xl
+    cursor-pointer
+
+    ${
+      pedidoSelecionado.status === "entrega"
+        ? "bg-[#6D1F2F] text-white"
+        : pedidoSelecionado.status === "concluido"
+        ? "bg-green-100"
+        : "bg-zinc-100"
+    }
+  `}
+>
+  🛵
+</button>
 
       <span className="mt-3 text-sm">
         Entrega
@@ -1255,25 +1288,34 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
 
     <div className="flex flex-col items-center flex-1">
 
-      <div
-        className={`
-          w-14
-          h-14
-          rounded-full
-          flex
-          items-center
-          justify-center
-          text-2xl
+ <button
+  onClick={() => {
+    atualizarStatus(pedidoSelecionado.id, "concluido");
 
-          ${
-            pedidoSelecionado.status === "concluido"
-              ? "bg-green-600 text-white"
-              : "bg-zinc-100"
-          }
-        `}
-      >
-        ✔
-      </div>
+    setPedidoSelecionado({
+      ...pedidoSelecionado,
+      status: "concluido",
+    });
+  }}
+  className={`
+    w-14
+    h-14
+    rounded-full
+    flex
+    items-center
+    justify-center
+    text-2xl
+    cursor-pointer
+
+    ${
+      pedidoSelecionado.status === "concluido"
+        ? "bg-green-600 text-white"
+        : "bg-zinc-100"
+    }
+  `}
+>
+  ✔
+</button>
 
       <span className="mt-3 text-sm">
         Entregue

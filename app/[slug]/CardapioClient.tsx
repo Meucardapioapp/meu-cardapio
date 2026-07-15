@@ -38,7 +38,7 @@ import type {
   CartItem
 } from "../types"
 
-export default function CardapioPage() {
+export default function CardapioClient() {
 
 const params = useParams()
 
@@ -553,29 +553,38 @@ gruposObrigatorios:
     }
 }
 
-  useEffect(() => {
+useEffect(() => {
 
-    buscarProdutos()
+  buscarProdutos();
 
-    
+  const sessionKey = `sessao-${slug}`;
+  const cartKey = `cart-${slug}`;
 
-    const cartStorage =
-  localStorage.getItem(
-    `cart-${slug}`
-  )
+  const sessaoExiste =
+    sessionStorage.getItem(sessionKey);
 
-    if (cartStorage) {
+  if (!sessaoExiste) {
 
-      setCart(
-        JSON.parse(cartStorage)
-      )
-    }
+    // Nova sessão
+    localStorage.removeItem(cartKey);
 
-    return () => {
+    sessionStorage.setItem(
+      sessionKey,
+      "true"
+    );
 
-    }
+  }
 
-  }, [slug])
+  const cartStorage =
+    localStorage.getItem(cartKey);
+
+  if (cartStorage) {
+
+    setCart(JSON.parse(cartStorage));
+
+  }
+
+}, [slug]);
 
   useEffect(() => {
 
@@ -586,18 +595,27 @@ gruposObrigatorios:
 
   }, [cart])
 
-  function openProductModal(
-    produto: ProdutoFormatado
-  ) {
+function openProductModal(
+  produto: ProdutoFormatado
+) {
 
-    setSelectedProduct(
-      produto
+  if (!lojaAberta) {
+
+    alert(
+      "O restaurante está fechado no momento e não está aceitando pedidos."
     )
 
-    setOpenModal(true)
+    return
+
   }
 
+  setSelectedProduct(produto)
+
+  setOpenModal(true)
+}
+
 function addToCart(
+  
   produto: ProdutoFormatado,
   observacao?: string,
   adicionaisSelecionados?: Adicional[],
@@ -607,6 +625,16 @@ function addToCart(
   preco: number;
 }[]
 ) {
+
+  if (!lojaAberta) {
+
+  alert(
+    "O restaurante está fechado no momento."
+  )
+
+  return
+
+}
 
     const totalAdicionais =
       adicionaisSelecionados?.reduce(
@@ -752,7 +780,9 @@ const total = cart.reduce((acc, item) => {
     ? "bg-white"
     : "bg-zinc-900"
 
-  function obterStatusLoja() {
+
+
+    function obterStatusLoja() {
 
   if (!aparencia) {
     return "Carregando..."
@@ -780,11 +810,38 @@ const total = cart.reduce((acc, item) => {
     "sábado"
   ]
 
-  const diaAtualIndex =
-    agora.getDay()
+  const diaAtualIndex = agora.getDay()
+  const diaAtual = dias[diaAtualIndex]
 
-  const diaAtual =
-    dias[diaAtualIndex]
+  // verifica se o dia está ativo
+  const ativo = aparencia[`${diaAtual}_ativo`]
+
+  if (ativo === false) {
+
+    for (let i = 1; i <= 7; i++) {
+
+      const proximoIndex = (diaAtualIndex + i) % 7
+      const proximoDia = dias[proximoIndex]
+
+      const proximoAtivo =
+        aparencia[`${proximoDia}_ativo`]
+
+      const proximoInicio =
+        aparencia[`horario_${proximoDia}_inicio`]
+
+      if (proximoAtivo && proximoInicio) {
+
+        if (i === 1) {
+          return `Fechado • Abre amanhã às ${proximoInicio}`
+        }
+
+        return `Fechado • Abre ${nomesDias[proximoIndex]} às ${proximoInicio}`
+      }
+
+    }
+
+    return "Fechado"
+  }
 
   const inicio =
     aparencia[`horario_${diaAtual}_inicio`]
@@ -792,60 +849,61 @@ const total = cart.reduce((acc, item) => {
   const fim =
     aparencia[`horario_${diaAtual}_fim`]
 
+  if (!inicio || !fim) {
+    return "Fechado"
+  }
+
   const horaAtual =
     agora.getHours() * 60 +
     agora.getMinutes()
 
-  if (inicio && fim) {
+  const [hInicio, mInicio] =
+    inicio.split(":").map(Number)
 
-    const [hInicio, mInicio] =
-      inicio.split(":").map(Number)
+  const [hFim, mFim] =
+    fim.split(":").map(Number)
 
-    const [hFim, mFim] =
-      fim.split(":").map(Number)
+  const minutoInicio =
+    hInicio * 60 + mInicio
 
-    const minutoInicio =
-      hInicio * 60 + mInicio
+  const minutoFim =
+    hFim * 60 + mFim
 
-    const minutoFim =
-      hFim * 60 + mFim
-
-    if (
-      horaAtual >= minutoInicio &&
-      horaAtual <= minutoFim
-    ) {
-      return " Aberto Agora"
-    }
-
-    if (horaAtual < minutoInicio) {
-      return ` Fechado • Abre às ${inicio}`
-    }
+  if (
+    horaAtual >= minutoInicio &&
+    horaAtual <= minutoFim
+  ) {
+    return "Aberto Agora"
   }
 
- for (let i = 1; i <= 7; i++) {
+  if (horaAtual < minutoInicio) {
+    return `Fechado • Abre às ${inicio}`
+  }
 
-  const proximoIndex =
-    (diaAtualIndex + i) % 7
+  for (let i = 1; i <= 7; i++) {
 
-  const proximoDia =
-    dias[proximoIndex]
+    const proximoIndex = (diaAtualIndex + i) % 7
+    const proximoDia = dias[proximoIndex]
 
-  const proximoInicio =
-    aparencia[
-      `horario_${proximoDia}_inicio`
-    ]
+    const proximoAtivo =
+      aparencia[`${proximoDia}_ativo`]
 
-  if (proximoInicio) {
+    const proximoInicio =
+      aparencia[`horario_${proximoDia}_inicio`]
 
-    if (i === 1) {
-      return `Fechado no momento • Abre amanhã às ${proximoInicio}`
+    if (proximoAtivo && proximoInicio) {
+
+      if (i === 1) {
+        return `Fechado • Abre amanhã às ${proximoInicio}`
+      }
+
+      return `Fechado • Abre ${nomesDias[proximoIndex]} às ${proximoInicio}`
     }
 
-    return `Fechado no momento • Abre ${nomesDias[proximoIndex]} às ${proximoInicio}`
   }
-}
 
-return "Fechado no momento"
+  return "Fechado"
+
 }
 
 function obterHorarioFechamento() {
@@ -873,6 +931,9 @@ function obterHorarioFechamento() {
     ] || ""
   )
 }
+
+const lojaAberta =
+  obterStatusLoja().trim().startsWith("Aberto")
 
 if (loadingInicial) {
   return <SplashScreen />;
@@ -1025,9 +1086,17 @@ items-center
 size={22}
 className="mx-auto text-zinc-500 mb-2"
 />
-      <p className="text-xs font-semibold mt-2 text-green-600">
-        {obterStatusLoja()}
-      </p>
+
+<p
+  className={`text-xs font-semibold mt-2 ${
+    lojaAberta
+      ? "text-green-600"
+      : "text-red-600"
+  }`}
+>
+  {obterStatusLoja()}
+</p>
+
 <p className="mt-1 text-[11px] leading-5 text-zinc-900 font-medium">
   Fecha às {obterHorarioFechamento()}
 </p>
@@ -1446,18 +1515,29 @@ style={{
 
 <button
   disabled={carregandoCarrinho}
-  onClick={() => {
+ onClick={() => {
+
+    if (!lojaAberta) {
+
+      alert(
+        "O restaurante está fechado e não está recebendo pedidos."
+      )
+
+      return
+
+    }
 
     if (carregandoCarrinho) return;
 
     setCarregandoCarrinho(true);
 
     setTimeout(() => {
-      window.location.href =
-        `/${slug}/carrinho`;
+
+      window.location.href = `/${slug}/carrinho`;
+
     }, 300);
 
-  }}
+}}
   className="
     bg-[#22C55E]
     hover:bg-emerald-600

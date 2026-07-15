@@ -31,6 +31,7 @@ const [sugestoes, setSugestoes] =
 
   const [carregando, setCarregando] = useState(false);
 
+  const [lojaAberta, setLojaAberta] = useState(true);
 
   useEffect(() => {
   async function carregarDados() {
@@ -61,6 +62,66 @@ const [sugestoes, setSugestoes] =
         .select("*")
         .eq("slug", slug)
         .single();
+
+        const { data: aparencia } =
+  await supabase
+    .from("aparencia")
+    .select("*")
+    .eq("restaurante_id", restaurante.id)
+    .single();
+
+if (aparencia) {
+
+  const agora = new Date();
+
+  const dias = [
+    "dom",
+    "seg",
+    "ter",
+    "qua",
+    "qui",
+    "sex",
+    "sab",
+  ];
+
+  const dia = dias[agora.getDay()];
+
+  const inicio =
+    aparencia[`horario_${dia}_inicio`];
+
+  const fim =
+    aparencia[`horario_${dia}_fim`];
+
+  if (inicio && fim) {
+
+    const [hi, mi] =
+      inicio.split(":").map(Number);
+
+    const [hf, mf] =
+      fim.split(":").map(Number);
+
+    const agoraMin =
+      agora.getHours() * 60 +
+      agora.getMinutes();
+
+    const inicioMin =
+      hi * 60 + mi;
+
+    const fimMin =
+      hf * 60 + mf;
+
+    setLojaAberta(
+      agoraMin >= inicioMin &&
+      agoraMin <= fimMin
+    );
+
+  } else {
+
+    setLojaAberta(false);
+
+  }
+
+}
 
     if (!restaurante) return;
 
@@ -701,17 +762,29 @@ style={{
 
 <button
   disabled={carregando}
-  onClick={() => {
+ onClick={() => {
 
-    if (carregando) return;
+  if (!lojaAberta) {
 
-    setCarregando(true);
+    alert(
+      "O restaurante está fechado e não está recebendo pedidos."
+    );
 
-    setTimeout(() => {
-      window.location.href = `/${slug}/endereco`;
-    }, 250);
+    return;
 
-  }}
+  }
+
+  if (carregando) return;
+
+  setCarregando(true);
+
+  setTimeout(() => {
+
+    window.location.href = `/${slug}/endereco`;
+
+  }, 250);
+
+}}
   className="
     bg-[#16A34A]
     text-white

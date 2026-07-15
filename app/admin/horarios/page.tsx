@@ -97,6 +97,19 @@ console.log(
 
 if (aparencia) {
 
+setDiasAtivos({
+
+  seg: aparencia.seg_ativo ?? true,
+  ter: aparencia.ter_ativo ?? true,
+  qua: aparencia.qua_ativo ?? true,
+  qui: aparencia.qui_ativo ?? true,
+  sex: aparencia.sex_ativo ?? true,
+  sab: aparencia.sab_ativo ?? true,
+  dom: aparencia.dom_ativo ?? true,
+
+})
+
+
   setHorarios({
     seg_inicio: aparencia.horario_seg_inicio || "",
     seg_fim: aparencia.horario_seg_fim || "",
@@ -130,30 +143,41 @@ async function salvarHorarios() {
 
   const { error } = await supabase
     .from("aparencia")
-    .update({
+ 
+.update({
 
-      horario_seg_inicio: horarios.seg_inicio,
-      horario_seg_fim: horarios.seg_fim,
+  seg_ativo: diasAtivos.seg,
+  ter_ativo: diasAtivos.ter,
+  qua_ativo: diasAtivos.qua,
+  qui_ativo: diasAtivos.qui,
+  sex_ativo: diasAtivos.sex,
+  sab_ativo: diasAtivos.sab,
+  dom_ativo: diasAtivos.dom,
 
-      horario_ter_inicio: horarios.ter_inicio,
-      horario_ter_fim: horarios.ter_fim,
+  horario_seg_inicio: horarios.seg_inicio,
+  horario_seg_fim: horarios.seg_fim,
 
-      horario_qua_inicio: horarios.qua_inicio,
-      horario_qua_fim: horarios.qua_fim,
+  horario_ter_inicio: horarios.ter_inicio,
+  horario_ter_fim: horarios.ter_fim,
 
-      horario_qui_inicio: horarios.qui_inicio,
-      horario_qui_fim: horarios.qui_fim,
+  horario_qua_inicio: horarios.qua_inicio,
+  horario_qua_fim: horarios.qua_fim,
 
-      horario_sex_inicio: horarios.sex_inicio,
-      horario_sex_fim: horarios.sex_fim,
+  horario_qui_inicio: horarios.qui_inicio,
+  horario_qui_fim: horarios.qui_fim,
 
-      horario_sab_inicio: horarios.sab_inicio,
-      horario_sab_fim: horarios.sab_fim,
+  horario_sex_inicio: horarios.sex_inicio,
+  horario_sex_fim: horarios.sex_fim,
 
-      horario_dom_inicio: horarios.dom_inicio,
-      horario_dom_fim: horarios.dom_fim,
+  horario_sab_inicio: horarios.sab_inicio,
+  horario_sab_fim: horarios.sab_fim,
 
-    })
+  horario_dom_inicio: horarios.dom_inicio,
+  horario_dom_fim: horarios.dom_fim,
+
+})
+
+
     .eq("restaurante_id", restauranteId)
 
   if (error) {

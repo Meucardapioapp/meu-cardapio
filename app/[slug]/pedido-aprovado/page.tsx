@@ -53,9 +53,25 @@ if (data.success) {
   setPedido(data.pedido);
 }
 
+
   }
 
   carregarPedido();
+}, [pedidoId]);
+
+useEffect(() => {
+  if (!pedidoId) return;
+
+  const intervalo = setInterval(async () => {
+    const response = await fetch(`/api/pedido?id=${pedidoId}`);
+    const data = await response.json();
+
+    if (data.success) {
+      setPedido(data.pedido);
+    }
+  }, 5000);
+
+  return () => clearInterval(intervalo);
 }, [pedidoId]);
 
   if (!pedido) {
@@ -73,6 +89,9 @@ function nomePagamento() {
     case "cash":
       return "Dinheiro";
 
+      case "card_delivery":
+        return "Cartão";
+
     case "google_pay":
       return "Google Pay";
 
@@ -81,6 +100,25 @@ function nomePagamento() {
 
     default:
       return pedido.payment_method || "-";
+  }
+}
+
+function etapaAtual() {
+  switch (pedido.status) {
+    case "pendente":
+      return 1;
+
+    case "aceito":
+      return 2;
+
+    case "entrega":
+      return 3;
+
+    case "concluido":
+      return 4;
+
+    default:
+      return 1;
   }
 }
 
@@ -125,30 +163,7 @@ function nomePagamento() {
         mx-auto
         "
       >
-        {/* LOGO */}
 
-        {logo && (
-          <div
-            className="
-            flex
-            justify-center
-            mb-6
-            "
-          >
-            <img
-              src={logo}
-              alt="Logo"
-              className="
-              w-24
-              h-24
-              rounded-full
-              object-cover
-              shadow-md
-              bg-white
-              "
-            />
-          </div>
-        )}
 
         {/* SUCESSO */}
 
@@ -232,56 +247,102 @@ function nomePagamento() {
           shadow-sm
           "
         >
-          {/* ENTREGA */}
+          
+{/* STATUS */}
 
-          <div
-            className="
-            flex
-            gap-4
-            pb-5
-            border-b
-            "
-          >
+<div className="pb-6 border-b">
+
+  <p className="font-bold text-lg mb-6">
+    Status do pedido
+  </p>
+
+  <div className="flex">
+
+    {[
+      {
+        titulo: "Recebido",
+        status: "pendente",
+        icon: "🧾",
+      },
+      {
+        titulo: "Preparo",
+        status: "aceito",
+        icon: "👨‍🍳",
+      },
+      {
+        titulo: "Entrega",
+        status: "entrega",
+        icon: "🛵",
+      },
+      {
+        titulo: "Entregue",
+        status: "concluido",
+        icon: "✓",
+      },
+    ].map((item, index) => {
+
+      const ativo = etapaAtual() >= index + 1;
+
+      return (
+
+        <div
+          key={item.status}
+          className="flex-1 flex flex-col items-center relative"
+        >
+
+          {index !== 0 && (
             <div
-              className="
-              w-12
-              h-12
-              rounded-xl
-              flex
-              items-center
-              justify-center
-              "
+              className="absolute top-5 left-0 w-1/2 h-1"
               style={{
                 backgroundColor:
-                  `${corPrincipal}15`,
+                  ativo
+                    ? corPrincipal
+                    : "#E5E7EB",
               }}
-            >
-              <Clock3
-                color={
-                  corPrincipal
-                }
-              />
-            </div>
+            />
+          )}
 
-            <div>
-              <p
-                className="
-                text-zinc-500
-                "
-              >
-                Previsão de entrega
-              </p>
+          {index !== 3 && (
+            <div
+              className="absolute top-5 right-0 w-1/2 h-1"
+              style={{
+                backgroundColor:
+                  etapaAtual() > index + 1
+                    ? corPrincipal
+                    : "#E5E7EB",
+              }}
+            />
+          )}
 
-              <p
-  className="
-    font-bold
-    text-xl
-  "
->
-  Em preparação
-</p>
-            </div>
+          <div
+            className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center text-white text-lg"
+            style={{
+              backgroundColor:
+                ativo
+                  ? corPrincipal
+                  : "#E5E7EB",
+              color:
+                ativo
+                  ? "#fff"
+                  : "#666",
+            }}
+          >
+            {item.icon}
           </div>
+
+          <span className="text-xs text-center mt-2 font-semibold">
+            {item.titulo}
+          </span>
+
+        </div>
+
+      );
+
+    })}
+
+  </div>
+
+</div>
 
           {/* ENDEREÇO */}
 
@@ -420,40 +481,18 @@ function nomePagamento() {
           </div>
         </div>
 
-        {/* INFO */}
-
-        <div
-          className="
-          bg-green-50
-          rounded-2xl
-          p-4
-          mt-5
-          text-center
-          text-green-700
-          "
-        >
-          Você pode acompanhar
-          seu pedido em tempo
-          real na próxima tela.
-        </div>
 
         {/* BOTÕES */}
 
        {/* BOTÕES */}
 
+
 <button
-  disabled={carregandoAcompanhar}
   onClick={() => {
-
-    if (carregandoAcompanhar) return;
-
-    setCarregandoAcompanhar(true);
-
-    setTimeout(() => {
-      window.location.href =
-        `/${slug}/acompanhar-pedido?id=${pedido.id}`;
-    }, 300);
-
+    window.open(
+      `https://wa.me/${pedido.telefone_restaurante}`,
+      "_blank"
+    );
   }}
   className="
     w-full
@@ -462,43 +501,15 @@ function nomePagamento() {
     text-white
     font-bold
     mt-5
-
-    flex
-    items-center
-    justify-center
-    gap-3
-
-    transition-all
-    duration-200
-
-    active:scale-95
-
-    disabled:opacity-70
-    disabled:cursor-not-allowed
   "
   style={{
     backgroundColor: corPrincipal,
   }}
 >
-  {carregandoAcompanhar ? (
-    <>
-      <div
-        className="
-          w-5
-          h-5
-          border-2
-          border-white/40
-          border-t-white
-          rounded-full
-          animate-spin
-        "
-      />
-      Carregando...
-    </>
-  ) : (
-    "Acompanhar pedido"
-  )}
+  Falar com o restaurante no WhatsApp
 </button>
+
+
 
 <button
   disabled={carregandoInicio}
@@ -514,17 +525,21 @@ setCarregandoInicio(true);
     }, 300);
 
   }}
-  className="
-    w-full
-    mt-4
-    font-semibold
-    transition-all
+className="
+w-full
+h-14
+mt-4
+rounded-xl
+border-2
+font-bold
+transition-all
 active:scale-95
-  "
-  style={{
-    color:
-      corPrincipal,
-  }}
+"
+style={{
+  color: corPrincipal,
+  borderColor: corPrincipal,
+}}
+
 >
   {carregandoInicio ? (
     <>
@@ -542,7 +557,7 @@ active:scale-95
       Carregando...
     </>
   ) : (
-    "Voltar para o início"
+    "Fazer um novo pedido"
   )}
 </button>
       </div>

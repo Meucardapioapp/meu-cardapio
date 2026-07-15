@@ -81,9 +81,7 @@ const { data: pedidos } = await supabase
   .from("pedidos")
   .select("*")
   .eq("restaurante_id", restauranteId)
-  .or(
-  "payment_method.eq.cash,payment_status.eq.approved"
-)
+  .neq("status", "cancelado")
   .gte(
     "created_at",
     inicioPeriodo.toISOString()

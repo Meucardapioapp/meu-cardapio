@@ -19,6 +19,11 @@ export default function RestaurantePage() {
   const [bairro, setBairro] = useState("")
   const [cidade, setCidade] = useState("")
   const [estado, setEstado] = useState("")
+  const [buscaEndereco, setBuscaEndereco] = useState("")
+const [resultadosBusca, setResultadosBusca] = useState<any[]>([])
+
+const [latitude, setLatitude] = useState<number | null>(null)
+const [longitude, setLongitude] = useState<number | null>(null)
   const [loadingCep, setLoadingCep] = useState(false)
   const [loadingSalvar, setLoadingSalvar] =
   useState(false)
@@ -63,36 +68,28 @@ async function carregarEndereco() {
   }
 }
 
-  async function buscarCEP(valor: string) {
-    const cepLimpo = valor.replace(/\D/g, "")
+async function buscarEndereco(texto: string) {
+  setBuscaEndereco(texto)
 
-    if (cepLimpo.length !== 8) return
-
-    try {
-      setLoadingCep(true)
-
-      const response = await fetch(
-        `https://viacep.com.br/ws/${cepLimpo}/json/`
-      )
-
-      const data = await response.json()
-
-      if (data.erro) {
-        alert("CEP não encontrado")
-        return
-      }
-
-      setEndereco(data.logradouro || "")
-      setBairro(data.bairro || "")
-      setCidade(data.localidade || "")
-      setEstado(data.uf || "")
-    } catch (error) {
-      console.log(error)
-      alert("Erro ao buscar CEP")
-    } finally {
-      setLoadingCep(false)
-    }
+  if (texto.length < 3) {
+    setResultadosBusca([])
+    return
   }
+
+  try {
+    const response = await fetch(
+      `/api/autocomplete?search=${encodeURIComponent(texto)}`
+    )
+
+    const data = await response.json()
+
+    setResultadosBusca(data)
+
+  } catch (error) {
+    console.log(error)
+    setResultadosBusca([])
+  }
+}
 
  async function salvarEndereco() {
   try {
@@ -127,6 +124,8 @@ async function carregarEndereco() {
           cidade,
           estado,
           complemento,
+          latitude,
+          longitude,
         })
         .eq("id", restauranteId)
 
@@ -256,22 +255,69 @@ return (
 
           <div>
 
-            <Input
-              value={cep}
-              placeholder="CEP"
-              className="h-14 rounded-2xl"
-              onChange={(e) => {
-  const valor = e.target.value
+<Input
+  value={buscaEndereco}
+  placeholder="Buscar endereço..."
+  className="h-14 rounded-2xl"
+  onChange={(e)=>{
+      buscarEndereco(e.target.value)
+  }}
+/>
 
-  setCep(valor)
+{resultadosBusca.length > 0 && (
 
-  if (
-    valor.replace(/\D/g, "").length === 8
-  ) {
-    buscarCEP(valor)
-  }
+<div className="bg-white border rounded-2xl mt-2 shadow">
+
+{resultadosBusca.map((item:any,index:number)=>(
+
+<button
+key={index}
+type="button"
+className="w-full text-left p-4 hover:bg-zinc-100"
+
+onClick={()=>{
+
+setBuscaEndereco("")
+
+setCep(item.properties.postcode || "")
+
+setEndereco(item.properties.street || "")
+
+setNumero(item.properties.housenumber || "")
+
+setBairro(
+item.properties.suburb ||
+item.properties.district ||
+""
+)
+
+setCidade(item.properties.city || "")
+
+setEstado(item.properties.state_code || "")
+
+setLatitude(item.properties.lat)
+
+setLongitude(item.properties.lon)
+
+setResultadosBusca([])
+
 }}
-            />
+
+>
+
+<div className="font-medium">
+
+{item.properties.formatted}
+
+</div>
+
+</button>
+
+))}
+
+</div>
+
+)}
 
             <p className="text-sm text-zinc-500 mt-2">
               Digite o CEP para preencher o endereço automaticamente.

@@ -5,6 +5,7 @@ declare global {
     Pagarme: any;
   }
 }
+import { supabase } from "@/lib/supabase";
 import creditCardType from "credit-card-type";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -64,6 +65,8 @@ export default function PagamentoPage() {
   const params = useParams();
   const slug = params.slug as string;
   const [carregandoPagamento, setCarregandoPagamento] = useState(false);
+  const [lojaAberta, setLojaAberta] = useState(true);
+
 
 const {
   logo,
@@ -88,6 +91,9 @@ console.log("LOGO:", logo);
     useState("pix");
 
     const [aceitaDinheiro, setAceitaDinheiro] =
+  useState(false);
+
+const [aceitaCartaoEntrega, setAceitaCartaoEntrega] =
   useState(false);
 
     const [nome, setNome] = useState("");
@@ -178,30 +184,93 @@ setComplemento(dados.complemento || "");
       );
     }
 
-const restauranteId =
-  localStorage.getItem("restaurante_id");
+    const { data: restaurante } = await supabase
+  .from("restaurantes")
+  .select("id")
+  .eq("slug", slug)
+  .single();
 
-console.log("RESTAURANTE ID:", restauranteId);
+if (restaurante) {
 
-if (restauranteId) {
+  const { data: aparencia } = await supabase
+    .from("aparencia")
+    .select("*")
+    .eq("restaurante_id", restaurante.id)
+    .single();
 
-  const url =
-  `/api/configuracoes-pagamento?restauranteId=${restauranteId}`;
+  if (aparencia) {
 
-console.log("URL:", url);
+    const agora = new Date();
 
-const response = await fetch(url);
+    const dias = [
+      "dom",
+      "seg",
+      "ter",
+      "qua",
+      "qui",
+      "sex",
+      "sab",
+    ];
 
- const config = await response.json();
+    const dia = dias[agora.getDay()];
 
-console.log("CONFIG:", config);
+    const inicio =
+      aparencia[`horario_${dia}_inicio`];
 
-  setAceitaDinheiro(
-    config?.dinheiro ?? false
+    const fim =
+      aparencia[`horario_${dia}_fim`];
+
+    if (inicio && fim) {
+
+      const [hi, mi] =
+        inicio.split(":").map(Number);
+
+      const [hf, mf] =
+        fim.split(":").map(Number);
+
+      const agoraMin =
+        agora.getHours() * 60 +
+        agora.getMinutes();
+
+      const inicioMin =
+        hi * 60 + mi;
+
+      const fimMin =
+        hf * 60 + mf;
+
+      setLojaAberta(
+        agoraMin >= inicioMin &&
+        agoraMin <= fimMin
+      );
+
+    } else {
+
+      setLojaAberta(false);
+
+    }
+
+  }
+
+}
+
+const { data: restauranteConfig } = await supabase
+  .from("restaurantes")
+  .select("id")
+  .eq("slug", slug)
+  .single();
+
+if (restauranteConfig) {
+
+  const response = await fetch(
+    `/api/configuracoes-pagamento?restauranteId=${restauranteConfig.id}`
   );
-  console.log("CONFIG PAGAMENTO:", config);
-console.log("ACEITA DINHEIRO:", config?.dinheiro);
 
+  const config = await response.json();
+
+  setAceitaDinheiro(config?.dinheiro ?? false);
+  setAceitaCartaoEntrega(config?.cartao_entrega ?? false);
+
+  console.log(config);
 }
 
 const carrinho = JSON.parse(
@@ -459,10 +528,12 @@ const totalPagamento =
           }
         />
 
-       <MetodoPagamento
-  id="credito"
-  titulo="Cartão de crédito"
-  descricao="Visa, Mastercard, Elo..."
+{aceitaCartaoEntrega && (
+
+<MetodoPagamento
+  id="cartao_entrega"
+  titulo="Cartão de crédito ou débito"
+  descricao="Pagamento na entrega"
   icon={
     <CreditCard
       size={22}
@@ -470,6 +541,9 @@ const totalPagamento =
     />
   }
 />
+
+)}
+
 
 {aceitaDinheiro && (
 
@@ -492,7 +566,7 @@ const totalPagamento =
 
       {/* RESUMO */}
 
- {formaPagamento === "credito" && (
+ {false && (
 
 <div
   className="
@@ -800,13 +874,23 @@ bg-red-200
       >
         <button
 disabled={carregandoPagamento}
- onClick={async () => {
+onClick={async () => {
+
+  if (!lojaAberta) {
+
+    alert(
+      "O restaurante está fechado e não está recebendo pedidos."
+    );
+
+    return;
+
+  }
 
   if (carregandoPagamento) return;
 
   setCarregandoPagamento(true);
 
-if (!validarCPF(cpf)) {
+  if (!validarCPF(cpf)) {
   alert("Informe um CPF válido.");
   setCarregandoPagamento(false);
   return;
@@ -876,13 +960,10 @@ total: totalPedido,
 totalPago: totalPagamento,
 
 payment_method:
-
-
-
-formaPagamento === "credito"
-  ? "credit_card"
-  : formaPagamento === "dinheiro"
+formaPagamento === "dinheiro"
   ? "cash"
+  : formaPagamento === "cartao_entrega"
+  ? "card_delivery"
   : "pix",
     }),
   }
@@ -934,227 +1015,41 @@ if (formaPagamento === "pix") {
   console.log("PIX COMPLETO:");
 console.log(resultado);
 
-  window.location.href =
-    `/${slug}/pix?id=${pedido.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
+localStorage.removeItem(`cart-${slug}`);
+localStorage.removeItem(`endereco-${slug}`);
+sessionStorage.removeItem(`sessao-${slug}`);
 
-  return;
+window.location.href =
+  `/${slug}/pix?id=${pedido.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
+
+return;
 }
 
-if (formaPagamento === "credito") {
+if (formaPagamento === "cartao_entrega") {
 
-  const [mes, ano] = validade.split("/");
-
-const payload = {
-  type: "card",
-
-  card: {
-    number: numeroCartao.replace(/\s/g, ""),
-    holder_name: nomeCartao,
-    exp_month: mes,
-    exp_year: `20${ano}`,
-    cvv,
-  },
-
-billing: {
-  address: {
-    line_1: `${rua}, ${numero}`,
-    line_2: complemento
-      ? `${complemento} - ${bairro}`
-      : bairro,
-    zip_code: cep.replace(/\D/g, ""),
-      city: cidade,
-      state: estado,
-      country: "BR",
-    },
-  },
-};
-   
-
-console.log("PAYLOAD:", payload);
-
-const tokenResponse = await fetch(
-  `https://api.pagar.me/core/v5/tokens?appId=${PUBLIC_KEY}`,
-  {
+  await fetch("/api/pedido/atualizar", {
     method: "POST",
-
     headers: {
       "Content-Type": "application/json",
     },
+    body: JSON.stringify({
+      pedidoId: pedido.id,
+      payment_status: "pending",
+      payment_method: "card_delivery",
+      status: "pendente",
+    }),
+  });
 
-   body: JSON.stringify(payload),
-  }
-);
+  localStorage.removeItem(`cart-${slug}`);
+  localStorage.removeItem(`endereco-${slug}`);
+  sessionStorage.removeItem(`sessao-${slug}`);
 
-const token = await tokenResponse.json();
-
-console.log("STATUS:", tokenResponse.status);
-console.log("TOKEN:", token);
-console.log("PAYLOAD:", payload);
-console.log("STATUS:", tokenResponse.status);
-console.log("TOKEN:", token);
-
-if (!token.id) {
-    setCarregandoPagamento(false);
-
-    alert(
-      token.message ||
-      JSON.stringify(token, null, 2)
-    );
-
-    return;
-}
-
-console.log("DADOS ENVIADOS PARA PAGAR.ME", {
-  nome,
-  email,
-  cpf,
-  whatsapp,
-  cep,
-  rua,
-  numero,
-  complemento,
-  bairro,
-  cidade,
-  estado,
-});
-
-const itens = JSON.parse(
-  localStorage.getItem(`cart-${slug}`) || "[]"
-);
-
-  const response = await fetch(
-    "/api/pagarme/criar-pagamento",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-  body: JSON.stringify({
-  total: totalPagamento,
-  restauranteId: localStorage.getItem("restaurante_id"),
-  pedidoId: pedido.id,
-
-  nome,
-  email,
-  cpf,
-  whatsapp,
-
-  rua,
-  numero,
-  complemento,
-  bairro,
-  cidade,
-  estado,
-  cep,
-
-  itens,
-
-  paymentMethod: "credit_card",
-
-  cardToken: token.id,
-}),
-    }
-  );
-
-const resultado = await response.json();
-
-console.log("PAGAMENTO:", resultado);
-
-if (
-  resultado.charges?.[0]?.status === "paid" ||
-  resultado.charges?.[0]?.status === "captured"
-) {
   window.location.href =
     `/${slug}/pedido-aprovado?id=${pedido.id}`;
 
   return;
 }
 
-setCarregandoPagamento(false);
-
-alert(
-  resultado.message ||
-  "Pagamento recusado."
-);
-
-}
-
-if (formaPagamento === "google") {
-
- if (!googlePayToken) {
-    setCarregandoPagamento(false);
-    alert("Primeiro conclua o Google Pay.");
-    return;
-}
-
-console.log("DADOS ENVIADOS PARA PAGAR.ME", {
-  nome,
-  email,
-  cpf,
-  whatsapp,
-  cep,
-  rua,
-  numero,
-  complemento,
-  bairro,
-  cidade,
-  estado,
-});
-
-  const response = await fetch(
-    "/api/pagarme/criar-pagamento",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        total: totalPagamento,
-        restauranteId: localStorage.getItem("restaurante_id"),
-        pedidoId: pedido.id,
-
-nome,
-email,
-cpf,
-whatsapp,
-
-rua,
-numero,
-complemento,
-bairro,
-cidade,
-estado,
-cep,
-
-itens,
-
-        paymentMethod: "google_pay",
-        googlePayToken,
-      }),
-    }
-  );
-
-  const resultado = await response.json();
-
-console.log(resultado);
-
-if (
-  resultado.charges?.[0]?.status === "paid" ||
-  resultado.charges?.[0]?.status === "captured"
-) {
-  window.location.href =
-    `/${slug}/pedido-aprovado?id=${pedido.id}`;
-
-  return;
-}
-
-setCarregandoPagamento(false);
-
-alert(
-  resultado.message ||
-  "Pagamento recusado."
-);
-}
 
 if (formaPagamento === "dinheiro") {
 
@@ -1171,10 +1066,14 @@ if (formaPagamento === "dinheiro") {
     }),
   });
 
-  window.location.href =
-    `/${slug}/pedido-aprovado?id=${pedido.id}`;
+localStorage.removeItem(`cart-${slug}`);
+localStorage.removeItem(`endereco-${slug}`);
+sessionStorage.removeItem(`sessao-${slug}`);
 
-  return;
+window.location.href =
+  `/${slug}/pedido-aprovado?id=${pedido.id}`;
+
+return;
 
 }
 
