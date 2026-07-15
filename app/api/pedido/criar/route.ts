@@ -9,6 +9,8 @@ const {
   restauranteId,
   nome,
   telefone,
+  cpf,
+  tipoPedido,
   endereco,
   bairro,
   rua,
@@ -47,9 +49,13 @@ const { data, error } =
           cliente: nome,
           nome,
 
-          telefone,
+ telefone,
 
-          endereco,
+cpf,
+
+tipo_pedido: tipoPedido,
+
+endereco,
 
 bairro,
 rua,

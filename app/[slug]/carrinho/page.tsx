@@ -12,6 +12,41 @@ export default function CarrinhoPage() {
   const slug = params.slug as string;
 
   const [cart, setCart] = useState<any[]>([]);
+  const [tipoPedido, setTipoPedido] =
+  useState<"entrega" | "retirada">("entrega");
+
+const [nomeRetirada, setNomeRetirada] =
+  useState("");
+
+const [cpfRetirada, setCpfRetirada] =
+  useState("");
+
+const [telefoneRetirada, setTelefoneRetirada] =
+  useState("");
+
+  function formatarCPF(valor: string) {
+  return valor
+    .replace(/\D/g, "")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
+    .slice(0, 14);
+}
+
+function formatarTelefone(valor: string) {
+  return valor
+    .replace(/\D/g, "")
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2")
+    .slice(0, 15);
+}
+
+const cpfValido =
+  cpfRetirada.replace(/\D/g, "").length === 11;
+
+const telefoneValido =
+  telefoneRetirada === "" ||
+  telefoneRetirada.replace(/\D/g, "").length === 11;
 
 const {
   logo,
@@ -720,6 +755,168 @@ style={{
   ))}
 </div>
 
+
+<div className="bg-white rounded-2xl p-5 mb-6 shadow-sm">
+
+  <h2 className="text-lg font-black mb-5">
+    Como deseja receber seu pedido?
+  </h2>
+
+  <div className="space-y-3">
+
+    <button
+      onClick={() => setTipoPedido("entrega")}
+      className={`w-full rounded-2xl border p-4 text-left transition-all ${
+        tipoPedido === "entrega"
+          ? "border-red-700 bg-red-50"
+          : "border-zinc-200"
+      }`}
+    >
+      <p className="font-bold">
+        🚴 Entrega
+      </p>
+
+      <p className="text-sm text-zinc-500 mt-1">
+        Receba o pedido no seu endereço.
+      </p>
+    </button>
+
+    <button
+      onClick={() => setTipoPedido("retirada")}
+      className={`w-full rounded-2xl border p-4 text-left transition-all ${
+        tipoPedido === "retirada"
+          ? "border-red-700 bg-red-50"
+          : "border-zinc-200"
+      }`}
+    >
+      <p className="font-bold">
+        🏪 Retirar no local
+      </p>
+
+      <p className="text-sm text-zinc-500 mt-1">
+        Retire seu pedido diretamente no local.
+      </p>
+    </button>
+
+  </div>
+
+</div>
+
+{tipoPedido === "retirada" && (
+
+  <div className="mt-5 border-t pt-5">
+
+    <div className="bg-zinc-50 rounded-xl p-4 mb-5">
+
+      <p className="font-bold">
+        📍 Endereço para retirada
+      </p>
+
+      <p className="text-sm text-zinc-600 mt-2">
+        {restauranteNome}
+      </p>
+
+      <p className="text-sm text-zinc-600">
+        Rua XXXXX, Nº XXX
+      </p>
+
+      <p className="text-sm text-zinc-600">
+        Bairro XXXXX
+      </p>
+
+    </div>
+
+    <div className="space-y-4">
+
+      <input
+        value={nomeRetirada}
+        onChange={(e)=>setNomeRetirada(e.target.value)}
+        placeholder="Seu nome"
+        className="w-full border rounded-xl p-4"
+      />
+
+<div className="relative">
+
+  <input
+    value={cpfRetirada}
+    onChange={(e) =>
+      setCpfRetirada(
+        formatarCPF(e.target.value)
+      )
+    }
+    placeholder="CPF"
+    inputMode="numeric"
+    className="w-full border rounded-xl p-4 pr-12"
+  />
+
+  {cpfRetirada !== "" && (
+    <div
+      className={`
+        absolute
+        right-4
+        top-1/2
+        -translate-y-1/2
+        w-3
+        h-3
+        rounded-full
+        ${
+          cpfValido
+            ? "bg-green-500"
+            : "bg-red-500"
+        }
+      `}
+    />
+  )}
+
+</div>
+
+<div className="relative">
+
+  <input
+    value={telefoneRetirada}
+    onChange={(e) =>
+      setTelefoneRetirada(
+        formatarTelefone(e.target.value)
+      )
+    }
+    placeholder="Telefone (opcional)"
+    inputMode="tel"
+    className="w-full border rounded-xl p-4 pr-12"
+  />
+
+  {telefoneRetirada !== "" && (
+    <div
+      className={`
+        absolute
+        right-4
+        top-1/2
+        -translate-y-1/2
+        w-3
+        h-3
+        rounded-full
+        ${
+          telefoneValido
+            ? "bg-green-500"
+            : "bg-red-500"
+        }
+      `}
+    />
+  )}
+
+</div>
+
+    </div>
+
+  </div>
+
+)}
+
+
+
+
+
+
+
 <div
   className="
     fixed
@@ -776,15 +973,49 @@ style={{
 
   if (carregando) return;
 
+  if (
+    tipoPedido === "retirada" &&
+    (!nomeRetirada || !cpfRetirada)
+  ) {
+
+    alert("Preencha seu nome e CPF.");
+
+    return;
+
+  }
+
   setCarregando(true);
 
-  setTimeout(() => {
+setTimeout(() => {
+
+  localStorage.setItem(
+    "tipoPedido",
+    tipoPedido
+  );
+
+  if (tipoPedido === "retirada") {
+
+    localStorage.setItem(
+      "dadosRetirada",
+      JSON.stringify({
+        nome: nomeRetirada,
+        cpf: cpfRetirada,
+        telefone: telefoneRetirada,
+      })
+    );
+
+    window.location.href = `/${slug}/pagamento`;
+
+  } else {
 
     window.location.href = `/${slug}/endereco`;
 
-  }, 250);
+  }
+
+}, 250);
 
 }}
+
   className="
     bg-[#16A34A]
     text-white

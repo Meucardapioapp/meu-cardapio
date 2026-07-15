@@ -58,6 +58,14 @@ if (!restaurante) return
 
 setRestauranteId(restaurante.id)
 
+setCidadeRestaurante(
+  restaurante.cidade || ""
+)
+
+setEstadoRestaurante(
+  restaurante.estado || ""
+)
+
 const { data: aparencia } =
   await supabase
     .from("aparencia")
@@ -160,7 +168,13 @@ const [cidade, setCidade] =
   useState("")
 
 const [estado, setEstado] =
-  useState("AM")
+  useState("")
+
+  const [cidadeRestaurante, setCidadeRestaurante] =
+  useState("")
+
+const [estadoRestaurante, setEstadoRestaurante] =
+  useState("")
 
 const [numero, setNumero] =
   useState("")
@@ -202,7 +216,7 @@ useEffect(() => {
   setReferencia(endereco.referencia || "");
   setBairro(endereco.bairro || "");
   setCidade(endereco.cidade || "");
-  setEstado(endereco.estado || "AM");
+  setEstado(endereco.estado || "");
 
   setTaxaEntrega(endereco.taxaEntrega || 0);
 
@@ -349,9 +363,13 @@ async function buscarEndereco(texto: string) {
 
   try {
 
-    const response = await fetch(
-      `/api/autocomplete?search=${encodeURIComponent(texto)}`
-    );
+ const response = await fetch(
+
+`/api/autocomplete?search=${encodeURIComponent(texto)}
+&cidade=${encodeURIComponent(cidadeRestaurante)}
+&estado=${encodeURIComponent(estadoRestaurante)}`
+
+);
 
     const data = await response.json();
 
@@ -500,7 +518,7 @@ setCidade(
 
 setEstado(
   data.address.state ||
-  "AM"
+  ""
 );
 
 

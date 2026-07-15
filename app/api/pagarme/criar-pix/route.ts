@@ -159,6 +159,9 @@ amount: Math.round(
     const data =
       await response.json();
 
+      console.log("RESPOSTA COMPLETA PAGARME");
+console.dir(data, { depth: null });
+
       await supabaseAdmin
   .from("pedidos")
   .update({

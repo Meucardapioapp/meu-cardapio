@@ -2,10 +2,11 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { supabase } from "@/lib/supabase"
 import Toast from "@/app/components/ui/toast"
+
 
 function gerarSlug(texto: string) {
   return texto
@@ -53,30 +54,63 @@ export default function CadastroPage() {
   const [buscaCidade, setBuscaCidade] = useState("");
 const [cidades, setCidades] = useState<any[]>([]);
 const [mostrarLista, setMostrarLista] = useState(false);
+const [estado, setEstado] = useState("");
+const [uf, setUf] = useState("");
+const [estados, setEstados] = useState<any[]>([]);
+
+useEffect(() => {
+
+  carregarEstados();
+
+}, []);
+
+async function carregarEstados() {
+
+  const response = await fetch(
+    "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
+  );
+
+  const data = await response.json();
+
+  setEstados(data);
+
+}
 
 async function buscarCidade(valor: string) {
+
   setBuscaCidade(valor);
 
-  if (valor.length < 2) {
-    setCidades([]);
-    setMostrarLista(false);
+  if (!uf) {
+
+    alert("Escolha primeiro um estado.");
+
     return;
+
   }
 
-  const resposta = await fetch(
-    "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
-  );
+  if (valor.length < 2) {
+
+    setMostrarLista(false);
+    setCidades([]);
+
+    return;
+
+  }
+
+const resposta = await fetch(
+
+`/api/cidades?uf=${uf}&search=${encodeURIComponent(valor)}`
+
+);
 
   const dados = await resposta.json();
 
-  const filtrados = dados
-    .filter((cidade: any) =>
-      cidade.nome.toLowerCase().includes(valor.toLowerCase())
-    )
-    .slice(0, 8);
+  console.log(dados);
 
-  setCidades(filtrados);
+  setCidades(dados);
+
   setMostrarLista(true);
+
 }
 
   async function cadastrar() {
@@ -171,22 +205,40 @@ async function buscarCidade(valor: string) {
   return
 }
 
+console.log("CIDADE:", cidade);
+console.log("ESTADO:", estado);
+console.log("UF:", uf);
+
       const {
         data: restaurante,
         error: restauranteError,
       } = await supabase
         .from("restaurantes")
-        .insert({
-          auth_user_id: user.id,
-          nome_responsavel: nomeResponsavel,
-          nome_restaurante: nomeRestaurante,
-          telefone,
-          whatsapp,
-          cidade,
-          slug,
-          categoria,
-          email,
-        })
+.insert({
+
+  auth_user_id: user.id,
+
+  nome_responsavel: nomeResponsavel,
+
+  nome_restaurante: nomeRestaurante,
+
+  telefone,
+
+  whatsapp,
+
+  cidade,
+
+  estado,
+
+  uf,
+
+  slug,
+
+  categoria,
+
+  email,
+
+})
         .select()
         .single()
 
@@ -360,6 +412,58 @@ async function buscarCidade(valor: string) {
               className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
             />
 
+<select
+
+  value={uf}
+
+  onChange={(e) => {
+
+    setUf(e.target.value);
+
+    const estadoSelecionado = estados.find(
+
+      (estado: any) => estado.sigla === e.target.value
+
+    );
+
+    setEstado(estadoSelecionado?.nome || "");
+
+    setCidade("");
+
+    setBuscaCidade("");
+
+  }}
+
+  className="w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4"
+
+>
+
+<option value="">
+
+Escolha o estado
+
+</option>
+
+{estados.map((estado: any) => (
+
+<option
+
+key={estado.id}
+
+value={estado.sigla}
+
+>
+
+{estado.nome}
+
+</option>
+
+))}
+
+</select>
+
+
+
 <div className="relative">
   <input
     type="text"
@@ -375,17 +479,20 @@ async function buscarCidade(valor: string) {
         <button
           type="button"
           key={cidadeItem.id}
-          onClick={() => {
-            const texto =
-              `${cidadeItem.nome} - ${cidadeItem.microrregiao.mesorregiao.UF.sigla}`;
+onClick={() => {
 
-            setCidade(texto);
-            setBuscaCidade(texto);
-            setMostrarLista(false);
-          }}
+  setCidade(cidadeItem.nome);
+
+  setBuscaCidade(
+    `${cidadeItem.nome} - ${uf}`
+  );
+
+  setMostrarLista(false);
+
+}}
           className="block w-full px-4 py-3 text-left hover:bg-zinc-100"
         >
-          {cidadeItem.nome} - {cidadeItem.microrregiao.mesorregiao.UF.sigla}
+   {cidadeItem.nome} - {uf}
         </button>
       ))}
     </div>

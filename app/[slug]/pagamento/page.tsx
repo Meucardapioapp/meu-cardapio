@@ -142,6 +142,11 @@ const PUBLIC_KEY =
 
   async function carregarConfiguracaoPagamento() {
 
+
+const ehRetirada =
+  localStorage.getItem("tipoPedido") === "retirada";
+
+
     const endereco =
       localStorage.getItem(
         `endereco-${slug}`
@@ -150,6 +155,9 @@ const PUBLIC_KEY =
     if (endereco) {
       const dados =
         JSON.parse(endereco);
+
+const ehRetirada =
+  localStorage.getItem("tipoPedido") === "retirada";
 
         setNome(dados.nome || "");
 setCpf(dados.cpf || "");
@@ -177,11 +185,11 @@ setComplemento(dados.complemento || "");
         )
       );
 
-      setTaxaEntrega(
-        Number(
-          dados.taxaEntrega || 0
-        )
-      );
+setTaxaEntrega(
+  ehRetirada
+    ? 0
+    : Number(dados.taxaEntrega || 0)
+);
     }
 
     const { data: restaurante } = await supabase
@@ -278,6 +286,17 @@ const carrinho = JSON.parse(
     `cart-${slug}`
   ) || "[]"
 );
+
+const subtotalCarrinho = carrinho.reduce(
+  (acc: number, item: any) =>
+    acc + Number(item.preco) * Number(item.quantity),
+  0
+);
+
+if (ehRetirada) {
+  setSubtotal(subtotalCarrinho);
+  setTaxaEntrega(0);
+}
 
 setQuantidadeItens(
   carrinho.reduce(
@@ -415,9 +434,22 @@ const totalPagamento =
         "
       >
         <button
-  onClick={() => {
+ onClick={() => {
+
+  const tipoPedido =
+    localStorage.getItem("tipoPedido");
+
+  if (tipoPedido === "retirada") {
+
+    window.location.href = `/${slug}/carrinho`;
+
+  } else {
+
     window.location.href = `/${slug}/endereco`;
-  }}
+
+  }
+
+}}
   className="
     w-12
     h-12
@@ -890,7 +922,24 @@ onClick={async () => {
 
   setCarregandoPagamento(true);
 
-  if (!validarCPF(cpf)) {
+ const dadosRetirada = JSON.parse(
+  localStorage.getItem("dadosRetirada") || "{}"
+);
+
+const ehRetirada =
+  localStorage.getItem("tipoPedido") === "retirada";
+
+const cpfValidar = ehRetirada
+  ? dadosRetirada.cpf
+  : cpf;
+
+  console.log("TIPO PEDIDO:", localStorage.getItem("tipoPedido"));
+console.log("DADOS RETIRADA:", dadosRetirada);
+console.log("CPF RETIRADA:", dadosRetirada.cpf);
+console.log("CPF ENTREGA:", cpf);
+
+
+if (!validarCPF(cpfValidar)) {
   alert("Informe um CPF válido.");
   setCarregandoPagamento(false);
   return;
@@ -908,6 +957,7 @@ console.log("totalPedido:", totalPedido);
 console.log("totalPagamento:", totalPagamento);
 console.log("===============================");
 
+
 const pedidoResponse = await fetch(
   "/api/pedido/criar",
   {
@@ -923,19 +973,34 @@ const pedidoResponse = await fetch(
       restauranteId:
         localStorage.getItem("restaurante_id"),
 
-      nome,
+ nome: ehRetirada
+  ? dadosRetirada.nome
+  : nome,
 
-      telefone: whatsapp,
+telefone: ehRetirada
+  ? dadosRetirada.telefone
+  : whatsapp,
 
-      endereco: `${rua}, ${numero}`,
+cpf: ehRetirada
+  ? dadosRetirada.cpf
+  : cpf,
 
-bairro,
+tipoPedido:
+  localStorage.getItem("tipoPedido") === "retirada"
+    ? "retirada"
+    : "entrega",
 
-rua,
+      endereco: ehRetirada
+  ? "Retirada no local"
+  : `${rua}, ${numero}`,
 
-numero,
+bairro: ehRetirada ? "" : bairro,
 
-complemento,
+rua: ehRetirada ? "" : rua,
+
+numero: ehRetirada ? "" : numero,
+
+complemento: ehRetirada ? "" : complemento,
 
 referencia: localStorage.getItem(`endereco-${slug}`)
   ? JSON.parse(localStorage.getItem(`endereco-${slug}`)!).referencia
@@ -989,6 +1054,7 @@ console.log("PEDIDO ID:", pedido.id);
 const itens = JSON.parse(
   localStorage.getItem(`cart-${slug}`) || "[]"
 );
+console.log(itens);
 
 if (formaPagamento === "pix") {
 
@@ -999,28 +1065,40 @@ if (formaPagamento === "pix") {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        total: totalPagamento,
-        restauranteId: localStorage.getItem("restaurante_id"),
-        pedidoId: pedido.id,
-        nome,
-        cpf,
-        whatsapp,
-      }),
+
+
+body: JSON.stringify({
+  total: totalPagamento,
+  restauranteId: localStorage.getItem("restaurante_id"),
+  pedidoId: pedido.id,
+
+  nome: ehRetirada
+    ? dadosRetirada.nome
+    : nome,
+
+  cpf: ehRetirada
+    ? dadosRetirada.cpf
+    : cpf,
+
+  whatsapp: ehRetirada
+    ? dadosRetirada.telefone
+    : whatsapp,
+}),
+
+
     }
   );
 
   const resultado = await response.json();
 
+  console.log("RETORNO PAGARME:");
+console.dir(resultado, { depth: null });
+
   console.log("PIX COMPLETO:");
 console.log(resultado);
 
-localStorage.removeItem(`cart-${slug}`);
-localStorage.removeItem(`endereco-${slug}`);
-sessionStorage.removeItem(`sessao-${slug}`);
-
 window.location.href =
-  `/${slug}/pix?id=${pedido.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
+`/${slug}/pix?id=${pedido.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
 
 return;
 }
@@ -1042,6 +1120,7 @@ if (formaPagamento === "cartao_entrega") {
 
   localStorage.removeItem(`cart-${slug}`);
   localStorage.removeItem(`endereco-${slug}`);
+  localStorage.removeItem("dadosRetirada");  
   sessionStorage.removeItem(`sessao-${slug}`);
 
   window.location.href =
@@ -1068,6 +1147,7 @@ if (formaPagamento === "dinheiro") {
 
 localStorage.removeItem(`cart-${slug}`);
 localStorage.removeItem(`endereco-${slug}`);
+localStorage.removeItem("dadosRetirada");
 sessionStorage.removeItem(`sessao-${slug}`);
 
 window.location.href =

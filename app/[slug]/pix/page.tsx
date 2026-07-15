@@ -139,19 +139,25 @@ const [nomeRestaurante, setNomeRestaurante] =
         const data =
           await response.json();
 
-        if (
-          data.payment_status ===
-          "approved"
-        ) {
-          clearInterval(intervalo);
+if (
+  data.payment_status ===
+  "approved"
+) {
+  clearInterval(intervalo);
 
-          setPagamentoAprovado(true);
+  setPagamentoAprovado(true);
 
-          setTimeout(() => {
-            window.location.href =
-              `/${slug}/pedido-aprovado?id=${pedidoId}`;
-          }, 1000);
-        }
+  localStorage.removeItem(`cart-${slug}`);
+  localStorage.removeItem(`endereco-${slug}`);
+  localStorage.removeItem("dadosRetirada");
+  localStorage.removeItem("tipoPedido");
+  sessionStorage.removeItem(`sessao-${slug}`);
+
+  setTimeout(() => {
+    window.location.href =
+      `/${slug}/pedido-aprovado?id=${pedidoId}`;
+  }, 1000);
+}
       } catch {}
     }, 3000);
 
