@@ -158,6 +158,7 @@ console.log(
   distanciaKm
 )
 
+
 if (distanciaKm == null) {
   return NextResponse.json(
     {
@@ -180,6 +181,22 @@ if (!taxaEntrega) {
       erro: "Configuração de entrega não encontrada",
     },
     { status: 404 }
+  )
+}
+
+if (
+  taxaEntrega.tipo === "distancia" &&
+  distanciaKm > Number(taxaEntrega.raio_maximo_km)
+) {
+  return NextResponse.json(
+    {
+      sucesso: false,
+      foraDaArea: true,
+      distanciaKm,
+      raioMaximo: taxaEntrega.raio_maximo_km,
+      erro: "Este endereço está fora da área de entrega.",
+    },
+    { status: 400 }
   )
 }
 

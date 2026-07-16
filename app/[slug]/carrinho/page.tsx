@@ -58,6 +58,24 @@ const {
   const [restauranteNome, setRestauranteNome] =
   useState("");
 
+  const [ruaRestaurante, setRuaRestaurante] =
+  useState("");
+
+  const [pedidoMinimo, setPedidoMinimo] =
+  useState(0);
+
+const [numeroRestaurante, setNumeroRestaurante] =
+  useState("");
+
+const [bairroRestaurante, setBairroRestaurante] =
+  useState("");
+
+const [cidadeRestaurante, setCidadeRestaurante] =
+  useState("");
+
+const [estadoRestaurante, setEstadoRestaurante] =
+  useState("");
+
 const [totalItens, setTotalItens] =
   useState(0);
 
@@ -161,6 +179,23 @@ if (aparencia) {
     if (!restaurante) return;
 
 setRestauranteNome(restaurante.nome);
+
+setRuaRestaurante(restaurante.endereco || "");
+
+setNumeroRestaurante(restaurante.numero || "");
+
+setBairroRestaurante(restaurante.bairro || "");
+
+setCidadeRestaurante(restaurante.cidade || "");
+
+setEstadoRestaurante(restaurante.estado || "");
+
+
+const minimo = Number(aparencia?.pedido_minimo || 0);
+
+console.log("Pedido mínimo:", minimo);
+
+setPedidoMinimo(minimo);
 
     const { data: produtos } =
   await supabase
@@ -321,6 +356,12 @@ if (produtos) {
         Number(item.quantity),
     0
   );
+
+  console.log({
+  total,
+  pedidoMinimo,
+  bloqueado: total < pedidoMinimo,
+});
 
   return (
     <main
@@ -816,13 +857,20 @@ style={{
         {restauranteNome}
       </p>
 
-      <p className="text-sm text-zinc-600">
-        Rua XXXXX, Nº XXX
-      </p>
+ <p className="text-sm text-zinc-600">
+  {ruaRestaurante}
+  {numeroRestaurante
+    ? `, Nº ${numeroRestaurante}`
+    : ""}
+</p>
 
-      <p className="text-sm text-zinc-600">
-        Bairro XXXXX
-      </p>
+<p className="text-sm text-zinc-600">
+  {bairroRestaurante}
+</p>
+
+<p className="text-sm text-zinc-600">
+  {cidadeRestaurante} - {estadoRestaurante}
+</p>
 
     </div>
 
@@ -929,132 +977,152 @@ style={{
     backgroundColor: corPrincipal,
   }}
       >
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-          "
-        >
-          <div>
-<p
-  className="
-    text-sm
-    text-white
-  "
->
-  Subtotal ({totalItens} itens)
-</p>
 
-<p
-  className="
-    text-2xl
-    font-black
-    text-white
-  "
->
-              R$ {total.toFixed(2)}
-            </p>
-          </div>
 
-<button
-  disabled={carregando}
- onClick={() => {
+<div className="space-y-3">
 
-  if (!lojaAberta) {
+  {total < pedidoMinimo && (
 
-    alert(
-      "O restaurante está fechado e não está recebendo pedidos."
-    );
+    <div
+      className="
+        bg-white/15
+        rounded-xl
+        px-4
+        py-3
+      "
+    >
+      <p className="text-white text-sm">
 
-    return;
+        Faltam{" "}
 
-  }
+        <span className="font-bold">
+          R$ {(pedidoMinimo - total).toFixed(2)}
+        </span>
 
-  if (carregando) return;
+        {" "}para atingir o pedido mínimo de{" "}
 
-  if (
-    tipoPedido === "retirada" &&
-    (!nomeRetirada || !cpfRetirada)
-  ) {
+        <span className="font-bold">
+          R$ {pedidoMinimo.toFixed(2)}
+        </span>
 
-    alert("Preencha seu nome e CPF.");
+      </p>
 
-    return;
+    </div>
 
-  }
-
-  setCarregando(true);
-
-setTimeout(() => {
-
-  localStorage.setItem(
-    "tipoPedido",
-    tipoPedido
-  );
-
-  if (tipoPedido === "retirada") {
-
-    localStorage.setItem(
-      "dadosRetirada",
-      JSON.stringify({
-        nome: nomeRetirada,
-        cpf: cpfRetirada,
-        telefone: telefoneRetirada,
-      })
-    );
-
-    window.location.href = `/${slug}/pagamento`;
-
-  } else {
-
-    window.location.href = `/${slug}/endereco`;
-
-  }
-
-}, 250);
-
-}}
-
-  className="
-    bg-[#16A34A]
-    text-white
-    px-6
-    py-4
-    rounded-xl
-    font-bold
-    transition-all
-    duration-200
-    active:scale-95
-    disabled:opacity-80
-    disabled:cursor-not-allowed
-    min-w-[210px]
-    flex
-    items-center
-    justify-center
-    gap-3
-  "
->
-  {carregando ? (
-    <>
-      <div
-        className="
-          w-5
-          h-5
-          border-2
-          border-white/40
-          border-t-white
-          rounded-full
-          animate-spin
-        "
-      />
-      Carregando...
-    </>
-  ) : (
-    "Continuar"
   )}
-</button>
-        </div>
+
+  <div
+    className="
+      flex
+      items-center
+      justify-between
+      gap-4
+    "
+  >
+
+    <div>
+
+      <p className="text-sm text-white/80">
+        Subtotal
+      </p>
+
+      <p className="text-3xl font-black text-white">
+        R$ {total.toFixed(2)}
+      </p>
+
+    </div>
+
+    <button
+      disabled={
+        carregando ||
+        total < pedidoMinimo
+      }
+      onClick={() => {
+
+        if (!lojaAberta) {
+
+          alert(
+            "O restaurante está fechado e não está recebendo pedidos."
+          );
+
+          return;
+
+        }
+
+        if (total < pedidoMinimo) {
+
+          alert(
+            `O pedido mínimo é de R$ ${pedidoMinimo.toFixed(2)}.`
+          );
+
+          return;
+
+        }
+
+        if (carregando) return;
+
+        if (
+          tipoPedido === "retirada" &&
+          (!nomeRetirada || !cpfRetirada)
+        ) {
+
+          alert("Preencha seu nome e CPF.");
+
+          return;
+
+        }
+
+        setCarregando(true);
+
+        setTimeout(() => {
+
+          localStorage.setItem(
+            "tipoPedido",
+            tipoPedido
+          );
+
+          if (tipoPedido === "retirada") {
+
+            localStorage.setItem(
+              "dadosRetirada",
+              JSON.stringify({
+                nome: nomeRetirada,
+                cpf: cpfRetirada,
+                telefone: telefoneRetirada,
+              })
+            );
+
+            window.location.href = `/${slug}/pagamento`;
+
+          } else {
+
+            window.location.href = `/${slug}/endereco`;
+
+          }
+
+        }, 250);
+
+      }}
+
+      className="
+        bg-[#16A34A]
+        text-white
+        px-6
+        py-4
+        rounded-xl
+        font-bold
+        min-w-[190px]
+        transition-all
+        disabled:opacity-80
+      "
+    >
+      {carregando ? "Carregando..." : "Continuar"}
+    </button>
+
+  </div>
+
+</div>
+
       </div>
     </main>
   );

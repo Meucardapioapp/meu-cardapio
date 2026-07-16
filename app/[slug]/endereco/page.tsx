@@ -152,12 +152,6 @@ const [subtotal, setSubtotal] =
   const [cep, setCep] =
   useState("")
 
-  const [buscaEndereco, setBuscaEndereco] =
-  useState("")
-
-const [resultadosBusca, setResultadosBusca] =
-  useState<any[]>([])
-
 const [rua, setRua] =
   useState("")
 
@@ -192,6 +186,9 @@ const [complemento, setComplemento] = useState("");
 const [referencia, setReferencia] = useState("");
 
 const [freteCalculado, setFreteCalculado] =
+  useState(false)
+
+  const [foraDaArea, setForaDaArea] =
   useState(false)
 
   const [carregandoFrete, setCarregandoFrete] =
@@ -319,71 +316,79 @@ function validarCPF(cpf: string) {
   return resto === Number(cpf[10]);
 }
 
-async function buscarCEP() {
+async function buscarCEP(cepDigitado: string) {
 
-  if (!cep) return
+const cepLimpo =
+  cepDigitado.replace(/\D/g, "");
 
-  const response =
-    await fetch(
-      `https://viacep.com.br/ws/${cep.replace(/\D/g, "")}/json`
-    )
+if (cepLimpo.length !== 8) {
 
-  const data =
-    await response.json()
+  setRua("");
+  setNumero("");
+  setComplemento("");
+  setReferencia("");
+  setBairro("");
+  setCidade("");
+  setEstado("");
 
-  setRua(
-    data.logradouro || ""
-  )
+  resetarFrete();
 
-  setBairro(
-    data.bairro || ""
-  )
-
-  setCidade(
-    data.localidade || ""
-  )
-
-  setEstado(
-    data.uf || ""
-  )
+  return;
 }
-
-
-async function buscarEndereco(texto: string) {
-
-  setBuscaEndereco(texto);
-
-  if (texto.trim().length < 3) {
-
-    setResultadosBusca([]);
-
-    return;
-
-  }
 
   try {
 
- const response = await fetch(
-
-`/api/autocomplete?search=${encodeURIComponent(texto)}
-&cidade=${encodeURIComponent(cidadeRestaurante)}
-&estado=${encodeURIComponent(estadoRestaurante)}`
-
-);
+    const response = await fetch(
+      `https://viacep.com.br/ws/${cepLimpo}/json`
+    );
 
     const data = await response.json();
 
-    setResultadosBusca(data);
+    console.log(data);
 
-  } catch (error) {
+if (data.erro) {
 
-    console.error(error);
+  setRua("");
+  setNumero("");
+  setComplemento("");
+  setReferencia("");
+  setBairro("");
+  setCidade("");
+  setEstado("");
 
-    setResultadosBusca([]);
+  resetarFrete();
 
-  }
+  alert("CEP não encontrado.");
+
+  return;
 
 }
+
+    setRua(data.logradouro || "");
+    setBairro(data.bairro || "");
+    setCidade(data.localidade || "");
+    setEstado(data.uf || "");
+
+    resetarFrete();
+
+} catch {
+
+  setRua("");
+  setNumero("");
+  setComplemento("");
+  setReferencia("");
+  setBairro("");
+  setCidade("");
+  setEstado("");
+
+  resetarFrete();
+
+  alert("Erro ao buscar o CEP.");
+
+}
+
+}
+
 
 
 async function calcularFrete() {
@@ -434,11 +439,23 @@ if (
 
 console.log("STATUS:", response.status)
 console.log("RESPOSTA:", data)
+console.log("FAIXA:", data.faixaFrete);
 
 setCarregandoFrete(false)
 
 if (!response.ok) {
-  alert(data.error || "Erro ao calcular frete")
+
+if (data.foraDaArea) {
+
+  setForaDaArea(true)
+
+  resetarFrete()
+
+  return
+}
+
+  alert(data.erro || "Erro ao calcular frete")
+
   return
 }
 
@@ -447,6 +464,8 @@ if (!data.faixaFrete) {
   alert("Nenhuma faixa encontrada.")
   return
 }
+
+setForaDaArea(false)
 
 setTaxaEntrega(Number(data.faixaFrete.valor))
 
@@ -465,6 +484,8 @@ function resetarFrete() {
   setFreteCalculado(false)
 
   setTaxaEntrega(0)
+
+  setForaDaArea(false)
 
 }
 
@@ -920,113 +941,37 @@ autoComplete="tel"
 
 <div>
 
-<p
-className="
-text-xs
-font-semibold
-mb-1
-text-zinc-700
-"
->
-Buscar endereço
-</p>
+  <p className="text-xs font-semibold mb-1">
+    CEP
+  </p>
 
-<input
+  <input
+    value={cep}
+    onChange={(e) => {
 
-value={buscaEndereco}
+      const valor = e.target.value;
 
-onChange={(e)=>
-buscarEndereco(e.target.value)
+      setCep(valor);
+
+      resetarFrete();
+
+if (valor.replace(/\D/g, "").length === 8) {
+  buscarCEP(valor);
 }
 
-placeholder="Digite sua rua..."
-
-className="
-w-full
-bg-white
-rounded-xl
-border
-p-4
-"
-
-/>
-
-</div>
-
-
-{resultadosBusca.length > 0 && (
-
-<div
-className="
-bg-white
-border
-rounded-xl
-overflow-hidden
-shadow-lg
-mt-2
-"
->
-
-{resultadosBusca.map((item,index)=>(
-
-<button
-
-key={index}
-
-type="button"
-
-className="
-w-full
-text-left
-p-4
-hover:bg-zinc-100
-border-b
-"
-
-onClick={()=>{
-
-setBuscaEndereco("");
-
-setRua(item.properties.street || "");
-
-setNumero("");
-
-setBairro(
-  item.properties.suburb ||
-  item.properties.district ||
-  ""
-);
-
-setCidade(
-  item.properties.city ||
-  ""
-);
-
-setEstado(
-  item.properties.state_code ||
-  ""
-);
-
-setCep(
-  item.properties.postcode ||
-  ""
-);
-
-setResultadosBusca([]);
-
-}}
-
->
-
-{item.properties.formatted}
-
-</button>
-
-))}
+    }}
+    placeholder="00000-000"
+    className="
+      w-full
+      bg-white
+      rounded-xl
+      border
+      p-4
+    "
+  />
 
 </div>
 
-)}
 
   {/* RUA */}
 
@@ -1039,17 +984,15 @@ setResultadosBusca([]);
     <input
       value={rua}
       readOnly
-      onChange={(e) => {
-        setRua(e.target.value)
-        resetarFrete()
-      }}
-      className="
-        w-full
-        bg-white
-        rounded-xl
-        border
-        p-4
-      "
+className="
+  w-full
+  bg-zinc-100
+  rounded-xl
+  border
+  p-4
+  text-zinc-500
+  cursor-not-allowed
+"
     />
 
   </div>
@@ -1117,63 +1060,83 @@ setResultadosBusca([]);
 
   </div>
 
-  {/* BAIRRO + CIDADE */}
+ {/* BAIRRO + CIDADE + ESTADO */}
 
-  <div
-    className="
-      grid
-      grid-cols-2
-      gap-3
-    "
-  >
+<div
+  className="
+    grid
+    grid-cols-3
+    gap-3
+  "
+>
 
-    <div>
+  <div>
 
-      <p className="text-xs font-semibold mb-1">
-        Bairro
-      </p>
+    <p className="text-xs font-semibold mb-1">
+      Bairro
+    </p>
 
-      <input
-        value={bairro}
-        onChange={(e) => {
-          setBairro(e.target.value)
-          resetarFrete()
-        }}
-        className="
-          w-full
-          bg-white
-          rounded-xl
-          border
-          p-4
-        "
-      />
-
-    </div>
-
-    <div>
-
-      <p className="text-xs font-semibold mb-1">
-        Cidade
-      </p>
-
-      <input
-        value={cidade}
-        onChange={(e) => {
-          setCidade(e.target.value)
-          resetarFrete()
-        }}
-        className="
-          w-full
-          bg-white
-          rounded-xl
-          border
-          p-4
-        "
-      />
-
-    </div>
+    <input
+      value={bairro}
+      readOnly
+className="
+  w-full
+  bg-zinc-100
+  rounded-xl
+  border
+  p-4
+  text-zinc-500
+  cursor-not-allowed
+"
+    />
 
   </div>
+
+  <div>
+
+    <p className="text-xs font-semibold mb-1">
+      Cidade
+    </p>
+
+    <input
+      value={cidade}
+      readOnly
+className="
+  w-full
+  bg-zinc-100
+  rounded-xl
+  border
+  p-4
+  text-zinc-500
+  cursor-not-allowed
+"
+    />
+
+  </div>
+
+  <div>
+
+    <p className="text-xs font-semibold mb-1">
+      Estado
+    </p>
+
+    <input
+      value={estado}
+      readOnly
+className="
+  w-full
+  bg-zinc-100
+  rounded-xl
+  border
+  p-4
+  text-zinc-500
+  cursor-not-allowed
+"
+    />
+
+  </div>
+
+</div>
 
   {/* REFERENCIA */}
 
@@ -1239,6 +1202,35 @@ carregandoFrete
 }
 
 </button>
+
+{foraDaArea && (
+
+  <div
+    className="
+      mt-5
+      rounded-2xl
+      border
+      border-red-200
+      bg-red-50
+      p-4
+    "
+  >
+
+    <p className="font-bold text-red-700">
+      Fora da área de entrega
+    </p>
+
+    <p className="text-sm text-red-600 mt-1">
+      Infelizmente este endereço está fora da área de atendimento deste restaurante.
+    </p>
+
+    <p className="text-sm text-red-600 mt-2">
+      Verifique o CEP ou informe outro endereço.
+    </p>
+
+  </div>
+
+)}
 
       {/* ENTREGA */}
 

@@ -19,8 +19,6 @@ export default function RestaurantePage() {
   const [bairro, setBairro] = useState("")
   const [cidade, setCidade] = useState("")
   const [estado, setEstado] = useState("")
-  const [buscaEndereco, setBuscaEndereco] = useState("")
-const [resultadosBusca, setResultadosBusca] = useState<any[]>([])
 
 const [latitude, setLatitude] = useState<number | null>(null)
 const [longitude, setLongitude] = useState<number | null>(null)
@@ -64,31 +62,87 @@ async function carregarEndereco() {
       data.complemento || ""
     )
   } catch (error) {
-    console.log(error)
-  }
+
+  console.log(error)
+
+  setEndereco("")
+  setBairro("")
+  setCidade("")
+  setEstado("")
+  setLatitude(null)
+  setLongitude(null)
+
+}
 }
 
-async function buscarEndereco(texto: string) {
-  setBuscaEndereco(texto)
+async function buscarCEP(valor: string) {
 
-  if (texto.length < 3) {
-    setResultadosBusca([])
-    return
-  }
+const cepLimpo = valor.replace(/\D/g, "")
+
+if (cepLimpo.length !== 8) {
+
+  setEndereco("")
+  setBairro("")
+  setCidade("")
+  setEstado("")
+  setLatitude(null)
+  setLongitude(null)
+
+  return
+}
 
   try {
+
+    setLoadingCep(true)
+
     const response = await fetch(
-      `/api/autocomplete?search=${encodeURIComponent(texto)}`
+      `https://viacep.com.br/ws/${cepLimpo}/json`
     )
 
     const data = await response.json()
 
-    setResultadosBusca(data)
+if (data.erro) {
+
+  setEndereco("")
+  setBairro("")
+  setCidade("")
+  setEstado("")
+  setLatitude(null)
+  setLongitude(null)
+
+  alert("CEP não encontrado.")
+
+  return
+}
+
+    setEndereco(data.logradouro || "")
+    setBairro(data.bairro || "")
+    setCidade(data.localidade || "")
+    setEstado(data.uf || "")
+
+    const geo = await fetch(
+  `/api/autocomplete?search=${encodeURIComponent(
+    `${data.logradouro}, ${data.localidade}, ${data.uf}`
+  )}`
+)
+
+const geoData = await geo.json()
+
+if (geoData.length > 0) {
+  setLatitude(geoData[0].properties.lat)
+  setLongitude(geoData[0].properties.lon)
+}
 
   } catch (error) {
+
     console.log(error)
-    setResultadosBusca([])
+
+  } finally {
+
+    setLoadingCep(false)
+
   }
+
 }
 
  async function salvarEndereco() {
@@ -256,71 +310,22 @@ return (
           <div>
 
 <Input
-  value={buscaEndereco}
-  placeholder="Buscar endereço..."
+  value={cep}
+  placeholder="CEP"
   className="h-14 rounded-2xl"
-  onChange={(e)=>{
-      buscarEndereco(e.target.value)
+  onChange={(e) => {
+
+    const valor = e.target.value
+
+    setCep(valor)
+
+    buscarCEP(valor)
+
   }}
 />
 
-{resultadosBusca.length > 0 && (
-
-<div className="bg-white border rounded-2xl mt-2 shadow">
-
-{resultadosBusca.map((item:any,index:number)=>(
-
-<button
-key={index}
-type="button"
-className="w-full text-left p-4 hover:bg-zinc-100"
-
-onClick={()=>{
-
-setBuscaEndereco("")
-
-setCep(item.properties.postcode || "")
-
-setEndereco(item.properties.street || "")
-
-setNumero(item.properties.housenumber || "")
-
-setBairro(
-item.properties.suburb ||
-item.properties.district ||
-""
-)
-
-setCidade(item.properties.city || "")
-
-setEstado(item.properties.state_code || "")
-
-setLatitude(item.properties.lat)
-
-setLongitude(item.properties.lon)
-
-setResultadosBusca([])
-
-}}
-
->
-
-<div className="font-medium">
-
-{item.properties.formatted}
-
-</div>
-
-</button>
-
-))}
-
-</div>
-
-)}
-
             <p className="text-sm text-zinc-500 mt-2">
-              Digite o CEP para preencher o endereço automaticamente.
+ Digite o CEP do restaurante. O endereço será preenchido automaticamente.
             </p>
 
             {loadingCep && (
@@ -333,14 +338,12 @@ setResultadosBusca([])
 
           {/* ENDEREÇO */}
 
-          <Input
-            value={endereco}
-            onChange={(e) =>
-              setEndereco(e.target.value)
-            }
-            placeholder="Endereço"
-            className="h-14 rounded-2xl"
-          />
+<Input
+  value={endereco}
+  readOnly
+  placeholder="Endereço"
+  className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
+/>
 
           {/* NÚMERO + BAIRRO */}
 
@@ -355,14 +358,12 @@ setResultadosBusca([])
               className="h-14 rounded-2xl"
             />
 
-            <Input
-              value={bairro}
-              onChange={(e) =>
-                setBairro(e.target.value)
-              }
-              placeholder="Bairro"
-              className="h-14 rounded-2xl"
-            />
+<Input
+  value={bairro}
+  readOnly
+  placeholder="Bairro"
+  className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
+/>
 
           </div>
 
@@ -370,23 +371,19 @@ setResultadosBusca([])
 
           <div className="grid md:grid-cols-2 gap-4">
 
-            <Input
-              value={cidade}
-              onChange={(e) =>
-                setCidade(e.target.value)
-              }
-              placeholder="Cidade"
-              className="h-14 rounded-2xl"
-            />
+<Input
+  value={cidade}
+  readOnly
+  placeholder="Cidade"
+  className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
+/>
 
-            <Input
-              value={estado}
-              onChange={(e) =>
-                setEstado(e.target.value)
-              }
-              placeholder="Estado"
-              className="h-14 rounded-2xl"
-            />
+<Input
+  value={estado}
+  readOnly
+  placeholder="Estado"
+  className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
+/>
 
           </div>
 

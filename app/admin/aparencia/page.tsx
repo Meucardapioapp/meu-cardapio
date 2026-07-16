@@ -115,17 +115,17 @@ const [statusAssinatura, setStatusAssinatura] =
         return
       }
 
-      const {
+const {
   data: restaurante,
   error: restauranteError,
 } = await supabase
   .from("restaurantes")
-  .select(`
-    id,
-    slug,
-    premium,
-    assinatura_status
-  `)
+.select(`
+  id,
+  slug,
+  premium,
+  assinatura_status
+`)
   .eq("auth_user_id", user.id)
   .single()
 
@@ -214,7 +214,7 @@ setNomeRestaurante(
 )
 
 setPedidoMinimo(
-  aparencia.pedido_minimo || ""
+  aparencia.pedido_minimo?.toString() || ""
 )
 
         setSelectedColor(
@@ -350,8 +350,7 @@ const {
     nome_restaurante:
   nomeRestaurante,
 
-pedido_minimo:
-  Number(pedidoMinimo),
+ pedido_minimo: Number(pedidoMinimo),
 
   cor_primaria:
     selectedColor,
@@ -423,6 +422,8 @@ pedido_minimo:
 
 console.log("UPDATE OK")
 
+
+
 } else {
 
 /*
@@ -441,14 +442,14 @@ console.log("UPDATE OK")
     nome_restaurante:
   nomeRestaurante,
 
-pedido_minimo:
-  Number(pedidoMinimo),
 
   categoria_restaurante:
     categoriaRestaurante,
 
   tipo_atendimento:
     tipoAtendimento,
+
+    pedido_minimo: Number(pedidoMinimo),
 
   cor_primaria:
     selectedColor,
@@ -514,6 +515,7 @@ pedido_minimo:
 
           return
         }
+
       }
 
       /*
