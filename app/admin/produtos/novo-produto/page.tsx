@@ -142,14 +142,7 @@ const [gruposObrigatorios, setGruposObrigatorios] =
   inputNome: "",
   inputPreco: "",
 
-  opcoes: [
-        {
-          id: crypto.randomUUID(),
-          nome: "",
-          preco: "",
-          imagem: "",
-        },
-      ],
+opcoes: [],
     },
   ]);
 
@@ -381,14 +374,7 @@ preco: formatarPreco(extraPreco),
   inputNome: "",
   inputPreco: "",
 
-  opcoes:[
-        {
-          id: crypto.randomUUID(),
-          nome:"",
-          preco:"",
-          imagem:"",
-        }
-      ]
+opcoes: []
 
     }
 
@@ -396,17 +382,37 @@ preco: formatarPreco(extraPreco),
 
 }
 
-function removerGrupo(id:string){
+function removerGrupo(id: string) {
 
-setGruposObrigatorios((atual)=>
+  if (gruposObrigatorios.length === 1) {
 
-atual.filter(
-grupo=>grupo.id!==id
-)
+    setGruposObrigatorios([
+      {
+        id: crypto.randomUUID(),
+        nome: "",
+        minimo: 1,
+        maximo: 2,
+        inputNome: "",
+        inputPreco: "",
+        opcoes: [],
+      },
+    ]);
 
-)
+    return;
+  }
+
+  setGruposObrigatorios((atual) =>
+    atual.filter((grupo) => grupo.id !== id)
+  );
 
 }
+
+
+
+
+
+
+
 
 function adicionarOpcao(grupoId: string) {
 
@@ -596,6 +602,27 @@ return{
 
 )
 
+}
+
+function removerOpcao(
+  grupoId: string,
+  opcaoId: string
+) {
+  setGruposObrigatorios((atual) =>
+    atual.map((grupo) => {
+
+      if (grupo.id !== grupoId)
+        return grupo;
+
+      return {
+        ...grupo,
+        opcoes: grupo.opcoes.filter(
+          (opcao) => opcao.id !== opcaoId
+        ),
+      };
+
+    })
+  );
 }
 
 function validarFormulario() {
@@ -1015,14 +1042,7 @@ setGruposObrigatorios([
     inputNome: "",
     inputPreco: "",
 
-    opcoes: [
-      {
-        id: crypto.randomUUID(),
-        nome: "",
-        preco: "",
-        imagem: "",
-      },
-    ],
+  opcoes: [],
   },
 ]);
 
@@ -1731,15 +1751,20 @@ onBlur={()=>
 
       </div>
 
-      <button
-
-        className="
-        text-red-500
-        font-semibold
-        "
-      >
-        Excluir
-      </button>
+<button
+  onClick={() =>
+    removerOpcao(
+      grupo.id,
+      opcao.id
+    )
+  }
+  className="
+  text-red-500
+  font-semibold
+  "
+>
+  Excluir
+</button>
 
     </div>
 
