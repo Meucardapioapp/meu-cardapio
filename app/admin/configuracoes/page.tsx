@@ -70,10 +70,11 @@ async function salvarAlteracoes() {
         "application/json",
     },
 
-    body: JSON.stringify({
-      restauranteId,
-      nome,
-    }),
+ body: JSON.stringify({
+  restauranteId,
+  nome,
+  whatsapp: whatsapp.replace(/\D/g, ""),
+}),
   });
 
   alert("Dados atualizados.");
@@ -152,8 +153,10 @@ async function salvarAlteracoes() {
 
 <Input
   value={whatsapp}
-  disabled
-  className="h-12 rounded-xl bg-zinc-100 cursor-not-allowed"
+  onChange={(e) =>
+    setWhatsapp(formatarTelefone(e.target.value))
+  }
+  className="h-12 rounded-xl"
 />
 
 <p className="text-sm text-zinc-500">
@@ -176,8 +179,6 @@ async function salvarAlteracoes() {
         </div>
 
       </div>
-
-     
 
       {/* DICA */}
 

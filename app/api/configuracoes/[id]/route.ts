@@ -11,7 +11,7 @@ export async function GET(
 
   const { data, error } = await supabaseAdmin
     .from("restaurantes")
-    .select("nome_responsavel, email, whatsapp")
+    .select("nome_responsavel, nome_restaurante, email, whatsapp")
     .eq("id", id)
     .single();
 

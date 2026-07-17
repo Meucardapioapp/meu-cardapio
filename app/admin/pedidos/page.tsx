@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase"
 
 type Pedido = {
   id: number
+   numero_pedido: number
+    tipo_pedido: string
 
   cliente: string
   telefone: string
@@ -494,7 +496,7 @@ Itens
 
     <div className="font-bold text-zinc-900">
 
-      #{pedido.id}
+      #{pedido.numero_pedido ?? pedido.id}
 
     </div>
 
@@ -522,21 +524,35 @@ Itens
 
   </td>
 
-  <td className="px-6 py-6">
+ <td className="px-6 py-6">
 
-    <div className="text-zinc-900">
+  {pedido.tipo_pedido === "retirada" ? (
 
-      {pedido.rua}, {pedido.numero}
+    <>
+      <div className="font-semibold text-blue-600">
+        🛍️ Retirada no local
+      </div>
 
-    </div>
+      <div className="text-sm text-zinc-500">
+        Cliente irá buscar o pedido
+      </div>
+    </>
 
-    <div className="text-sm text-zinc-500">
+  ) : (
 
-      {pedido.bairro}
+    <>
+      <div className="text-zinc-900">
+        {pedido.rua}, {pedido.numero}
+      </div>
 
-    </div>
+      <div className="text-sm text-zinc-500">
+        {pedido.bairro}
+      </div>
+    </>
 
-  </td>
+  )}
+
+</td>
 
   <td className="px-6 py-6">
 
@@ -780,7 +796,7 @@ Nenhum pedido encontrado.
 
 <h2 className="text-4xl font-black text-zinc-900">
 
-Pedido #{pedidoSelecionado.id}
+Pedido #{pedidoSelecionado.numero_pedido ?? pedidoSelecionado.id}
 
 </h2>
 
@@ -879,35 +895,61 @@ Cliente
 
 <div className="bg-white rounded-3xl border border-zinc-200 p-6">
 
+
+
+
+
+
+
+
 <p className="text-xs uppercase tracking-wider text-zinc-400">
-
-Endereço
-
+  {pedidoSelecionado.tipo_pedido === "retirada"
+    ? "MODALIDADE"
+    : "ENDEREÇO"}
 </p>
 
 <div className="mt-4">
 
-  <p className="font-semibold text-lg">
-    {pedidoSelecionado.rua}, {pedidoSelecionado.numero}
-  </p>
+  {pedidoSelecionado.tipo_pedido === "retirada" ? (
 
-  {pedidoSelecionado.complemento && (
-    <p className="text-zinc-600 mt-2">
-      Complemento: {pedidoSelecionado.complemento}
-    </p>
+    <div className="inline-flex items-center rounded-full bg-blue-100 px-4 py-2 text-blue-700 font-semibold">
+      🛍️ Retirada no local
+    </div>
+
+  ) : (
+
+    <>
+
+      <p className="font-semibold text-lg">
+        {pedidoSelecionado.rua}, {pedidoSelecionado.numero}
+      </p>
+
+      {pedidoSelecionado.complemento && (
+        <p className="text-zinc-600 mt-2">
+          Complemento: {pedidoSelecionado.complemento}
+        </p>
+      )}
+
+      {pedidoSelecionado.referencia && (
+        <p className="text-zinc-600">
+          Referência: {pedidoSelecionado.referencia}
+        </p>
+      )}
+
+      <p className="text-zinc-500 mt-2">
+        {pedidoSelecionado.bairro}
+      </p>
+
+    </>
+
   )}
-
-  {pedidoSelecionado.referencia && (
-    <p className="text-zinc-600">
-      Referência: {pedidoSelecionado.referencia}
-    </p>
-  )}
-
-  <p className="text-zinc-500 mt-2">
-    {pedidoSelecionado.bairro}
-  </p>
 
 </div>
+
+
+
+
+
 
 </div>
 
@@ -1326,29 +1368,62 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
   </div>
 
   <button
-    onClick={() => {
+   
+onClick={async () => {
 
-      let novoStatus = "";
+  let novoStatus = "";
 
-      if (pedidoSelecionado.status === "pendente")
-        novoStatus = "aceito";
+  if (pedidoSelecionado.status === "pendente")
+    novoStatus = "aceito";
 
-      else if (pedidoSelecionado.status === "aceito")
-        novoStatus = "entrega";
+  else if (pedidoSelecionado.status === "aceito")
+    novoStatus = "entrega";
 
-      else if (pedidoSelecionado.status === "entrega")
-        novoStatus = "concluido";
+  else if (pedidoSelecionado.status === "entrega")
+    novoStatus = "concluido";
 
-      if (!novoStatus) return;
+  if (!novoStatus) return;
 
-      atualizarStatus(
-        pedidoSelecionado.id,
-        novoStatus
-      );
+  await atualizarStatus(
+    pedidoSelecionado.id,
+    novoStatus
+  );
 
-      fecharPedido();
+  if (novoStatus === "aceito") {
 
-    }}
+    const telefone = pedidoSelecionado.telefone.replace(/\D/g, "");
+
+    const restauranteId =
+      localStorage.getItem("restaurante_id");
+
+    const response = await fetch(
+      `/api/configuracoes/${restauranteId}`
+    );
+
+    const restaurante = await response.json();
+
+    const mensagem =
+`Olá, ${pedidoSelecionado.cliente}! 😊
+
+Seu pedido #${pedidoSelecionado.numero_pedido ?? pedidoSelecionado.id}
+foi aceito pela ${restaurante.nome || restaurante.nome_fantasia || "restaurante"} e já entrou em produção.
+
+Assim que houver uma nova atualização no status do pedido, entraremos em contato por aqui.
+
+Obrigado pela preferência!`;
+
+    window.open(
+      `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`,
+      "_blank"
+    );
+  }
+
+  fecharPedido();
+
+}}
+
+
+
     className="
       w-full
       h-14

@@ -40,13 +40,38 @@ console.log("taxaEntrega:", taxaEntrega);
 console.log("total:", total);
 console.log("================================");
 
+const {
+  data: ultimoPedido,
+  error: erroUltimo,
+} = await supabaseAdmin
+  .from("pedidos")
+  .select("numero_pedido")
+  .eq("restaurante_id", restauranteId)
+  .not("numero_pedido", "is", null)
+  .order("numero_pedido", {
+    ascending: false,
+  })
+  .limit(1)
+  .maybeSingle();
+
+if (erroUltimo) {
+  throw erroUltimo;
+}
+
+const numeroPedido =
+  (ultimoPedido?.numero_pedido ?? 0) + 1;
+
+
+
 const { data, error } =
       await supabaseAdmin
         .from("pedidos")
-        .insert({
-          restaurante_id: restauranteId,
+.insert({
+  restaurante_id: restauranteId,
 
-          cliente: nome,
+  numero_pedido: numeroPedido,
+
+  cliente: nome,
           nome,
 
  telefone,

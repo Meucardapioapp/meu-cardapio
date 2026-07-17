@@ -36,8 +36,19 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json({
-    success: true,
-    pedido: data,
-  });
+  const { data: restaurante } = await supabaseAdmin
+  .from("restaurantes")
+  .select("whatsapp")
+  .eq("id", data.restaurante_id)
+  .single();
+
+return NextResponse.json({
+  success: true,
+
+  pedido: {
+    ...data,
+    telefone_restaurante:
+      restaurante?.whatsapp || "",
+  },
+});
 }

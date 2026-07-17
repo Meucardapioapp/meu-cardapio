@@ -232,7 +232,7 @@ function etapaAtual() {
                 corPrincipal,
             }}
           >
-           #{pedido.id} 
+           #{pedido.numero_pedido ?? pedido.id} 
           </div>
         </div>
 
@@ -344,56 +344,66 @@ function etapaAtual() {
 
 </div>
 
-          {/* ENDEREÇO */}
+         {/* ENDEREÇO / MODALIDADE */}
 
-          <div
-            className="
-            flex
-            gap-4
-            py-5
-            border-b
-            "
-          >
-            <div
-              className="
-              w-12
-              h-12
-              rounded-xl
-              flex
-              items-center
-              justify-center
-              "
-              style={{
-                backgroundColor:
-                  `${corPrincipal}15`,
-              }}
-            >
-              <MapPin
-                color={
-                  corPrincipal
-                }
-              />
-            </div>
+<div
+  className="
+  flex
+  gap-4
+  py-5
+  border-b
+  "
+>
+  <div
+    className="
+    w-12
+    h-12
+    rounded-xl
+    flex
+    items-center
+    justify-center
+    "
+    style={{
+      backgroundColor: `${corPrincipal}15`,
+    }}
+  >
+    <MapPin color={corPrincipal} />
+  </div>
 
-            <div>
-              <p
-                className="
-                text-zinc-500
-                "
-              >
-                Endereço de entrega
-              </p>
+  <div>
 
-              <p className="font-semibold">
-  {pedido.rua || "-"}, {pedido.numero || "-"}
-</p>
+    {pedido.tipo_pedido === "retirada" ? (
 
-<p>
-  {pedido.bairro || "-"}
-</p>
-            </div>
-          </div>
+      <>
+        <p className="text-zinc-500">
+          Modalidade
+        </p>
 
+        <p className="font-semibold">
+          🛍️ Retirada no local
+        </p>
+      </>
+
+    ) : (
+
+      <>
+        <p className="text-zinc-500">
+          Endereço de entrega
+        </p>
+
+        <p className="font-semibold">
+          {pedido.rua}, {pedido.numero}
+        </p>
+
+        <p>
+          {pedido.bairro}
+        </p>
+      </>
+
+    )}
+
+  </div>
+</div>
           {/* PAGAMENTO */}
 
           <div
@@ -488,12 +498,35 @@ function etapaAtual() {
 
 
 <button
-  onClick={() => {
-    window.open(
-      `https://wa.me/${pedido.telefone_restaurante}`,
-      "_blank"
-    );
-  }}
+onClick={() => {
+
+
+
+
+
+const telefone =
+  pedido.telefone_restaurante.replace(/\D/g, "");
+
+const mensagem = `Olá!
+
+Gostaria de falar sobre meu pedido.
+
+Pedido: #${pedido.numero_pedido ?? pedido.id}
+Cliente: ${pedido.cliente}`;
+
+window.open(
+  `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`,
+  "_blank"
+);
+
+
+
+
+
+}}
+
+
+
   className="
     w-full
     h-14
