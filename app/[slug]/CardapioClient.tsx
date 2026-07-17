@@ -1141,11 +1141,12 @@ className="mx-auto text-zinc-500 mb-2"
 className="
 sticky
 top-0
-z-50
+z-[999]
 w-full
 bg-white
 border-b
 border-[#ECE8E2]
+shadow-sm
 "
 >
 
@@ -1166,7 +1167,7 @@ pb-3
   className="
     flex
     items-center
-    justify-center
+    justify-start
     gap-2
     overflow-x-auto
     scroll-smooth
@@ -1266,7 +1267,11 @@ duration-300
 
 <div style={{ height: 1, background: "#FFFFFF" }} />
 
-        {categorias.map((categoria, indexCategoria) => {
+</section>
+
+<section className="bg-white">
+
+{categorias.map((categoria, indexCategoria) => {
 
   const produtosCategoria =
     produtosFiltrados.filter(

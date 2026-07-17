@@ -262,7 +262,7 @@ console.log("UF:", uf);
         restaurante.id
       )
 
-    router.push("/admin")
+    router.push("/admin/primeiros-passos")
 } catch (error) {
   console.error(error)
 

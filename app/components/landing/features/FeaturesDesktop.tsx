@@ -48,7 +48,7 @@ export default function FeaturesDesktop() {
             {
               icon: CreditCard,
               title: "Pagamento Online",
-              desc: "Aceite Pix, crédito e débito diretamente pelo site.",
+              desc: "Aceite Pix diretamente pelo site.",
             },
             {
               icon: Palette,
@@ -63,7 +63,7 @@ export default function FeaturesDesktop() {
             {
               icon: MessageCircle,
               title: "WhatsApp Integrado",
-              desc: "Receba pedidos automaticamente pelo WhatsApp.",
+              desc: "Receba pedidos pelo WhatsApp.",
             },
             {
               icon: Globe,

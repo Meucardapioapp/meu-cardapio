@@ -50,12 +50,17 @@ export async function generateMetadata(
 
   const logo = aparencia?.logo_url || undefined;
 
-  return {
-    title: titulo,
+ return {
+  title: titulo,
 
-    description: descricao,
+  description: descricao,
 
-    keywords: [
+  icons: {
+    icon: logo,
+    apple: logo,
+  },
+
+  keywords: [
       restaurante.nome_restaurante,
       categoria,
       cidade,

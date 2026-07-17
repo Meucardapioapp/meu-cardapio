@@ -6,8 +6,7 @@ import Image from "next/image";
 
 export default function HeroDesktop() {
   const beneficios = [
-    "Receba pagamentos com cartão online e receba em até 1 dia util na sua conta.",
-    "Aceite Pix e receba direto na sua conta.",
+    "Receba pagamentos com Pix online e receba em até 1 dia util na sua conta.",
     "Seu próprio link para divulgar no WhatsApp, Instagram e Google.",
     "Configure tudo em menos de 5 minutos.",
     "Sem mensalidade e sem burocracia.",
@@ -26,7 +25,7 @@ export default function HeroDesktop() {
             Tenha seu
             <br />
             <span className="text-[#6D1F2F]">
-              cardápio digital
+              cardápio profissional
             </span>
             <br />
             sem mensalidade
@@ -104,7 +103,7 @@ export default function HeroDesktop() {
       {/* Dynamic Island */}
 <div className="absolute left-1/2 top-4 z-30 h-5 w-24 -translate-x-1/2 rounded-full bg-[#0f0f10]" />
       <Image
-        src="/hero/cardapio.webp.jpeg"
+        src="/hero/cardapio.webp"
         alt="MeuCardápioApp"
         width={420}
         height={900}
