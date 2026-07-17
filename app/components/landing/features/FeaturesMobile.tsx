@@ -57,7 +57,7 @@ export default function FeaturesMobile() {
 
       {/* Título */}
 
-      <h2 className="mx-auto mt-5 max-w-sm text-center text-[34px] font-black leading-tight text-[#111111]">
+      <h2 className="mx-auto mt-5 max-w-sm text-center text-[28px] font-black leading-tight text-[#111111]">
 
         Tudo que você precisa para vender mais
 
@@ -122,7 +122,7 @@ export default function FeaturesMobile() {
 
         <p className="mt-5 text-[16px] leading-8 text-white/90">
           Deliverys pequenos economizam entre
-          <strong> R$ 2.000 e R$ 5.000 por mês</strong>,
+          <strong> R$ 2.000 a R$ 5.000 por mês</strong>,
           deixando de pagar taxas abusivas dos marketplaces.
         </p>
 

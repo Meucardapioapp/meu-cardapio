@@ -467,7 +467,7 @@ value={estado.sigla}
 <div className="relative">
   <input
     type="text"
-    placeholder="Cidade e Estado"
+    placeholder="Cidade"
     value={buscaCidade}
     onChange={(e) => buscarCidade(e.target.value)}
     className="w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"

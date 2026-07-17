@@ -11,9 +11,9 @@ const perguntas = [
       "Não. Você pode criar seu cardápio gratuitamente e começar a vender em poucos minutos.",
   },
   {
-    pergunta: "Posso receber Pix e cartão de crédito online?",
+    pergunta: "Posso receber Pix e cartão de crédito?",
     resposta:
-      "Sim. Você pode receber Pix, cartão de crédito online e também aceitar dinheiro na entrega, se desejar.",
+      "Sim. Você pode receber Pix de forma online, cartão de débito/credito e dinheiro na entrega",
   },
   {
     pergunta: "Como recebo os pedidos?",
@@ -21,9 +21,9 @@ const perguntas = [
       "Todos os pedidos chegam diretamente no painel do MeuCardapioApp em tempo real.",
   },
   {
-    pergunta: "Preciso de maquininha?",
+    pergunta: "Em quanto tempo recebo os valores que recebi online?",
     resposta:
-      "Não. Os clientes podem pagar diretamente pelo seu cardápio digital utilizando Pix ou cartão de crédito.",
+      "O valor fica disponivel no seu painel e em até 1 dia util após você sacar, cai na sua conta",
   },
   {
     pergunta: "Quanto tempo leva para criar meu cardápio?",

@@ -6,7 +6,7 @@ import Image from "next/image";
 
 export default function HeroDesktop() {
   const beneficios = [
-    "Receba pagamentos com cartão online sem precisar de maquininha.",
+    "Receba pagamentos com cartão online e receba em até 1 dia util na sua conta.",
     "Aceite Pix e receba direto na sua conta.",
     "Seu próprio link para divulgar no WhatsApp, Instagram e Google.",
     "Configure tudo em menos de 5 minutos.",
@@ -66,7 +66,7 @@ export default function HeroDesktop() {
             </Link>
 
             <Link
-              href="/demo"
+              href="/fornadapizzaria"
               className="flex items-center text-lg font-semibold text-[#6D1F2F]"
             >
               Ver demonstração →

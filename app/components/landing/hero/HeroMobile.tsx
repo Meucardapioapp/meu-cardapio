@@ -11,7 +11,7 @@ import {
 
 export default function HeroMobile() {
   const beneficios = [
-    "Receba pagamentos com cartão online sem precisar de maquininha.",
+    "Receba pagamentos com cartão online e receba em até 1 dia util na sua conta.",
     "Aceite Pix e receba direto na sua conta.",
     "Seu próprio link para divulgar no WhatsApp, Instagram e Google.",
     "Configure tudo em menos de 5 minutos.",
@@ -28,7 +28,7 @@ export default function HeroMobile() {
 
         {/* TÍTULO */}
 
-<h1 className="text-center text-[32px] font-black tracking-[-0.03em] text-[#111111] md:text-6xl">
+<h1 className="text-center text-[26px] font-black tracking-[-0.03em] text-[#111111] md:text-6xl">
 
   <span className="text-[#111111]">
     O
@@ -39,7 +39,7 @@ export default function HeroMobile() {
   </span>
 
   <div className="mt-1">
-    Que faz você vender mais
+    perfeito para o seu negócio
   </div>
 
 </h1>
@@ -69,7 +69,7 @@ export default function HeroMobile() {
               className="flex items-start gap-3"
             >
 
-              <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#6D1F2F]">
+              <div className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#6D1F2F]">
 
                 <Check
                   size={16}
@@ -90,11 +90,11 @@ export default function HeroMobile() {
 
         {/* BOTÕES */}
 
-        <div className="mt-10 flex flex-col gap-3">
+        <div className="mt-8 flex flex-col gap-3">
 
           <Link
             href="/cadastro"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-[#6D1F2F] px-6 py-4 text-lg font-bold text-white transition hover:bg-[#531723]"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-[#6D1F2F] px-6 py-3 text-base font-bold text-white transition hover:bg-[#531723]"
           >
             Criar meu cardápio
 
@@ -102,8 +102,8 @@ export default function HeroMobile() {
           </Link>
 
           <Link
-            href="/demo"
-            className="flex items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-6 py-4 text-lg font-semibold text-[#6D1F2F] shadow-sm transition hover:bg-zinc-50"
+            href="/fornadapizzaria"
+            className="flex items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-6 py-3 text-base font-semibold text-[#6D1F2F] shadow-sm transition hover:bg-zinc-50"
           >
             Ver demonstração
 
