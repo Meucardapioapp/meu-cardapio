@@ -1138,16 +1138,16 @@ className="mx-auto text-zinc-500 mb-2"
 <div className="mx-4 -mt-1 border-t border-zinc-100" />
 
 <div
-className="
+className={`
 sticky
 top-0
-z-[999]
 w-full
 bg-white
 border-b
 border-[#ECE8E2]
 shadow-sm
-"
+${openModal ? "-z-10" : "z-[999]"}
+`}
 >
 
 <div

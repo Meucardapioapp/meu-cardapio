@@ -60,6 +60,8 @@ export async function generateMetadata(
     apple: logo,
   },
 
+   manifest: `/${slug}/manifest.webmanifest`,
+
   keywords: [
       restaurante.nome_restaurante,
       categoria,
