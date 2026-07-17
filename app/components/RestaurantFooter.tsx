@@ -28,14 +28,14 @@ export default function RestaurantFooter({
   href="https://meucardapioapp.com"
   target="_blank"
   rel="noopener noreferrer"
-  className="mt-1 inline-block text-2xl md:text-3xl font-black transition-opacity hover:opacity-80"
+  className="mt-1 inline-block text-base md:text-lg font-medium transition-opacity hover:opacity-80"
   style={{ color: corPrincipal }}
 >
   MeuCardápioApp
 </a>
 
-<p className="mt-2 text-sm text-zinc-500">
-  Venda mais sem depender de aplicativos de delivery.
+<p className="mt-1 text-sm text-zinc-500">
+  o melhor cardápio para o seu delivery
 </p>
 
           </div>

@@ -77,6 +77,9 @@ const [horarios, setHorarios] =
 const [savedMessage, setSavedMessage] =
   useState(false)
 
+const [saving, setSaving] =
+  useState(false)
+
   const [loading, setLoading] =
   useState(true)
 
@@ -270,6 +273,8 @@ setPedidoMinimo(
   async function saveChanges() {
 
     if (!restauranteId) {
+
+      setSaving(true)
 
       alert(
         "Restaurante não encontrado"
@@ -533,11 +538,11 @@ localStorage.setItem(
 
 setSavedMessage(true)
 
-      setTimeout(() => {
+setSaving(false)
 
-        setSavedMessage(false)
-
-      }, 3000)
+setTimeout(() => {
+  setSavedMessage(false)
+}, 3000)
 
     } catch (error) {
 
@@ -1515,8 +1520,9 @@ Personalize o visual e as informações do seu cardápio
     👁 Ver Cardápio
   </Link>
 
-  <button
-    onClick={saveChanges}
+<button
+  onClick={saveChanges}
+  disabled={saving}
     className="
       flex-1
       rounded-2xl
@@ -1529,7 +1535,11 @@ Personalize o visual e as informações do seu cardápio
       padding: "16px",
     }}
   >
-    Salvar Alterações
+    {saving
+  ? "Salvando..."
+  : savedMessage
+  ? "✓ Alterações salvas"
+  : "Salvar Alterações"}
   </button>
 
 </div>
