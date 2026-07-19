@@ -113,220 +113,148 @@ const resposta = await fetch(
 
 }
 
-  async function cadastrar() {
-    try {
-      setLoading(true)
+ async function cadastrar() {
+  try {
+    setLoading(true)
 
-      if (
-  !nomeResponsavel ||
-  !nomeRestaurante ||
-  !telefone ||
-  !whatsapp ||
-  !cidade ||
-  !email ||
-  !senha ||
-  !confirmarSenha
-) {
-  setToast({
-    tipo: "aviso",
-    titulo: "Campos obrigatórios",
-    mensagem:
-      "Preencha todos os campos para continuar."
-  })
-
-  setTimeout(() => {
-    setToast(null)
-  }, 5000)
-
-  return
-}
-
-      if (senha !== confirmarSenha) {
-  setToast({
-    tipo: "aviso",
-    titulo: "Senhas diferentes",
-    mensagem:
-      "Digite a mesma senha nos dois campos."
-  })
-
-  setTimeout(() => {
-    setToast(null)
-  }, 5000)
-
-  return
-}
-
-const slugGerado = gerarSlug(nomeRestaurante)
-
-const { data: restauranteExistente, error: erroVerificacao } =
-  await supabase
-    .from("restaurantes")
-    .select("id")
-    .eq("slug", slugGerado)
-    .maybeSingle()
-
-if (erroVerificacao) {
-  console.error(
-    "Erro ao verificar nome do restaurante:",
-    erroVerificacao
-  )
-
-  setToast({
-    tipo: "erro",
-    titulo: "Erro ao verificar nome",
-    mensagem:
-      "Não foi possível verificar se este nome está disponível. Tente novamente."
-  })
-
-  setTimeout(() => {
-    setToast(null)
-  }, 5000)
-
-  return
-}
-
-if (restauranteExistente) {
-  setToast({
-    tipo: "aviso",
-    titulo: "Nome indisponível",
-    mensagem:
-      "Este nome de restaurante já está em uso. Escolha outro nome."
-  })
-
-  setTimeout(() => {
-    setToast(null)
-  }, 5000)
-
-  return
-}
-
-setSlug(slugGerado)
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: senha,
+    if (
+      !nomeResponsavel ||
+      !nomeRestaurante ||
+      !telefone ||
+      !whatsapp ||
+      !cidade ||
+      !email ||
+      !senha ||
+      !confirmarSenha
+    ) {
+      setToast({
+        tipo: "aviso",
+        titulo: "Campos obrigatórios",
+        mensagem: "Preencha todos os campos para continuar.",
       })
 
-      if (error) {
+      setTimeout(() => {
+        setToast(null)
+      }, 5000)
 
-  let mensagem =
-    "Não foi possível criar sua conta."
+      return
+    }
 
-  if (
-    error.message.includes(
-      "User already registered"
+    if (senha !== confirmarSenha) {
+      setToast({
+        tipo: "aviso",
+        titulo: "Senhas diferentes",
+        mensagem: "Digite a mesma senha nos dois campos.",
+      })
+
+      setTimeout(() => {
+        setToast(null)
+      }, 5000)
+
+      return
+    }
+
+    const slugGerado = gerarSlug(nomeRestaurante)
+
+    const response = await fetch("/api/cadastro", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        nomeResponsavel,
+        nomeRestaurante,
+        telefone,
+        whatsapp,
+        cidade,
+        estado,
+        uf,
+        slug: slugGerado,
+        categoria,
+        email,
+        senha,
+      }),
+    })
+
+    const resultado = await response.json()
+
+    if (!response.ok || !resultado.success) {
+
+      if (resultado.code === "SLUG_ALREADY_EXISTS") {
+        setToast({
+          tipo: "aviso",
+          titulo: "Este nome já está em uso",
+          mensagem:
+            "Escolha outro nome para o seu restaurante e tente novamente.",
+        })
+
+        setTimeout(() => {
+          setToast(null)
+        }, 7000)
+
+        return
+      }
+
+      if (resultado.code === "EMAIL_ALREADY_EXISTS") {
+        setToast({
+          tipo: "aviso",
+          titulo: "Este e-mail já possui uma conta",
+          mensagem:
+            "Use outro e-mail ou entre na sua conta existente.",
+        })
+
+        setTimeout(() => {
+          setToast(null)
+        }, 7000)
+
+        return
+      }
+
+      setToast({
+        tipo: "erro",
+        titulo: "Cadastro não realizado",
+        mensagem:
+          resultado.error ||
+          "Não foi possível concluir seu cadastro.",
+      })
+
+      setTimeout(() => {
+        setToast(null)
+      }, 5000)
+
+      return
+    }
+
+    localStorage.setItem(
+      "restaurante_id",
+      resultado.restaurante.id
     )
-  ) {
-    mensagem =
-      "Este e-mail já possui uma conta."
-  }
-
-  setToast({
-    tipo: "erro",
-    titulo: "Cadastro não realizado",
-    mensagem
-  })
-
-  setTimeout(() => {
-    setToast(null)
-  }, 5000)
-
-  return
-}
-
-      const user = data.user
-
-      if (!user) {
-  setToast({
-    tipo: "erro",
-    titulo: "Erro ao criar conta",
-    mensagem:
-      "Não foi possível criar seu usuário."
-  })
-
-  setTimeout(() => {
-    setToast(null)
-  }, 5000)
-
-  return
-}
-
-console.log("CIDADE:", cidade);
-console.log("ESTADO:", estado);
-console.log("UF:", uf);
-
-      const {
-        data: restaurante,
-        error: restauranteError,
-      } = await supabase
-        .from("restaurantes")
-.insert({
-
-  auth_user_id: user.id,
-
-  nome_responsavel: nomeResponsavel,
-
-  nome_restaurante: nomeRestaurante,
-
-  telefone,
-
-  whatsapp,
-
-  cidade,
-
-  estado,
-
-  uf,
-
-  slug,
-
-  categoria,
-
-  email,
-
-})
-        .select()
-        .single()
-
-      if (restauranteError) {
-  setToast({
-    tipo: "erro",
-    titulo: "Erro ao salvar restaurante",
-    mensagem:
-      "Tente outro nome no restaurante, pois esse já está em uso."
-  })
-
-  setTimeout(() => {
-    setToast(null)
-  }, 5000)
-
-  return
-}
-
-      localStorage.setItem(
-        "restaurante_id",
-        restaurante.id
-      )
 
     router.push("/admin/primeiros-passos")
-} catch (error) {
-  console.error(error)
 
-  setToast({
-    tipo: "erro",
-    titulo: "Erro inesperado",
-    mensagem:
-      "Ocorreu um problema ao criar sua conta."
-  })
+  } catch (error) {
 
-  setTimeout(() => {
-    setToast(null)
-  }, 5000)
+    console.error(
+      "Erro ao realizar cadastro:",
+      error
+    )
 
-} finally {
-  setLoading(false)
-}
+    setToast({
+      tipo: "erro",
+      titulo: "Erro inesperado",
+      mensagem:
+        "Ocorreu um problema ao criar sua conta. Tente novamente.",
+    })
 
+    setTimeout(() => {
+      setToast(null)
+    }, 5000)
+
+  } finally {
+
+    setLoading(false)
+
+  }
 }
 
   return (
