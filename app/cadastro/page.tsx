@@ -156,6 +156,52 @@ const resposta = await fetch(
   return
 }
 
+const slugGerado = gerarSlug(nomeRestaurante)
+
+const { data: restauranteExistente, error: erroVerificacao } =
+  await supabase
+    .from("restaurantes")
+    .select("id")
+    .eq("slug", slugGerado)
+    .maybeSingle()
+
+if (erroVerificacao) {
+  console.error(
+    "Erro ao verificar nome do restaurante:",
+    erroVerificacao
+  )
+
+  setToast({
+    tipo: "erro",
+    titulo: "Erro ao verificar nome",
+    mensagem:
+      "Não foi possível verificar se este nome está disponível. Tente novamente."
+  })
+
+  setTimeout(() => {
+    setToast(null)
+  }, 5000)
+
+  return
+}
+
+if (restauranteExistente) {
+  setToast({
+    tipo: "aviso",
+    titulo: "Nome indisponível",
+    mensagem:
+      "Este nome de restaurante já está em uso. Escolha outro nome."
+  })
+
+  setTimeout(() => {
+    setToast(null)
+  }, 5000)
+
+  return
+}
+
+setSlug(slugGerado)
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password: senha,
@@ -247,7 +293,7 @@ console.log("UF:", uf);
     tipo: "erro",
     titulo: "Erro ao salvar restaurante",
     mensagem:
-      "Não foi possível concluir seu cadastro."
+      "Tente outro nome no restaurante, pois esse já está em uso."
   })
 
   setTimeout(() => {
