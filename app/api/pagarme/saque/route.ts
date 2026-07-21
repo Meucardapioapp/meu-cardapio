@@ -73,8 +73,12 @@ export async function GET(req: NextRequest) {
     }
 
     // =====================================================
-    // 3. CONSULTAR AS TRANSFERÊNCIAS NA PAGAR.ME
-    // =====================================================
+// 3. CONSULTAR AS TRANSFERÊNCIAS NA PAGAR.ME
+// =====================================================
+
+console.log("🔥 CHEGOU ANTES DO FETCH DA PAGARME 🔥");
+console.log("RECIPIENT:", restaurante.pagarme_recipient_id);
+
 
     const response = await fetch(
       `https://api.pagar.me/core/v5/recipients/${restaurante.pagarme_recipient_id}/transfers`,
