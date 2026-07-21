@@ -393,23 +393,32 @@ if (
               Conta
             </label>
 
-            <input
-              type="text"
-              value={conta}
-              onChange={(e) =>
-                setConta(
-                  e.target.value
-                )
-              }
-              placeholder="Digite a conta"
-              className="
-                w-full
-                rounded-xl
-                border
-                p-4
-                outline-none
-              "
-            />
+<input
+  type="text"
+  value={conta}
+  onChange={(e) => {
+    const numeros = e.target.value.replace(/\D/g, "");
+
+    if (numeros.length <= 1) {
+      setConta(numeros);
+      return;
+    }
+
+    const numeroConta = numeros.slice(0, -1);
+    const digito = numeros.slice(-1);
+
+    setConta(`${numeroConta}-${digito}`);
+  }}
+  placeholder="Digite a conta"
+  inputMode="numeric"
+  className="
+    w-full
+    rounded-xl
+    border
+    p-4
+    outline-none
+  "
+/>
           </div>
 
           <div>
