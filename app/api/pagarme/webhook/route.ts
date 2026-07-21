@@ -53,6 +53,54 @@ console.log("STATUS:", paymentStatus);
   }
 }
 
+
+// ======================================================
+// ATUALIZAÇÃO DE SAQUES / TRANSFERÊNCIAS PAGAR.ME
+// ======================================================
+
+if (
+  eventType === "transfer.created" ||
+  eventType === "transfer.updated" ||
+  eventType === "transfer.paid" ||
+  eventType === "transfer.failed" ||
+  eventType === "transfer.canceled"
+) {
+  const transferId =
+    body?.data?.id ??
+    body?.data?.transfer?.id;
+
+  const transferStatus =
+    body?.data?.status ??
+    body?.data?.transfer?.status;
+
+  console.log("TRANSFER ID:", transferId);
+  console.log("TRANSFER STATUS:", transferStatus);
+
+  if (transferId && transferStatus) {
+    const { error: saqueError } =
+      await supabaseAdmin
+        .from("saques")
+        .update({
+          status: transferStatus,
+        })
+        .eq(
+          "pagarme_withdrawal_id",
+          transferId
+        );
+
+    if (saqueError) {
+      console.error(
+        "Erro ao atualizar saque:",
+        saqueError
+      );
+    } else {
+      console.log(
+        "Saque atualizado com sucesso!"
+      );
+    }
+  }
+}
+
     return NextResponse.json(
       {
         received: true,

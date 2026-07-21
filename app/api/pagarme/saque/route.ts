@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const body = await req.json();
-
-    const { restauranteId, valor } = body;
+    const restauranteId =
+      req.nextUrl.searchParams.get("restauranteId");
 
     if (!restauranteId) {
       return NextResponse.json(
@@ -17,107 +16,173 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!valor || valor <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Valor inválido",
-        },
-        { status: 400 }
-      );
-    }
+    // =====================================================
+    // 1. BUSCAR O RECEBEDOR DO RESTAURANTE
+    // =====================================================
 
-    const { data: restaurante, error } =
+    const { data: restaurante, error: restauranteError } =
       await supabaseAdmin
         .from("restaurantes")
         .select("pagarme_recipient_id")
         .eq("id", restauranteId)
         .single();
 
-    if (error || !restaurante) {
+    if (restauranteError || !restaurante?.pagarme_recipient_id) {
+      console.error(
+        "Erro ao buscar recebedor:",
+        restauranteError
+      );
+
       return NextResponse.json(
         {
           success: false,
-          error: "Restaurante não encontrado",
+          error: "Recebedor do restaurante não encontrado",
         },
         { status: 404 }
       );
     }
 
-    const amount = Math.round(valor * 100);
+    // =====================================================
+    // 2. BUSCAR SAQUES SALVOS NO SUPABASE
+    // =====================================================
+
+    const { data: saques, error: saquesError } =
+      await supabaseAdmin
+        .from("saques")
+        .select("*")
+        .eq("restaurante_id", restauranteId)
+        .order("created_at", {
+          ascending: false,
+        });
+
+    if (saquesError) {
+      console.error(
+        "Erro ao buscar saques:",
+        saquesError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: saquesError,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    // =====================================================
+    // 3. CONSULTAR AS TRANSFERÊNCIAS NA PAGAR.ME
+    // =====================================================
 
     const response = await fetch(
       `https://api.pagar.me/core/v5/recipients/${restaurante.pagarme_recipient_id}/transfers`,
       {
-        method: "POST",
+        method: "GET",
+
         headers: {
           Authorization:
             "Basic " +
             Buffer.from(
               process.env.PAGARME_SECRET_KEY + ":"
             ).toString("base64"),
+
           "Content-Type": "application/json",
+
           "User-Agent": "MeuCardapioApp",
         },
-        body: JSON.stringify({
-          amount,
-        }),
+
+        cache: "no-store",
       }
     );
 
-    const transfer = await response.json();
+    // =====================================================
+    // 4. SE A PAGAR.ME RESPONDER, SINCRONIZAR STATUS
+    // =====================================================
 
-    console.log("TRANSFER:");
-    console.log(transfer);
+    if (response.ok) {
+      const pagarmeResponse = await response.json();
 
-const taxa = 3.67;
+      console.log(
+        "TRANSFERÊNCIAS PAGAR.ME:",
+        JSON.stringify(pagarmeResponse, null, 2)
+      );
 
-const valorLiquido = valor;
+      const transferencias = Array.isArray(pagarmeResponse)
+        ? pagarmeResponse
+        : pagarmeResponse?.data || [];
 
-const saldoConsumido = valorLiquido + taxa;
-
-    if (!response.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: transfer,
-        },
-        {
-          status: response.status,
+      for (const saque of saques || []) {
+        if (!saque.pagarme_withdrawal_id) {
+          continue;
         }
+
+        const transferencia = transferencias.find(
+          (item: any) =>
+            item.id === saque.pagarme_withdrawal_id
+        );
+
+        if (!transferencia) {
+          continue;
+        }
+
+        const novoStatus =
+          transferencia.status || saque.status;
+
+        // Só atualiza se realmente mudou
+        if (novoStatus !== saque.status) {
+          console.log(
+            `Atualizando saque ${saque.pagarme_withdrawal_id}:`,
+            saque.status,
+            "->",
+            novoStatus
+          );
+
+          const { error: updateError } =
+            await supabaseAdmin
+              .from("saques")
+              .update({
+                status: novoStatus,
+              })
+              .eq("id", saque.id);
+
+          if (updateError) {
+            console.error(
+              "Erro ao atualizar status do saque:",
+              updateError
+            );
+          } else {
+            // Atualiza também o objeto que será enviado
+            // para o frontend imediatamente
+            saque.status = novoStatus;
+          }
+        }
+      }
+    } else {
+      const erroPagarme = await response.text();
+
+      console.error(
+        "Erro ao consultar transferências na Pagar.me:",
+        response.status,
+        erroPagarme
       );
     }
 
-const { error: insertError } = await supabaseAdmin
-  .from("saques")
-  .insert({
-    restaurante_id: restauranteId,
-    pagarme_recipient_id:
-      restaurante.pagarme_recipient_id,
-    pagarme_withdrawal_id: transfer.id,
-
-    valor: saldoConsumido,
-
-    taxa,
-
-    valor_liquido: valorLiquido,
-
-    status:
-      transfer.status ?? "processing",
-  });
-
-if (insertError) {
-  console.error("ERRO AO SALVAR SAQUE:");
-  console.error(insertError);
-}
+    // =====================================================
+    // 5. DEVOLVER HISTÓRICO ATUALIZADO
+    // =====================================================
 
     return NextResponse.json({
       success: true,
-      transfer,
+      saques: saques || [],
     });
 
   } catch (error: any) {
-    console.error(error);
+    console.error(
+      "Erro na API de saques:",
+      error
+    );
 
     return NextResponse.json(
       {
