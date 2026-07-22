@@ -678,6 +678,20 @@ const obrigatoriosFormatados = gruposObrigatorios.flatMap((grupo) => {
 
 });
 
+
+if (
+  typeof window !== "undefined" &&
+  typeof (window as any).fbq === "function"
+) {
+  (window as any).fbq("track", "AddToCart", {
+    content_name: product.nome,
+    content_ids: [String(product.id)],
+    content_type: "product",
+    value: total,
+    currency: "BRL",
+  });
+}
+
 onAdd(
   product,
   observation,

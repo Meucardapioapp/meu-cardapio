@@ -27,9 +27,23 @@ export default function ProductCard({
       : 0;
 
 
+      const handleProductClick = () => {
+  if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
+    (window as any).fbq("track", "ViewContent", {
+      content_name: product.nome,
+      content_ids: [String(product.id)],
+      content_type: "product",
+      value: product.preco,
+      currency: "BRL",
+    });
+  }
+
+  onAdd();
+};
+
   return (
     <div
-    onClick={onAdd}
+     onClick={handleProductClick}
       className="
         relative
         cursor-pointer
@@ -271,11 +285,11 @@ export default function ProductCard({
           )}
         </div>
 
-       <button
+<button
   onClick={(e) => {
-  e.stopPropagation()
-  onAdd()
-}}
+    e.stopPropagation();
+    handleProductClick();
+  }}
           className="
             absolute
 
