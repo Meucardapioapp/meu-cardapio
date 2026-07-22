@@ -26,6 +26,15 @@ export default function ProductCard({
         )
       : 0;
 
+      const temDescricao =
+  product.descricao &&
+  String(product.descricao).trim() !== "" &&
+  String(product.descricao).trim() !== "0";
+
+const temPromocao =
+  Number(product.precoAntigo) > 0 &&
+  Number(product.precoAntigo) > Number(product.preco);
+
 
       const handleProductClick = () => {
   if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
@@ -105,27 +114,29 @@ export default function ProductCard({
           {product.nome}
         </h3>
 
-        <p
-          className="
-            mt-1
+{temDescricao && (
 
-            text-[13px]
-            md:text-[17px]
+    <p
+      className="
+        mt-1
 
-            leading-4
-            md:leading-7
+        text-[13px]
+        md:text-[17px]
 
-            text-zinc-500
+        leading-4
+        md:leading-7
 
-            line-clamp-2
-          "
-        >
-          {product.descricao}
-        </p>
+        text-zinc-500
+
+        line-clamp-2
+      "
+    >
+      {product.descricao}
+    </p>
+  )}
 
         <div className="mt-auto pt-1 md:pt-4">
-          {product.precoAntigo &&
-            product.precoAntigo > product.preco && (
+            {temPromocao && (
               <div
                 className="
                   flex
@@ -145,7 +156,7 @@ export default function ProductCard({
                   "
                 >
                   R${" "}
-                  {product.precoAntigo.toLocaleString(
+                  {Number(product.precoAntigo).toLocaleString(
                     "pt-BR",
                     {
                       minimumFractionDigits: 2,
@@ -183,30 +194,28 @@ export default function ProductCard({
               </div>
             )}
 
-          <p
-            className="
-              text-[16px]
-              md:text-[26px]
+{product.preco > 0 && (
+  <p
+    className="
+      text-[16px]
+      md:text-[26px]
 
-              font-bold
+      font-bold
 
-              leading-none
-            "
-            style={{
-              color: corPrincipal,
-            }}
-          >
-            R${" "}
-            {product.preco.toLocaleString(
-              "pt-BR",
-              {
-                minimumFractionDigits: 2,
-              }
-            )}
-          </p>
+      leading-none
+    "
+    style={{
+      color: corPrincipal,
+    }}
+  >
+    R${" "}
+    {product.preco.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+    })}
+  </p>
+)}
 
-          {product.precoAntigo &&
-            product.precoAntigo > product.preco && (
+{temPromocao && (
               <p
                 className="
                   mt-1
@@ -221,8 +230,8 @@ export default function ProductCard({
               >
                 Economize R${" "}
                 {(
-                  product.precoAntigo -
-                  product.preco
+                  Number(product.precoAntigo) -
+                   Number(product.preco)
                 ).toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 })}

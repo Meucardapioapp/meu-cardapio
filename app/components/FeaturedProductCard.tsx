@@ -13,15 +13,26 @@ export default function FeaturedProductCard({
   onClick,
   corPrincipal,
 }: Props) {
-  const percentualDesconto =
-    product.precoAntigo &&
-    product.precoAntigo > product.preco
-      ? Math.round(
-          ((product.precoAntigo - product.preco) /
-            product.precoAntigo) *
-            100
-        )
-      : 0;
+  const preco = Number(product.preco) || 0;
+  const precoAntigo = Number(product.precoAntigo) || 0;
+
+  const temDescricao =
+    Boolean(product.descricao) &&
+    String(product.descricao).trim() !== "" &&
+    String(product.descricao).trim() !== "0";
+
+  const temPreco = preco > 0;
+
+  const temPromocao =
+    precoAntigo > 0 &&
+    preco > 0 &&
+    precoAntigo > preco;
+
+  const percentualDesconto = temPromocao
+    ? Math.round(
+        ((precoAntigo - preco) / precoAntigo) * 100
+      )
+    : 0;
 
   return (
     <button
@@ -34,6 +45,9 @@ export default function FeaturedProductCard({
 
         md:min-w-[270px]
         md:max-w-[270px]
+
+        h-[248px]
+        md:h-[430px]
 
         bg-white
         rounded-[24px]
@@ -58,8 +72,10 @@ export default function FeaturedProductCard({
       <div
         className="
           relative
+
           h-[110px]
           md:h-[210px]
+
           overflow-hidden
           bg-zinc-100
         "
@@ -72,8 +88,10 @@ export default function FeaturedProductCard({
               w-full
               h-full
               object-cover
+
               transition-transform
               duration-300
+
               hover:scale-105
             "
           />
@@ -82,9 +100,11 @@ export default function FeaturedProductCard({
             className="
               w-full
               h-full
+
               flex
               items-center
               justify-center
+
               text-zinc-400
             "
           >
@@ -92,7 +112,9 @@ export default function FeaturedProductCard({
           </div>
         )}
 
-        {percentualDesconto > 0 && (
+        {/* DESCONTO SOBRE A FOTO */}
+
+        {temPromocao && (
           <div
             className="
               absolute
@@ -113,7 +135,6 @@ export default function FeaturedProductCard({
               md:py-[5px]
 
               rounded-full
-
               shadow-md
             "
             style={{
@@ -127,54 +148,76 @@ export default function FeaturedProductCard({
 
       {/* CONTEÚDO */}
 
-      <div className="p-2.5 md:p-5">
+      <div
+        className="
+          p-2.5
+          md:p-5
+        "
+      >
+        {/* NOME */}
+
         <h3
           className="
             text-[14px]
             md:text-[20px]
 
             font-semibold
-
             text-zinc-900
 
             leading-tight
-
             line-clamp-1
           "
         >
           {product.nome}
         </h3>
 
-        <p
+        {/* ÁREA FIXA DA DESCRIÇÃO */}
+
+        <div
           className="
+            h-[34px]
+            md:h-[52px]
+
             mt-1
-
-            text-[12px]
-            md:text-[16px]
-
-            text-zinc-500
-
-            leading-4
-            md:leading-6
-
-            line-clamp-2
-
-            min-h-[34px]
-            md:min-h-[52px]
           "
         >
-          {product.descricao}
-        </p>
+<p
+  className="
+    mt-1
+    text-[12px]
+    md:text-[16px]
+    text-zinc-500
+    leading-4
+    md:leading-6
+    line-clamp-2
+    min-h-[34px]
+    md:min-h-[52px]
+  "
+>
+  {temDescricao ? product.descricao : "\u00A0"}
+</p>
+        </div>
+
+        {/* ÁREA DOS PREÇOS */}
 
         <div className="mt-2 md:mt-5">
-          {product.precoAntigo &&
-            product.precoAntigo > product.preco && (
+          {/* LINHA DO PREÇO ANTIGO */}
+
+          <div
+            className="
+              h-[17px]
+              md:h-[24px]
+
+              flex
+              items-center
+            "
+          >
+            {temPromocao && (
               <div
                 className="
                   flex
                   items-center
                   gap-1
-                  mb-1
                 "
               >
                 <span
@@ -183,17 +226,13 @@ export default function FeaturedProductCard({
                     md:text-[16px]
 
                     text-zinc-400
-
                     line-through
                   "
                 >
                   R${" "}
-                  {product.precoAntigo.toLocaleString(
-                    "pt-BR",
-                    {
-                      minimumFractionDigits: 2,
-                    }
-                  )}
+                  {precoAntigo.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                  })}
                 </span>
 
                 <span
@@ -220,52 +259,71 @@ export default function FeaturedProductCard({
                 </span>
               </div>
             )}
+          </div>
 
-          <p
+          {/* PREÇO ATUAL */}
+
+          <div
             className="
-              text-[16px]
-              md:text-[30px]
+              h-[22px]
+              md:h-[36px]
 
-              font-bold
-
-              leading-none
+              flex
+              items-center
             "
-            style={{
-              color: corPrincipal,
-            }}
           >
-            R${" "}
-            {product.preco.toLocaleString(
-              "pt-BR",
-              {
-                minimumFractionDigits: 2,
-              }
-            )}
-          </p>
-
-          {product.precoAntigo &&
-            product.precoAntigo > product.preco && (
+            {temPreco && (
               <p
                 className="
-                  mt-1
+                  text-[16px]
+                  md:text-[30px]
 
-                  text-[11px]
-                  md:text-[16px]
-
-                  font-semibold
-
-                  text-emerald-600
+                  font-bold
+                  leading-none
                 "
+                style={{
+                  color: corPrincipal,
+                }}
               >
-                Economize R${" "}
-                {(
-                  product.precoAntigo -
-                  product.preco
-                ).toLocaleString("pt-BR", {
+                R${" "}
+                {preco.toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 })}
               </p>
             )}
+          </div>
+
+          {/* ECONOMIA */}
+
+          <div
+            className="
+              h-[18px]
+              md:h-[25px]
+
+              flex
+              items-center
+            "
+          >
+            {temPromocao && (
+              <p
+                className="
+                  text-[11px]
+                  md:text-[16px]
+
+                  font-semibold
+                  text-emerald-600
+                "
+              >
+                Economize R${" "}
+                {(precoAntigo - preco).toLocaleString(
+                  "pt-BR",
+                  {
+                    minimumFractionDigits: 2,
+                  }
+                )}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </button>
