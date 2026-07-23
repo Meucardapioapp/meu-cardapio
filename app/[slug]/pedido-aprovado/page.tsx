@@ -74,6 +74,40 @@ useEffect(() => {
   return () => clearInterval(intervalo);
 }, [pedidoId]);
 
+useEffect(() => {
+  if (!pedido?.id) return;
+
+  const chave = `meta_purchase_${pedido.id}`;
+
+  if (sessionStorage.getItem(chave)) {
+    return;
+  }
+
+  const valor = Number(
+    pedido.total_pago ?? pedido.total ?? 0
+  );
+
+  if (
+    typeof window !== "undefined" &&
+    typeof (window as any).fbq === "function"
+  ) {
+    (window as any).fbq("track", "Purchase", {
+      value: valor,
+      currency: "BRL",
+      content_type: "product",
+      order_id: String(pedido.id),
+    });
+
+    sessionStorage.setItem(chave, "1");
+
+    console.log("META PURCHASE:", {
+      pedido: pedido.id,
+      value: valor,
+      currency: "BRL",
+    });
+  }
+}, [pedido]);
+
   if (!pedido) {
     return null;
   }
