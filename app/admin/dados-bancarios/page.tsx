@@ -146,6 +146,10 @@ if (
         "Dados bancários salvos com sucesso!"
       );
 
+      window.dispatchEvent(
+  new Event("dados-bancarios-atualizados")
+);
+
     } catch (error) {
       console.log(error);
 

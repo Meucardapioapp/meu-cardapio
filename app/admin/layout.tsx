@@ -1,18 +1,80 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { supabase } from "@/utils/supabase/client"
+import { toast } from "sonner"
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
- const pathname = usePathname()
+
+
+  const pathname = usePathname()
+const router = useRouter()
 
 const [menuAberto, setMenuAberto] = useState(false)
+const [dadosBancariosOk, setDadosBancariosOk] = useState<boolean | null>(null)
+
+
+useEffect(() => {
+  verificarDadosBancarios()
+
+  function atualizarDadosBancarios() {
+    verificarDadosBancarios()
+  }
+
+  window.addEventListener(
+    "dados-bancarios-atualizados",
+    atualizarDadosBancarios
+  )
+
+  return () => {
+    window.removeEventListener(
+      "dados-bancarios-atualizados",
+      atualizarDadosBancarios
+    )
+  }
+}, [pathname])
+
+async function verificarDadosBancarios() {
+  try {
+    const restauranteId = localStorage.getItem("restaurante_id")
+
+    if (!restauranteId) {
+      setDadosBancariosOk(false)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from("restaurantes")
+      .select("cpf_cnpj, banco, agencia, conta, tipo_conta")
+      .eq("id", restauranteId)
+      .single()
+
+    if (error) {
+      console.error("Erro ao verificar dados bancários:", error)
+      setDadosBancariosOk(false)
+      return
+    }
+
+    const completo = Boolean(
+      data?.cpf_cnpj &&
+      data?.banco &&
+      data?.agencia &&
+      data?.conta &&
+      data?.tipo_conta
+    )
+
+    setDadosBancariosOk(completo)
+  } catch (error) {
+    console.error("Erro ao verificar dados bancários:", error)
+    setDadosBancariosOk(false)
+  }
+}
 
   async function sair() {
     await supabase.auth.signOut()
@@ -87,13 +149,42 @@ const [menuAberto, setMenuAberto] = useState(false)
     link: "/admin/link-cardapio",
   },
   
-  {
-    nome: "Configurações",
-    link: "/admin/configuracoes",
-  },
+{
+  nome: "Configurações",
+  link: "/admin/configuracoes",
+},
 ]
 
-  return (
+// FUNÇÕES QUE EXIGEM DADOS BANCÁRIOS
+const menusBloqueados = [
+  "/admin/pedidos",
+  "/admin/horarios",
+  "/admin/entrega",
+  "/admin/pagamentos",
+  "/admin/link-cardapio",
+]
+
+function acessarMenu(
+  e: React.MouseEvent<HTMLAnchorElement>,
+  link: string
+) {
+if (
+  menusBloqueados.includes(link) &&
+  dadosBancariosOk !== true
+) {
+    e.preventDefault()
+
+    setMenuAberto(false)
+
+    toast.error(
+      "Preencha seus dados bancários para habilitar essa função."
+    )
+
+    router.push("/admin/dados-bancarios")
+  }
+}
+
+return (
 
     <>
 
@@ -167,7 +258,13 @@ lg:translate-x-0
     <Link
       key={item.link}
       href={item.link}
-      onClick={() => setMenuAberto(false)}
+      onClick={(e) => {
+  acessarMenu(e, item.link)
+
+  if (!e.defaultPrevented) {
+    setMenuAberto(false)
+  }
+}}
       className={`p-4 rounded-xl transition font-semibold ${
         pathname === item.link
           ? "bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white shadow-lg"
