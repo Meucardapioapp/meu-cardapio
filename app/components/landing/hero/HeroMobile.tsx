@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import {
   ArrowRight,
-  Check,
-  Smartphone,
-  ShoppingBag,
   Bike,
+  Check,
   CircleDollarSign,
   Rocket,
+  ShoppingBag,
+  Smartphone,
 } from "lucide-react";
 
 export default function HeroMobile() {
@@ -37,91 +37,153 @@ export default function HeroMobile() {
   ];
 
   return (
-    <section className="relative overflow-hidden bg-[#16070A] text-white">
+    <section
+      className="
+        relative
+        overflow-hidden
+        bg-[#100608]
+        text-white
+      "
+    >
+      {/* =====================================================
+          FUNDO / GLOW
+      ===================================================== */}
 
-      {/* LUZ DE FUNDO */}
-      <div className="pointer-events-none absolute -right-20 top-10 h-72 w-72 rounded-full bg-[#6D1F2F]/25 blur-[90px]" />
+      <div
+        className="
+          pointer-events-none
+          absolute
+          right-[-150px]
+          top-[100px]
+          h-[430px]
+          w-[430px]
+          rounded-full
+          bg-[#8D1835]/25
+          blur-[120px]
+        "
+      />
 
-      <div className="pointer-events-none absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-[#6D1F2F]/15 blur-[90px]" />
+      <div
+        className="
+          pointer-events-none
+          absolute
+          left-[-180px]
+          top-[420px]
+          h-[400px]
+          w-[400px]
+          rounded-full
+          bg-[#6D1F2F]/20
+          blur-[130px]
+        "
+      />
 
-      {/* CONTEÚDO */}
-      <div className="relative z-10 mx-auto w-full max-w-xl px-5 pb-9 pt-5">
+      <div
+        className="
+          pointer-events-none
+          absolute
+          bottom-[-180px]
+          right-[-120px]
+          h-[420px]
+          w-[420px]
+          rounded-full
+          bg-[#B52B49]/10
+          blur-[140px]
+        "
+      />
 
-        {/* ==================================================
-            MARCA
-        ================================================== */}
-        <div className="relative z-30">
-          <div className="text-[34px] font-black leading-[0.85] tracking-[-0.05em]">
-            Meu
-          </div>
+      {/* textura/gradiente superior */}
+      <div
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          bg-[radial-gradient(circle_at_75%_25%,rgba(181,43,73,0.12),transparent_35%)]
+        "
+      />
 
-          <div className="mt-1.5 text-[19px] font-bold leading-none tracking-[-0.04em]">
-            <span className="text-white">
-              Cardápio
-            </span>
+      {/* =====================================================
+          CONTEÚDO
+      ===================================================== */}
 
-            <span className="text-[#C32F50]">
-              App
-            </span>
-          </div>
-        </div>
+      <div className="relative z-10 mx-auto w-full max-w-[430px] px-5 pb-10 pt-8">
 
-        {/* ==================================================
+        {/* =====================================================
             TAG
-        ================================================== */}
-        <div className="relative z-30 mt-6">
+        ===================================================== */}
+
+        <div>
           <span
             className="
               inline-flex
+              items-center
               rounded-full
-              border border-[#8F263D]
+              border
+              border-[#A62945]/80
               bg-[#6D1F2F]/10
-              px-4 py-1.5
+              px-4
+              py-1.5
               text-[9px]
-              font-semibold
+              font-bold
               uppercase
-              tracking-[0.20em]
+              tracking-[0.19em]
               text-zinc-200
-              transition-all
-              duration-300
-              active:scale-95
-              active:bg-[#6D1F2F]/25
+              backdrop-blur-sm
             "
           >
             O cardápio digital
           </span>
         </div>
 
-        {/* ==================================================
-            ÁREA PRINCIPAL
-        ================================================== */}
-        <div className="relative mt-4 min-h-[350px]">
+        {/* =====================================================
+            HERO PRINCIPAL
+        ===================================================== */}
 
-          {/* ==================================================
-              CONTEÚDO ESQUERDO
-          ================================================== */}
+        <div className="relative mt-5 min-h-[480px]">
+
+          {/* ===================================================
+              TEXTO ESQUERDA
+          =================================================== */}
+
           <div className="relative z-20 w-[56%]">
 
             {/* TÍTULO */}
-            <h1 className="text-[31px] font-black leading-[1.02] tracking-[-0.045em]">
-              Perfeito para
-              <br />
 
-              <span className="text-[#C32F50]">
+            <h1
+              className="
+                text-[34px]
+                font-black
+                leading-[0.98]
+                tracking-[-0.05em]
+                text-white
+              "
+            >
+              Perfeito para
+
+              <span className="mt-1 block text-[#C62E50]">
                 o seu negócio
               </span>
             </h1>
 
             {/* DESCRIÇÃO */}
-            <p className="mt-4 max-w-[190px] text-[13px] leading-[1.55] text-zinc-300">
+
+            <p
+              className="
+                mt-5
+                max-w-[205px]
+                text-[13px]
+                leading-[1.6]
+                text-zinc-300
+              "
+            >
               Tenha seu cardápio digital, receba pedidos online e venda mais sem
               depender de aplicativos de delivery.
             </p>
 
-            {/* ==================================================
+            {/* =================================================
                 BENEFÍCIOS
-            ================================================== */}
-            <div className="mt-5 space-y-2">
+            ================================================= */}
+
+            <div className="mt-7 space-y-2.5">
 
               {beneficios.map(({ titulo, descricao, Icone }) => (
                 <div
@@ -132,122 +194,167 @@ export default function HeroMobile() {
                     flex
                     w-fit
                     items-center
-                    gap-2.5
+                    gap-3
                     rounded-2xl
                     px-2
                     py-1.5
+
                     transition-all
                     duration-300
                     ease-out
 
-                    hover:bg-white/[0.04]
                     hover:translate-x-1
+                    hover:bg-white/[0.035]
 
                     active:scale-[0.96]
-                    active:bg-white/[0.07]
+                    active:bg-white/[0.06]
                   "
                 >
 
                   {/* ÍCONE */}
+
                   <div
                     className="
                       flex
-                      h-10
-                      w-10
+                      h-[42px]
+                      w-[42px]
                       shrink-0
                       items-center
                       justify-center
                       rounded-full
+
                       border
-                      border-[#8F263D]/60
-                      bg-[#6D1F2F]
-                      shadow-[0_5px_18px_rgba(109,31,47,0.22)]
+                      border-[#9B2942]/50
+
+                      bg-gradient-to-br
+                      from-[#84243B]
+                      to-[#5B1728]
+
+                      shadow-[0_8px_24px_rgba(109,31,47,0.28)]
+
                       transition-all
                       duration-300
 
                       group-hover:scale-110
-                      group-hover:bg-[#84253A]
+                      group-hover:shadow-[0_10px_30px_rgba(181,43,73,0.35)]
 
-                      group-active:scale-90
+                      group-active:scale-95
                     "
                   >
                     <Icone
-                      size={18}
+                      size={19}
                       strokeWidth={1.8}
                       className="text-white"
                     />
                   </div>
 
                   {/* TEXTO */}
+
                   <div className="leading-tight">
-                    <p className="whitespace-nowrap text-[13px] font-bold text-white">
+
+                    <p className="whitespace-nowrap text-[13.5px] font-bold text-white">
                       {titulo}
                     </p>
 
-                    <p className="mt-0.5 whitespace-nowrap text-[11.5px] text-zinc-400">
+                    <p className="mt-1 whitespace-nowrap text-[12px] text-zinc-400">
                       {descricao}
                     </p>
+
                   </div>
 
                 </div>
               ))}
 
             </div>
+
           </div>
 
-          {/* ==================================================
-              CELULAR
-          ================================================== */}
-          <div
-            className="
-              absolute
-              -right-14
-              top-[-30px]
-              z-10
-              h-[480px]
-              w-[66%]
-              transition-transform
-              duration-500
-              ease-out
+ {/* ===================================================
+    CELULAR
+=================================================== */}
 
-              hover:scale-[1.035]
-              hover:-translate-y-1
+<div
+  className="
+    absolute
+    right-[-35px]
+    top-[15px]
+    z-10
+    h-[460px]
+    w-[62%]
 
-              active:scale-[0.98]
-            "
-          >
-            <Image
-              src="/images/celular-hero.png"
-              alt="Cardápio digital Fornada Pizzaria"
-              fill
-              priority
-              sizes="66vw"
-              className="
-                object-contain
-                object-center
-                drop-shadow-[0_20px_30px_rgba(0,0,0,0.45)]
-              "
-            />
-          </div>
+    transition-transform
+    duration-500
+    ease-out
+
+    hover:scale-[1.025]
+    hover:-translate-y-1
+
+    active:scale-[0.985]
+  "
+>
+  {/* GLOW ATRÁS DO CELULAR */}
+  <div
+    className="
+      pointer-events-none
+      absolute
+      left-1/2
+      top-1/2
+      h-[300px]
+      w-[190px]
+      -translate-x-1/2
+      -translate-y-1/2
+      rounded-full
+      bg-[#B52B49]/20
+      blur-[65px]
+    "
+  />
+
+  <Image
+    src="/images/celular-hero.png"
+    alt="Cardápio digital Fornada Pizzaria"
+    fill
+    priority
+    sizes="62vw"
+    className="
+      relative
+      z-10
+      object-contain
+      object-center
+      drop-shadow-[0_28px_38px_rgba(0,0,0,0.55)]
+    "
+  />
+</div>
 
         </div>
 
-        {/* ==================================================
-            DIVISOR
-        ================================================== */}
-        <div className="relative z-30 mx-auto mt-1 h-px w-[78%] bg-gradient-to-r from-transparent via-[#6D1F2F] to-transparent" />
-
-        {/* ==================================================
+        {/* =====================================================
             CTA
-        ================================================== */}
-        <div className="relative z-30 mt-5">
+        ===================================================== */}
 
-          {/* TEXTO CTA */}
+        <div className="relative z-30 -mt-1">
+
+          {/* LINHA */}
+
+          <div
+            className="
+              mx-auto
+              mb-6
+              h-px
+              w-[78%]
+              bg-gradient-to-r
+              from-transparent
+              via-[#8F263D]
+              to-transparent
+            "
+          />
+
+          {/* CHAMADA */}
+
           <div className="text-center">
-            <p className="text-[19px] font-bold leading-tight">
-              Crie seu cardápio{" "}
 
-              <span className="text-[#C32F50]">
+            <p className="text-[20px] font-bold tracking-[-0.02em] text-white">
+              Crie seu cardápio{" "}
+              <span className="text-[#C62E50]">
                 grátis
               </span>
             </p>
@@ -255,49 +362,65 @@ export default function HeroMobile() {
             <p className="mt-1.5 text-[14px] text-zinc-300">
               e comece agora mesmo!
             </p>
+
           </div>
 
-          {/* BOTÃO PRINCIPAL */}
+          {/* ===================================================
+              BOTÃO
+          =================================================== */}
+
           <Link
             href="/cadastro"
             className="
               group
+
               mx-auto
               mt-5
+
               flex
-              min-h-[55px]
+              min-h-[58px]
               w-full
-              max-w-[350px]
+              max-w-[355px]
+
               items-center
               justify-center
-              gap-2.5
+              gap-3
+
               rounded-full
+
               border
-              border-white/5
+              border-white/[0.06]
+
               bg-gradient-to-r
-              from-[#6D1F2F]
-              to-[#C32F50]
+              from-[#791D34]
+              via-[#9D2542]
+              to-[#C62E50]
+
               px-5
+
               text-[14px]
               font-black
               uppercase
+              tracking-[-0.01em]
               text-white
-              shadow-[0_12px_35px_rgba(109,31,47,0.38)]
+
+              shadow-[0_15px_45px_rgba(109,31,47,0.40)]
+
               transition-all
               duration-300
               ease-out
 
               hover:-translate-y-1
-              hover:shadow-[0_18px_45px_rgba(109,31,47,0.50)]
+              hover:shadow-[0_20px_55px_rgba(181,43,73,0.48)]
 
               active:translate-y-0
-              active:scale-[0.96]
-              active:shadow-[0_7px_20px_rgba(109,31,47,0.35)]
+              active:scale-[0.97]
             "
           >
 
             <Rocket
-              size={19}
+              size={20}
+              strokeWidth={1.8}
               className="
                 transition-transform
                 duration-300
@@ -321,24 +444,27 @@ export default function HeroMobile() {
 
           </Link>
 
-          {/* ==================================================
+          {/* ===================================================
               MICRO BENEFÍCIOS
-          ================================================== */}
-          <div className="mt-4 flex items-center justify-center gap-3 text-[10px] text-zinc-400">
+          =================================================== */}
 
-            <span
-              className="
-                flex
-                items-center
-                gap-1.5
-                transition-colors
-                duration-300
-                hover:text-white
-              "
-            >
+          <div
+            className="
+              mt-5
+              flex
+              items-center
+              justify-center
+              gap-3
+              text-[10px]
+              text-zinc-400
+            "
+          >
+
+            <span className="flex items-center gap-1.5">
               <Check
                 size={12}
-                className="text-zinc-300"
+                strokeWidth={2.2}
+                className="text-[#C62E50]"
               />
 
               Sem mensalidade
@@ -346,19 +472,11 @@ export default function HeroMobile() {
 
             <span className="h-1 w-1 rounded-full bg-[#8F263D]" />
 
-            <span
-              className="
-                flex
-                items-center
-                gap-1.5
-                transition-colors
-                duration-300
-                hover:text-white
-              "
-            >
+            <span className="flex items-center gap-1.5">
               <Check
                 size={12}
-                className="text-zinc-300"
+                strokeWidth={2.2}
+                className="text-[#C62E50]"
               />
 
               Configure em poucos minutos
@@ -366,23 +484,26 @@ export default function HeroMobile() {
 
           </div>
 
-          {/* ==================================================
+          {/* ===================================================
               DEMONSTRAÇÃO
-          ================================================== */}
+          =================================================== */}
+
           <Link
             href="/fornadapizzaria"
             className="
               mx-auto
-              mt-4
+              mt-5
               block
               w-fit
-              text-center
+
               text-[11px]
               font-medium
               text-zinc-500
+
               underline
               decoration-zinc-700
               underline-offset-4
+
               transition-all
               duration-300
 

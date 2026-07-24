@@ -12,6 +12,8 @@ import {
   MessageCircle,
   ArrowRight,
   Mail,
+  Camera,
+  UtensilsCrossed,
 } from "lucide-react";
 
 export default function NavbarMobile() {
@@ -21,200 +23,691 @@ export default function NavbarMobile() {
 
   return (
     <>
-      {/* NAVBAR */}
+      {/* =====================================================
+          NAVBAR MOBILE
+      ===================================================== */}
+     
+<header
+  className="
+    sticky
+    top-0
+    z-50
+    bg-[#100608]
+    text-white
+  "
+>
+  {/* GLOW PARA CONECTAR COM O HERO */}
+  <div className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div
+      className="
+        absolute
+        -right-16
+        -top-24
+        h-52
+        w-52
+        rounded-full
+        bg-[#8D1835]/20
+        blur-[80px]
+      "
+    />
+  </div>
 
-      <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur">
+<div
+  className="
+    relative
+    mx-auto
+    flex
+    h-[72px]
+    w-full
+    max-w-[430px]
+    items-center
+    px-4
+  "
+>
+    {/* MENU */}
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-label="Abrir menu"
+      className="
+        group
+        flex
+        h-11
+        w-11
+        shrink-0
+        items-center
+        justify-center
+        rounded-full
 
-        <div className="flex h-16 items-center justify-between px-5">
+        border
+        border-white/10
+        bg-white/[0.04]
 
-          {/* Menu */}
+        text-white
 
-          <button
-            onClick={() => setOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl hover:bg-zinc-100 transition"
-          >
-            <Menu size={24} />
-          </button>
+        transition-all
+        duration-300
 
-          {/* Logo */}
+        hover:border-[#C62E50]/50
+        hover:bg-[#6D1F2F]/20
 
-          <Link href="/" className="text-xl font-black">
+        active:scale-90
+      "
+    >
+      <Menu
+        size={22}
+        strokeWidth={1.8}
+        className="transition-transform duration-300 group-hover:scale-110"
+      />
+    </button>
 
-            Meu
-            <span className="text-[#6D1F2F]">
-              CardapioApp
-            </span>
+    {/* LOGO CENTRAL */}
+<Link
+  href="/"
+  className="
+    absolute
+    left-1/2
+    top-1/2
+    -translate-x-1/2
+    -translate-y-1/2
+    whitespace-nowrap
+    transition-transform
+    duration-300
+    active:scale-95
+  "
+>
+  <span
+    className="
+      text-[17px]
+      font-black
+      tracking-[-0.05em]
+      text-white
+    "
+  >
+    MeuCardápio
+  </span>
 
-          </Link>
+  <span
+    className="
+      text-[17px]
+      font-black
+      tracking-[-0.05em]
+      text-[#C62E50]
+    "
+  >
+    App
+  </span>
+</Link>
 
-          {/* CTA */}
+    {/* BOTÃO */}
+    <Link
+      href="/cadastro"
+      className="
+        flex
+        ml-auto
+        h-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-full
 
-          <Link
-            href="/cadastro"
-            className="rounded-xl bg-[#6D1F2F] px-3 py-2 text-sm font-bold text-white"
-          >
-            Criar grátis
-          </Link>
+        bg-gradient-to-r
+        from-[#791D34]
+        to-[#C62E50]
 
-        </div>
+        px-3
 
-      </header>
+        text-[11px]
+        font-extrabold
+        text-white
 
-      {/* Overlay */}
+        shadow-[0_8px_25px_rgba(109,31,47,0.30)]
 
+        transition-all
+        duration-300
+
+        hover:-translate-y-0.5
+
+        active:translate-y-0
+        active:scale-95
+      "
+    >
+      Criar grátis
+    </Link>
+  </div>
+</header>
+
+
+      {/* =====================================================
+          OVERLAY
+      ===================================================== */}
       <div
         onClick={fechar}
-        className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm transition duration-300 ${
-          open
-            ? "opacity-100 visible"
-            : "opacity-0 invisible"
-        }`}
+        className={`
+          fixed
+          inset-0
+          z-[60]
+
+          bg-black/65
+          backdrop-blur-[3px]
+
+          transition-all
+          duration-300
+
+          ${
+            open
+              ? "visible opacity-100"
+              : "invisible opacity-0"
+          }
+        `}
       />
 
-      {/* Drawer */}
-
+      {/* =====================================================
+          DRAWER
+      ===================================================== */}
       <aside
-        className={`fixed left-0 top-0 z-[70] h-screen w-[85%] max-w-[340px] bg-white transition duration-300 ${
-          open
-            ? "translate-x-0"
-            : "-translate-x-full"
-        }`}
+        className={`
+          fixed
+          left-0
+          top-0
+          z-[70]
+
+          flex
+          h-[100dvh]
+          w-[86%]
+          max-w-[340px]
+          flex-col
+
+          overflow-y-auto
+
+          border-r
+          border-white/10
+
+          bg-[#16070A]
+          text-white
+
+          shadow-[25px_0_70px_rgba(0,0,0,0.45)]
+
+          transition-transform
+          duration-300
+          ease-out
+
+          ${
+            open
+              ? "translate-x-0"
+              : "-translate-x-full"
+          }
+        `}
       >
+        {/* =================================================
+            CABEÇALHO DRAWER
+        ================================================= */}
+        <div className="relative border-b border-white/10 px-6 pb-5 pt-6">
 
-        {/* Cabeçalho */}
+          {/* LUZ */}
+          <div
+            className="
+              pointer-events-none
+              absolute
+              -left-16
+              -top-16
+              h-40
+              w-40
+              rounded-full
+              bg-[#6D1F2F]/30
+              blur-[60px]
+            "
+          />
 
-        <div className="border-b border-zinc-200 p-6">
+          <div className="relative flex items-start justify-between">
 
-          <div className="flex items-center justify-between">
-
-            <div>
-
-              <h2 className="text-2xl font-black">
-                Meu
-                <span className="text-[#6D1F2F]">
-                  CardapioApp
-                </span>
-              </h2>
-
-              <p className="mt-1 text-sm text-zinc-500">
-                Cardápio Digital Premium
-              </p>
-
-            </div>
-
-            <button
+            {/* MARCA */}
+            <Link
+              href="/"
               onClick={fechar}
-              className="rounded-xl p-2 hover:bg-zinc-100"
+              className="
+                transition
+                duration-300
+                active:scale-95
+              "
             >
-              <X />
+              <div
+                className="
+                  text-[28px]
+                  font-black
+                  leading-[0.9]
+                  tracking-[-0.05em]
+                "
+              >
+                Meu
+              </div>
+
+              <div
+                className="
+                  mt-1.5
+                  text-[17px]
+                  font-bold
+                  leading-none
+                  tracking-[-0.04em]
+                "
+              >
+                <span className="text-white">
+                  Cardápio
+                </span>
+
+                <span className="text-[#C32F50]">
+                  App
+                </span>
+              </div>
+
+              <p className="mt-3 text-[11px] text-zinc-500">
+                Seu delivery. Sua marca.
+              </p>
+            </Link>
+
+            {/* FECHAR */}
+            <button
+              type="button"
+              onClick={fechar}
+              aria-label="Fechar menu"
+              className="
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+                rounded-full
+
+                border
+                border-white/10
+                bg-white/5
+
+                text-zinc-300
+
+                transition-all
+                duration-300
+
+                hover:bg-white/10
+                hover:text-white
+
+                active:scale-90
+              "
+            >
+              <X size={20} />
             </button>
-
           </div>
-
         </div>
 
-        {/* Links */}
+        {/* =================================================
+            LINKS
+        ================================================= */}
+        <div className="flex flex-1 flex-col px-5 py-5">
 
-        <div className="px-6 py-4">
+          <p
+            className="
+              mb-2
+              px-3
+              text-[9px]
+              font-bold
+              uppercase
+              tracking-[0.2em]
+              text-zinc-600
+            "
+          >
+            Navegação
+          </p>
 
           <nav className="space-y-1">
 
             <a
               href="#como-funciona"
               onClick={fechar}
-              className="flex items-center gap-4 rounded-xl py-4 px-2 hover:bg-zinc-100"
+              className="
+                group
+                flex
+                items-center
+                gap-3
+                rounded-xl
+                px-3
+                py-3.5
+
+                text-[14px]
+                font-medium
+                text-zinc-300
+
+                transition-all
+                duration-300
+
+                hover:bg-white/[0.05]
+                hover:text-white
+
+                active:scale-[0.98]
+              "
             >
-              <House size={20} />
+              <span
+                className="
+                  flex
+                  h-9
+                  w-9
+                  items-center
+                  justify-center
+                  rounded-full
+
+                  bg-[#6D1F2F]/20
+                  text-[#D94B68]
+
+                  transition
+                  group-hover:bg-[#6D1F2F]/35
+                "
+              >
+                <House size={17} />
+              </span>
+
               Como funciona
             </a>
 
             <a
               href="#beneficios"
               onClick={fechar}
-              className="flex items-center gap-4 rounded-xl py-4 px-2 hover:bg-zinc-100"
+              className="
+                group
+                flex
+                items-center
+                gap-3
+                rounded-xl
+                px-3
+                py-3.5
+                text-[14px]
+                font-medium
+                text-zinc-300
+
+                transition-all
+                duration-300
+
+                hover:bg-white/[0.05]
+                hover:text-white
+
+                active:scale-[0.98]
+              "
             >
-              <Star size={20} />
+              <span
+                className="
+                  flex h-9 w-9
+                  items-center justify-center
+                  rounded-full
+                  bg-[#6D1F2F]/20
+                  text-[#D94B68]
+                  transition
+                  group-hover:bg-[#6D1F2F]/35
+                "
+              >
+                <Star size={17} />
+              </span>
+
               Benefícios
             </a>
 
             <a
               href="#dashboard"
               onClick={fechar}
-              className="flex items-center gap-4 rounded-xl py-4 px-2 hover:bg-zinc-100"
+              className="
+                group
+                flex
+                items-center
+                gap-3
+                rounded-xl
+                px-3
+                py-3.5
+                text-[14px]
+                font-medium
+                text-zinc-300
+
+                transition-all
+                duration-300
+
+                hover:bg-white/[0.05]
+                hover:text-white
+
+                active:scale-[0.98]
+              "
             >
-              <LayoutDashboard size={20} />
+              <span
+                className="
+                  flex h-9 w-9
+                  items-center justify-center
+                  rounded-full
+                  bg-[#6D1F2F]/20
+                  text-[#D94B68]
+                  transition
+                  group-hover:bg-[#6D1F2F]/35
+                "
+              >
+                <LayoutDashboard size={17} />
+              </span>
+
               Dashboard
             </a>
 
             <a
               href="#faq"
               onClick={fechar}
-              className="flex items-center gap-4 rounded-xl py-4 px-2 hover:bg-zinc-100"
-            >
-              <CircleHelp size={20} />
-              FAQ
-            </a>
+              className="
+                group
+                flex
+                items-center
+                gap-3
+                rounded-xl
+                px-3
+                py-3.5
+                text-[14px]
+                font-medium
+                text-zinc-300
 
+                transition-all
+                duration-300
+
+                hover:bg-white/[0.05]
+                hover:text-white
+
+                active:scale-[0.98]
+              "
+            >
+              <span
+                className="
+                  flex h-9 w-9
+                  items-center justify-center
+                  rounded-full
+                  bg-[#6D1F2F]/20
+                  text-[#D94B68]
+                  transition
+                  group-hover:bg-[#6D1F2F]/35
+                "
+              >
+                <CircleHelp size={17} />
+              </span>
+
+              Dúvidas frequentes
+            </a>
           </nav>
 
-          <div className="my-6 h-px bg-zinc-200" />
+          {/* DIVISOR */}
+          <div className="my-5 h-px bg-white/10" />
 
-          {/* CTA */}
-
+          {/* =================================================
+              CTA PRINCIPAL
+          ================================================= */}
           <Link
             href="/cadastro"
-            className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#6D1F2F] text-lg font-bold text-white"
+            onClick={fechar}
+            className="
+              group
+              flex
+              min-h-[54px]
+              items-center
+              justify-center
+              gap-2.5
+              rounded-full
+
+              bg-gradient-to-r
+              from-[#8E2340]
+              to-[#C32F50]
+
+              px-5
+
+              text-[13px]
+              font-black
+              uppercase
+              text-white
+
+              shadow-[0_12px_35px_rgba(109,31,47,0.35)]
+
+              transition-all
+              duration-300
+
+              hover:-translate-y-0.5
+              hover:shadow-[0_15px_40px_rgba(195,47,80,0.40)]
+
+              active:translate-y-0
+              active:scale-[0.97]
+            "
           >
             Criar meu cardápio
 
-            <ArrowRight size={18} />
-
+            <ArrowRight
+              size={17}
+              className="
+                transition-transform
+                duration-300
+                group-hover:translate-x-1
+              "
+            />
           </Link>
 
+          {/* LOGIN */}
           <Link
             href="/login"
-            className="mt-3 flex h-14 items-center justify-center rounded-2xl border border-zinc-200 font-semibold"
+            onClick={fechar}
+            className="
+              mt-3
+              flex
+              min-h-[50px]
+              items-center
+              justify-center
+              rounded-full
+
+              border
+              border-white/10
+
+              bg-white/[0.03]
+
+              text-[13px]
+              font-semibold
+              text-zinc-300
+
+              transition-all
+              duration-300
+
+              hover:bg-white/[0.07]
+              hover:text-white
+
+              active:scale-[0.97]
+            "
           >
-            Entrar
+            Já tenho uma conta
           </Link>
 
-          <div className="my-6 h-px bg-zinc-200" />
+          {/* =================================================
+              CONTATO
+          ================================================= */}
+          <div className="mt-auto pt-7">
 
-          {/* Contato */}
+            <div className="mb-5 h-px bg-white/10" />
 
-          <div className="space-y-4 text-zinc-700">
-
-            <a
-              href="#"
-              className="flex items-center gap-3"
+            <p
+              className="
+                mb-4
+                px-1
+                text-[9px]
+                font-bold
+                uppercase
+                tracking-[0.2em]
+                text-zinc-600
+              "
             >
-             <House size={20} />
+              Fale com a gente
+            </p>
 
-              Instagram
-            </a>
+            <div className="space-y-3">
 
-            <a
-              href="https://wa.me/5592999999999"
-              className="flex items-center gap-3"
-            >
-              <MessageCircle size={20} />
+              <a
+                href="#"
+                className="
+                  flex
+                  items-center
+                  gap-3
+                  text-[12px]
+                  text-zinc-400
+                  transition
+                  hover:text-white
+                  active:scale-[0.98]
+                "
+              >
+                <Camera
+                  size={17}
+                  className="text-[#D94B68]"
+                />
 
-              WhatsApp
-            </a>
+                Instagram
+              </a>
 
-            <a
-              href="mailto:contato@meucardapioapp.com"
-              className="flex items-center gap-3"
-            >
-              <Mail size={20} />
+              <a
+                href="https://wa.me/5592992338863"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="
+                  flex
+                  items-center
+                  gap-3
+                  text-[12px]
+                  text-zinc-400
+                  transition
+                  hover:text-white
+                  active:scale-[0.98]
+                "
+              >
+                <MessageCircle
+                  size={17}
+                  className="text-[#D94B68]"
+                />
 
-              contato@meucardapioapp.com
-            </a>
+                WhatsApp
+              </a>
 
+              <a
+                href="mailto:contatomeucardapio@gmail.com"
+                className="
+                  flex
+                  items-center
+                  gap-3
+                  text-[12px]
+                  text-zinc-400
+                  transition
+                  hover:text-white
+                  active:scale-[0.98]
+                "
+              >
+                <Mail
+                  size={17}
+                  className="text-[#D94B68]"
+                />
+
+                contatomeucardapio@gmail.com
+              </a>
+
+            </div>
           </div>
 
         </div>
-
       </aside>
     </>
   );
