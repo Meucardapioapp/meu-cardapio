@@ -112,9 +112,10 @@ function NovoProdutoContent() {
       ITENS OBRIGATÓRIOS
   =========================== */
 
- type OpcaoObrigatoria = {
+type OpcaoObrigatoria = {
   id: string;
   nome: string;
+  descricao: string;
   preco: string;
   imagem: string;
 };
@@ -126,6 +127,7 @@ type GrupoObrigatorio = {
   maximo: number;
 
   inputNome: string;
+  inputDescricao: string;
   inputPreco: string;
 
   opcoes: OpcaoObrigatoria[];
@@ -140,11 +142,15 @@ const [gruposObrigatorios, setGruposObrigatorios] =
   maximo: 2,
 
   inputNome: "",
+inputDescricao: "",
+
   inputPreco: "",
 
 opcoes: [],
     },
   ]);
+
+  const [opcaoEditando, setOpcaoEditando] = useState<string | null>(null);
 
   /* ===========================
       LOAD
@@ -246,22 +252,20 @@ return {
   maximo: grupo.maximo,
 
   inputNome: "",
+inputDescricao: "",
+
 
   inputPreco: "",
 
   opcoes:
 
-          (opcoes || []).map((o: any) => ({
-
-            id: o.id,
-
-            nome: o.nome,
-
-            preco: formatarPreco(String(o.preco)),
-
-            imagem: o.imagem || "",
-
-          })),
+(opcoes || []).map((o: any) => ({
+  id: o.id,
+  nome: o.nome,
+  descricao: o.descricao || "",
+  preco: formatarPreco(String(o.preco)),
+  imagem: o.imagem || "",
+}))
 
       }
 
@@ -372,6 +376,8 @@ preco: formatarPreco(extraPreco),
   maximo: 2,
 
   inputNome: "",
+inputDescricao: "",
+
   inputPreco: "",
 
 opcoes: []
@@ -393,6 +399,8 @@ function removerGrupo(id: string) {
         minimo: 1,
         maximo: 2,
         inputNome: "",
+inputDescricao: "",
+
         inputPreco: "",
         opcoes: [],
       },
@@ -406,12 +414,6 @@ function removerGrupo(id: string) {
   );
 
 }
-
-
-
-
-
-
 
 
 function adicionarOpcao(grupoId: string) {
@@ -429,27 +431,20 @@ function adicionarOpcao(grupoId: string) {
 
         ...grupo,
 
-        inputNome: "",
+inputNome: "",
+inputDescricao: "",
+inputPreco: "",
 
-        inputPreco: "",
-
-        opcoes: [
-
-          ...grupo.opcoes,
-
-          {
-
-            id: crypto.randomUUID(),
-
-            nome: grupo.inputNome,
-
-            preco: formatarPreco(grupo.inputPreco),
-
-            imagem: "",
-
-          },
-
-        ],
+opcoes: [
+  ...grupo.opcoes,
+  {
+    id: crypto.randomUUID(),
+    nome: grupo.inputNome,
+    descricao: grupo.inputDescricao,
+    preco: formatarPreco(grupo.inputPreco),
+    imagem: "",
+  },
+],
 
       };
 
@@ -536,6 +531,21 @@ function alterarInputNomeGrupo(
 
 }
 
+
+function alterarInputDescricaoGrupo(
+  grupoId: string,
+  valor: string
+) {
+  setGruposObrigatorios((atual) =>
+    atual.map((grupo) =>
+      grupo.id === grupoId
+        ? { ...grupo, inputDescricao: valor }
+        : grupo
+    )
+  );
+}
+
+
 function alterarInputPrecoGrupo(
   grupoId: string,
   valor: string
@@ -557,51 +567,28 @@ function alterarInputPrecoGrupo(
 
 
 function alterarOpcao(
+  grupoId: string,
+  opcaoId: string,
+  campo: "nome" | "descricao" | "preco" | "imagem",
+  valor: string
+) {
+  setGruposObrigatorios((atual) =>
+    atual.map((grupo) => {
+      if (grupo.id !== grupoId) return grupo;
 
-grupoId:string,
+      return {
+        ...grupo,
+        opcoes: grupo.opcoes.map((opcao) => {
+          if (opcao.id !== opcaoId) return opcao;
 
-opcaoId:string,
-
-campo:"nome"|"preco"|"imagem",
-
-valor:any
-
-){
-
-setGruposObrigatorios((atual)=>
-
-atual.map((grupo)=>{
-
-if(grupo.id!==grupoId)
-return grupo
-
-return{
-
-...grupo,
-
-opcoes:
-
-grupo.opcoes.map((opcao)=>{
-
-if(opcao.id!==opcaoId)
-return opcao
-
-return{
-
-...opcao,
-
-[campo]:valor
-
-}
-
-})
-
-}
-
-})
-
-)
-
+          return {
+            ...opcao,
+            [campo]: valor,
+          };
+        }),
+      };
+    })
+  );
 }
 
 function removerOpcao(
@@ -763,13 +750,14 @@ for (const grupo of gruposObrigatorios) {
 
   const opcoes = grupo.opcoes
     .filter((o) => o.nome.trim() !== "")
-    .map((o) => ({
-      grupo_id: grupoCriado.id,
-      nome: o.nome,
-      preco: precoNumero(o.preco),
-      imagem: o.imagem || "",
-      ordem: 0,
-    }))
+.map((o) => ({
+  grupo_id: grupoCriado.id,
+  nome: o.nome,
+  descricao: o.descricao?.trim() || null,
+  preco: precoNumero(o.preco),
+  imagem: o.imagem || "",
+  ordem: 0,
+}))
 
   if (opcoes.length > 0) {
 
@@ -980,21 +968,16 @@ console.log("ERRO GRUPO:", erroGrupo);
 
   if (grupo.opcoes.length > 0) {
 
-    const opcoes = grupo.opcoes
-      .filter((o) => o.nome.trim() !== "")
-      .map((o) => ({
-
-        grupo_id: grupoCriado.id,
-
-        nome: o.nome,
-
-        preco: precoNumero(o.preco),
-
-        imagem: o.imagem || "",
-
-        ordem: 0,
-
-      }));
+const opcoes = grupo.opcoes
+  .filter((o) => o.nome.trim() !== "")
+  .map((o) => ({
+    grupo_id: grupoCriado.id,
+    nome: o.nome,
+    descricao: o.descricao?.trim() || null,
+    preco: precoNumero(o.preco),
+    imagem: o.imagem || "",
+    ordem: 0,
+  }));
 
     if (opcoes.length > 0) {
 
@@ -1040,6 +1023,8 @@ setGruposObrigatorios([
     maximo: 2,
 
     inputNome: "",
+inputDescricao: "",
+
     inputPreco: "",
 
   opcoes: [],
@@ -1642,311 +1627,351 @@ cursor-pointer
 
         </div>
 
- <div
-  className="
-  grid
-  grid-cols-[1fr_220px_180px]
-  gap-5
-  mt-8
-  "
->
+<div className="mt-8">
 
-  <input
-   value={grupo.inputNome}
-    onChange={(e)=>
-  alterarInputNomeGrupo(grupo.id, e.target.value)
-}
-    placeholder="Nome"
+  <div
     className="
-    h-16
-    border
-    rounded-2xl
-    px-5
+      grid
+      grid-cols-[1fr_220px_180px]
+      gap-5
     "
-  />
+  >
 
-  <div className="relative">
-
-    <span
-      className="
-      absolute
-      left-5
-      top-1/2
-      -translate-y-1/2
-      text-zinc-500
-      font-semibold
-      "
-    >
-      R$
-    </span>
-
+    {/* NOME */}
     <input
-      value={grupo.inputPreco}
-      onChange={(e)=>
-  alterarInputPrecoGrupo(grupo.id, e.target.value)
-}
-onBlur={()=>
-
-  alterarInputPrecoGrupo(
-
-    grupo.id,
-
-    formatarPreco(grupo.inputPreco)
-
-  )
-
-}
-      placeholder="0,00"
+      value={grupo.inputNome}
+      onChange={(e) =>
+        alterarInputNomeGrupo(
+          grupo.id,
+          e.target.value
+        )
+      }
+      placeholder="Nome"
       className="
-      w-full
-      h-16
-      border
-      rounded-2xl
-      pl-14
-      pr-5
+        h-16
+        border
+        border-zinc-200
+        rounded-2xl
+        px-5
+        outline-none
+        focus:border-[#7A1F3D]
       "
     />
 
+    {/* PREÇO */}
+    <div className="relative">
+
+      <span
+        className="
+          absolute
+          left-5
+          top-1/2
+          -translate-y-1/2
+          text-zinc-500
+          font-semibold
+          pointer-events-none
+        "
+      >
+        R$
+      </span>
+
+      <input
+        value={grupo.inputPreco}
+        onChange={(e) =>
+          alterarInputPrecoGrupo(
+            grupo.id,
+            e.target.value
+          )
+        }
+        onBlur={() =>
+          alterarInputPrecoGrupo(
+            grupo.id,
+            formatarPreco(grupo.inputPreco)
+          )
+        }
+        placeholder="0,00"
+        className="
+          w-full
+          h-16
+          border
+          border-zinc-200
+          rounded-2xl
+          pl-14
+          pr-5
+          outline-none
+          focus:border-[#7A1F3D]
+        "
+      />
+
+    </div>
+
+    {/* ADICIONAR */}
+    <button
+      onClick={() => adicionarOpcao(grupo.id)}
+      className="
+        bg-[#7A1F3D]
+        text-white
+        h-16
+        rounded-2xl
+        font-bold
+        hover:bg-[#531723]
+        transition
+      "
+    >
+      Adicionar
+    </button>
+
   </div>
 
-  <button
-    onClick={()=>adicionarOpcao(grupo.id)}
+  {/* DESCRIÇÃO OPCIONAL */}
+  <input
+    value={grupo.inputDescricao}
+    onChange={(e) =>
+      alterarInputDescricaoGrupo(
+        grupo.id,
+        e.target.value
+      )
+    }
+    placeholder="Descrição (opcional) — Ex.: Massa, molho, muçarela, calabresa e cebola"
     className="
-    bg-[#7A1F3D]
-    text-white
-    rounded-2xl
-    font-bold
+      w-full
+      h-14
+      mt-3
+      border
+      border-zinc-200
+      rounded-2xl
+      px-5
+      text-sm
+      outline-none
+      focus:border-[#7A1F3D]
     "
-  >
-    Adicionar
-  </button>
+  />
 
 </div>
 
 <div className="space-y-3 mt-7">
 
-  {grupo.opcoes.map((opcao)=>(
+ {grupo.opcoes.map((opcao) => {
 
+  const estaEditando = opcaoEditando === opcao.id;
+
+  return (
     <div
       key={opcao.id}
       className="
-      flex
-      justify-between
-      items-center
-      rounded-2xl
-      border
-      p-4
+        rounded-2xl
+        border
+        border-zinc-200
+        p-4
       "
     >
 
-      <div>
+      {estaEditando ? (
 
-        <p className="font-bold">
-          {opcao.nome}
-        </p>
+        /* =========================
+           MODO EDIÇÃO
+        ========================= */
+        <div className="space-y-3">
 
-        <p className="text-zinc-500">
-          R$ {opcao.preco}
-        </p>
+          <div className="grid grid-cols-[1fr_220px] gap-4">
 
-      </div>
+            {/* NOME */}
+            <input
+              value={opcao.nome}
+              onChange={(e) =>
+                alterarOpcao(
+                  grupo.id,
+                  opcao.id,
+                  "nome",
+                  e.target.value
+                )
+              }
+              placeholder="Nome"
+              className="
+                w-full
+                h-12
+                border
+                border-zinc-200
+                rounded-xl
+                px-4
+                outline-none
+                focus:border-[#7A1F3D]
+              "
+            />
 
-<button
-  onClick={() =>
-    removerOpcao(
-      grupo.id,
-      opcao.id
-    )
-  }
-  className="
-  text-red-500
-  font-semibold
-  "
->
-  Excluir
-</button>
+            {/* PREÇO */}
+            <div className="relative">
+
+              <span
+                className="
+                  absolute
+                  left-4
+                  top-1/2
+                  -translate-y-1/2
+                  text-zinc-500
+                  font-semibold
+                "
+              >
+                R$
+              </span>
+
+              <input
+                value={opcao.preco}
+                onChange={(e) =>
+                  alterarOpcao(
+                    grupo.id,
+                    opcao.id,
+                    "preco",
+                    e.target.value
+                  )
+                }
+                onBlur={() =>
+                  alterarOpcao(
+                    grupo.id,
+                    opcao.id,
+                    "preco",
+                    formatarPreco(opcao.preco)
+                  )
+                }
+                placeholder="0,00"
+                className="
+                  w-full
+                  h-12
+                  border
+                  border-zinc-200
+                  rounded-xl
+                  pl-12
+                  pr-4
+                  outline-none
+                  focus:border-[#7A1F3D]
+                "
+              />
+
+            </div>
+
+          </div>
+
+          {/* DESCRIÇÃO */}
+          <input
+            value={opcao.descricao}
+            onChange={(e) =>
+              alterarOpcao(
+                grupo.id,
+                opcao.id,
+                "descricao",
+                e.target.value
+              )
+            }
+            placeholder="Descrição (opcional)"
+            className="
+              w-full
+              h-12
+              border
+              border-zinc-200
+              rounded-xl
+              px-4
+              text-sm
+              outline-none
+              focus:border-[#7A1F3D]
+            "
+          />
+
+          <div className="flex justify-end gap-3">
+
+            <button
+              type="button"
+              onClick={() => setOpcaoEditando(null)}
+              className="
+                h-10
+                px-5
+                rounded-xl
+                border
+                border-zinc-200
+                text-zinc-600
+                font-semibold
+                hover:bg-zinc-50
+                transition
+              "
+            >
+              Concluir
+            </button>
+
+          </div>
+
+        </div>
+
+      ) : (
+
+        /* =========================
+           MODO NORMAL
+        ========================= */
+        <div className="flex justify-between items-center gap-4">
+
+          <div className="min-w-0">
+
+            <p className="font-bold">
+              {opcao.nome}
+            </p>
+
+            {opcao.descricao && (
+              <p className="text-sm text-zinc-500 mt-1">
+                {opcao.descricao}
+              </p>
+            )}
+
+            <p className="text-zinc-500 mt-1">
+              R$ {opcao.preco}
+            </p>
+
+          </div>
+
+          <div className="flex items-center gap-5 shrink-0">
+
+            {/* EDITAR */}
+            <button
+              type="button"
+              onClick={() => setOpcaoEditando(opcao.id)}
+              className="
+                text-zinc-600
+                font-semibold
+                hover:text-[#7A1F3D]
+                transition
+              "
+            >
+              Editar
+            </button>
+
+            {/* EXCLUIR */}
+            <button
+              type="button"
+              onClick={() =>
+                removerOpcao(
+                  grupo.id,
+                  opcao.id
+                )
+              }
+              className="
+                text-red-500
+                font-semibold
+                hover:text-red-600
+                transition
+              "
+            >
+              Excluir
+            </button>
+
+          </div>
+
+        </div>
+
+      )}
 
     </div>
+  );
 
-  ))}
-
-</div>
-
-      </div>
-
-    ))}
-
-  </div>
-
-</section>
-
-{/* ==========================
-      ADICIONAIS
-========================== */}
-
-<section
-className="
-bg-white
-rounded-[28px]
-border
-border-zinc-200
-p-10
-shadow-md
-mb-10
-"
->
-
-<h2
-className="
-text-2xl
-font-black
-mb-8
-"
->
-
-Itens Adicionais
-
-</h2>
-
-<div
-className="
-grid
-grid-cols-[1fr_220px_180px]
-gap-5
-"
->
-
-<input
-value={extraNome}
-
-onChange={(e)=>setExtraNome(e.target.value)}
-
-placeholder="Nome"
-
-className="
-h-16
-border
-rounded-2xl
-px-5
-"
-/>
-
-<div className="relative">
-
-  <span
-    className="
-      absolute
-      left-5
-      top-1/2
-      -translate-y-1/2
-      text-zinc-500
-      font-semibold
-      pointer-events-none
-    "
-  >
-    R$
-  </span>
-
-  <input
-    value={extraPreco}
-    onChange={(e) => setExtraPreco(e.target.value)}
-    onBlur={() => setExtraPreco(formatarPreco(extraPreco))}
-    placeholder="0,00"
-    className="
-      w-full
-      h-[72px]
-      border
-      rounded-2xl
-      pl-14
-      pr-5
-    "
-  />
+})}
 
 </div>
-
-<button
-
-onClick={adicionarExtra}
-
-className="
-bg-[#7A1F3D]
-text-white
-rounded-2xl
-font-bold
-"
-
->
-
-Adicionar
-
-</button>
-
-</div>
-
-<div
-className="
-space-y-3
-mt-7
-"
->
-
-{extras.map((extra,index)=>(
-
-<div
-
-key={index}
-
-className="
-flex
-justify-between
-items-center
-rounded-2xl
-border
-p-4
-"
-
->
-
-<div>
-
-<p className="font-bold">
-
-{extra.nome}
-
-</p>
-
-<p className="text-zinc-500">
-  R$ {extra.preco}
-</p>
-
-</div>
-
-<button
-
-onClick={()=>
-
-setExtras(
-
-extras.filter(
-
-(_,i)=>i!==index
-
-)
-
-)
-
-}
-
-className="
-text-red-500
-font-semibold
-"
-
->
-
-Excluir
-
-</button>
 
 </div>
 
@@ -1956,9 +1981,9 @@ Excluir
 
 </section>
 
-    </div>
+</div>
 
-    {/* FOOTER */}
+{/* FOOTER */}
 
 <div className="sticky bottom-0 mt-10 bg-[#F8F6F4] py-6">
 

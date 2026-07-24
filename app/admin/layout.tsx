@@ -148,6 +148,11 @@ async function verificarDadosBancarios() {
     nome: "Link do Cardápio",
     link: "/admin/link-cardapio",
   },
+
+    {
+    nome: "Pixel do Meta",
+    link: "/admin/integracoes",
+  },
   
 {
   nome: "Configurações",
