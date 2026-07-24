@@ -73,6 +73,9 @@ const [loadingInicial, setLoadingInicial] =
   const [openModal, setOpenModal] =
     useState(false)
 
+    const [modalLojaFechada, setModalLojaFechada] =
+  useState(false)
+
   const [
     openCheckout,
     setOpenCheckout,
@@ -600,17 +603,11 @@ function openProductModal(
 ) {
 
   if (!lojaAberta) {
-
-    alert(
-      "O restaurante está fechado no momento e não está aceitando pedidos."
-    )
-
+    setModalLojaFechada(true)
     return
-
   }
 
   setSelectedProduct(produto)
-
   setOpenModal(true)
 }
 
@@ -627,13 +624,8 @@ function addToCart(
 ) {
 
   if (!lojaAberta) {
-
-  alert(
-    "O restaurante está fechado no momento."
-  )
-
+  setModalLojaFechada(true)
   return
-
 }
 
     const totalAdicionais =
@@ -930,6 +922,76 @@ function obterHorarioFechamento() {
       `horario_${diaAtual}_fim`
     ] || ""
   )
+}
+
+function obterProximaAbertura() {
+  if (!aparencia) return ""
+
+  const agora = new Date()
+
+  const dias = [
+    "dom",
+    "seg",
+    "ter",
+    "qua",
+    "qui",
+    "sex",
+    "sab",
+  ]
+
+  const nomesDias = [
+    "domingo",
+    "segunda-feira",
+    "terça-feira",
+    "quarta-feira",
+    "quinta-feira",
+    "sexta-feira",
+    "sábado",
+  ]
+
+  const diaAtualIndex = agora.getDay()
+  const diaAtual = dias[diaAtualIndex]
+
+  const ativoHoje =
+    aparencia[`${diaAtual}_ativo`]
+
+  const inicioHoje =
+    aparencia[`horario_${diaAtual}_inicio`]
+
+  // Se hoje funciona e ainda não chegou no horário de abertura
+  if (ativoHoje && inicioHoje) {
+    const [h, m] = inicioHoje.split(":").map(Number)
+
+    const minutosAbertura = h * 60 + m
+    const minutosAgora =
+      agora.getHours() * 60 + agora.getMinutes()
+
+    if (minutosAgora < minutosAbertura) {
+      return `Hoje às ${inicioHoje}`
+    }
+  }
+
+  // Procura o próximo dia que funciona
+  for (let i = 1; i <= 7; i++) {
+    const index = (diaAtualIndex + i) % 7
+    const dia = dias[index]
+
+    const ativo =
+      aparencia[`${dia}_ativo`]
+
+    const inicio =
+      aparencia[`horario_${dia}_inicio`]
+
+    if (ativo && inicio) {
+      if (i === 1) {
+        return `Amanhã às ${inicio}`
+      }
+
+      return `${nomesDias[index]} às ${inicio}`
+    }
+  }
+
+  return ""
 }
 
 const lojaAberta =
@@ -1522,15 +1584,10 @@ style={{
   disabled={carregandoCarrinho}
  onClick={() => {
 
-    if (!lojaAberta) {
-
-      alert(
-        "O restaurante está fechado e não está recebendo pedidos."
-      )
-
-      return
-
-    }
+   if (!lojaAberta) {
+  setModalLojaFechada(true)
+  return
+}
 
     if (carregandoCarrinho) return;
 
@@ -1610,6 +1667,149 @@ style={{
 />
 
 </div>
+
+{modalLojaFechada && (
+  <div
+    className="
+      fixed
+      inset-0
+      z-[99999]
+      flex
+      items-center
+      justify-center
+      bg-black/50
+      backdrop-blur-[2px]
+      px-5
+    "
+    onClick={() => setModalLojaFechada(false)}
+  >
+<div
+  className="
+    w-full
+    max-w-[390px]
+    bg-white
+    rounded-[28px]
+    shadow-2xl
+    overflow-hidden
+  "
+  onClick={(e) => e.stopPropagation()}
+>
+
+  <div className="px-6 pt-7 pb-6 text-center">
+
+    {/* ÍCONE */}
+    
+        <div
+          className="
+            w-16
+            h-16
+            rounded-full
+            mx-auto
+            flex
+            items-center
+            justify-center
+            mb-5
+          "
+          style={{
+            backgroundColor: `${corPrincipal}15`,
+          }}
+        >
+          <Clock3
+            size={30}
+            strokeWidth={2}
+            style={{
+              color: corPrincipal,
+            }}
+          />
+        </div>
+
+        {/* TÍTULO */}
+        <h2
+          className="
+            text-[22px]
+            font-bold
+            text-zinc-900
+          "
+        >
+          Estamos fechados no momento
+        </h2>
+
+        {/* TEXTO */}
+        <p
+          className="
+            mt-2
+            text-[14px]
+            leading-6
+            text-zinc-500
+          "
+        >
+          No momento não estamos aceitando novos pedidos.
+          Você pode voltar quando estivermos abertos.
+        </p>
+
+        {/* HORÁRIO */}
+        {obterProximaAbertura() && (
+          <div
+            className="
+              mt-5
+              rounded-2xl
+              px-4
+              py-4
+            "
+            style={{
+              backgroundColor: `${corPrincipal}10`,
+            }}
+          >
+            <p
+              className="
+                text-[12px]
+                text-zinc-500
+                font-medium
+              "
+            >
+              Voltamos a aceitar pedidos
+            </p>
+
+            <p
+              className="
+                mt-1
+                text-[17px]
+                font-bold
+              "
+              style={{
+                color: corPrincipal,
+              }}
+            >
+              {obterProximaAbertura()}
+            </p>
+          </div>
+        )}
+
+        {/* BOTÃO */}
+        <button
+          onClick={() => setModalLojaFechada(false)}
+          className="
+            mt-6
+            w-full
+            h-12
+            rounded-xl
+            text-white
+            font-semibold
+            text-[15px]
+            transition
+            active:scale-[0.98]
+          "
+          style={{
+            backgroundColor: corPrincipal,
+          }}
+        >
+          Entendi
+        </button>
+
+      </div>
+    </div>
+  </div>
+)}
 
 
 <BottomNavigation

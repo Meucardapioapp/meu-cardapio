@@ -35,6 +35,19 @@ const [diasAtivos, setDiasAtivos] = useState({
 const [restauranteId, setRestauranteId] =
   useState<string | null>(null)
 
+  const [horarioPadraoInicio, setHorarioPadraoInicio] = useState("")
+const [horarioPadraoFim, setHorarioPadraoFim] = useState("")
+
+const [diasSelecionados, setDiasSelecionados] = useState({
+  seg: true,
+  ter: true,
+  qua: true,
+  qui: true,
+  sex: true,
+  sab: true,
+  dom: false,
+})
+
 useEffect(() => {
   carregarRestaurante()
 }, [])
@@ -134,12 +147,72 @@ setDiasAtivos({
   })
 }
 }
-async function salvarHorarios() {
 
-  if (!restauranteId) {
-    alert("Restaurante não encontrado")
+function aplicarHorarioPadrao() {
+  if (!horarioPadraoInicio || !horarioPadraoFim) {
+    alert("Informe o horário de abertura e fechamento.")
     return
   }
+
+  const novosHorarios = { ...horarios }
+  const novosDiasAtivos = { ...diasAtivos }
+
+  const diasIds = [
+    "seg",
+    "ter",
+    "qua",
+    "qui",
+    "sex",
+    "sab",
+    "dom",
+  ] as const
+
+  diasIds.forEach((dia) => {
+    if (diasSelecionados[dia]) {
+      // DIA SELECIONADO = ABERTO
+      novosDiasAtivos[dia] = true
+
+      novosHorarios[`${dia}_inicio`] = horarioPadraoInicio
+      novosHorarios[`${dia}_fim`] = horarioPadraoFim
+    } else {
+      // DIA NÃO SELECIONADO = FECHADO
+      novosDiasAtivos[dia] = false
+
+      novosHorarios[`${dia}_inicio`] = ""
+      novosHorarios[`${dia}_fim`] = ""
+    }
+  })
+
+  setHorarios(novosHorarios)
+  setDiasAtivos(novosDiasAtivos)
+}
+
+function mostrarNotificacao(
+  tipo: "sucesso" | "erro",
+  titulo: string,
+  mensagem: string
+) {
+  setNotificacao({
+    tipo,
+    titulo,
+    mensagem,
+  })
+
+  setTimeout(() => {
+    setNotificacao(null)
+  }, 3500)
+}
+
+async function salvarHorarios() {
+
+if (!restauranteId) {
+  mostrarNotificacao(
+    "erro",
+    "Não foi possível salvar",
+    "Restaurante não encontrado."
+  )
+  return
+}
 
   const { error } = await supabase
     .from("aparencia")
@@ -180,13 +253,23 @@ async function salvarHorarios() {
 
     .eq("restaurante_id", restauranteId)
 
-  if (error) {
-    console.log(error)
-    alert("Erro ao salvar horários")
-    return
-  }
+if (error) {
+  console.log(error)
 
-  alert("Horários salvos com sucesso!")
+  mostrarNotificacao(
+    "erro",
+    "Erro ao salvar horários",
+    "Não foi possível salvar as alterações. Tente novamente."
+  )
+
+  return
+}
+
+mostrarNotificacao(
+  "sucesso",
+  "Horários salvos com sucesso!",
+  "As alterações já estão ativas no seu cardápio."
+)
 }
   const dias = [
   { id:"seg", nome:"Segunda-feira", inicio:"seg_inicio", fim:"seg_fim" },
@@ -198,8 +281,99 @@ async function salvarHorarios() {
   { id:"dom", nome:"Domingo", inicio:"dom_inicio", fim:"dom_fim" },
 ]
 
-  return (
+
+const [notificacao, setNotificacao] = useState<{
+  tipo: "sucesso" | "erro"
+  titulo: string
+  mensagem: string
+} | null>(null)
+
+
+return (
+  <>
+    {/* NOTIFICAÇÃO */}
+
+    {notificacao && (
+      <div className="fixed top-6 right-6 z-[9999] w-[390px] max-w-[calc(100vw-32px)]">
+
+        <div className="
+          bg-white
+          border border-zinc-200
+          rounded-2xl
+          shadow-2xl
+          p-4
+          flex
+          items-start
+          gap-3
+        ">
+
+          {/* ÍCONE */}
+
+          <div
+            className={`
+              w-10 h-10
+              rounded-full
+              flex
+              items-center
+              justify-center
+              shrink-0
+              text-lg
+              font-bold
+
+              ${
+                notificacao.tipo === "sucesso"
+                  ? "bg-green-100 text-green-600"
+                  : "bg-red-100 text-red-600"
+              }
+            `}
+          >
+            {notificacao.tipo === "sucesso" ? "✓" : "!"}
+          </div>
+
+
+          {/* TEXTO */}
+
+          <div className="flex-1 pt-0.5">
+
+            <p className="font-bold text-zinc-900">
+              {notificacao.titulo}
+            </p>
+
+            <p className="text-sm text-zinc-500 mt-1">
+              {notificacao.mensagem}
+            </p>
+
+          </div>
+
+
+          {/* FECHAR */}
+
+          <button
+            type="button"
+            onClick={() => setNotificacao(null)}
+            className="
+              w-8 h-8
+              rounded-lg
+              flex
+              items-center
+              justify-center
+              text-zinc-400
+              hover:text-zinc-700
+              hover:bg-zinc-100
+              transition
+            "
+          >
+            ×
+          </button>
+
+        </div>
+
+      </div>
+    )}
+
+
     <div className="max-w-7xl mx-auto px-8 py-8">
+
       <div className="mb-8">
         <h1 className="text-5xl font-black text-zinc-900">
           Horários de Funcionamento
@@ -272,11 +446,192 @@ async function salvarHorarios() {
             Horários Semanais
           </h2>
 
-          <p className="text-zinc-500 mt-2">
-            Configure os horários de atendimento.
-          </p>
+<p className="text-zinc-500 mt-2">
+  Configure os horários de atendimento.
+</p>
 
-          <div className="mt-8 space-y-4">
+{/* CONFIGURAÇÃO RÁPIDA */}
+
+<div className="mt-8 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
+
+  {/* CABEÇALHO */}
+  <div className="flex items-start justify-between gap-6">
+
+    <div>
+      <h3 className="text-base font-bold text-zinc-900">
+        Configuração rápida
+      </h3>
+
+      <p className="text-sm text-zinc-500 mt-1">
+        Defina um horário e escolha os dias que o restaurante funciona.
+      </p>
+    </div>
+
+  </div>
+
+
+  {/* CONTEÚDO */}
+  <div className="mt-5 flex flex-wrap items-end gap-5">
+
+    {/* HORÁRIO */}
+    <div>
+
+      <p className="text-xs font-semibold text-zinc-600 mb-2">
+        Horário de funcionamento
+      </p>
+
+      <div className="flex items-center gap-2">
+
+        <input
+          type="time"
+          value={horarioPadraoInicio}
+          onChange={(e) =>
+            setHorarioPadraoInicio(e.target.value)
+          }
+          className="
+            w-36
+            h-11
+            rounded-xl
+            border
+            border-zinc-300
+            bg-white
+            px-4
+            font-semibold
+            text-zinc-900
+            outline-none
+            focus:border-[#6D1F2F]
+            transition
+          "
+        />
+
+        <span className="text-sm text-zinc-400">
+          até
+        </span>
+
+        <input
+          type="time"
+          value={horarioPadraoFim}
+          onChange={(e) =>
+            setHorarioPadraoFim(e.target.value)
+          }
+          className="
+            w-36
+            h-11
+            rounded-xl
+            border
+            border-zinc-300
+            bg-white
+            px-4
+            font-semibold
+            text-zinc-900
+            outline-none
+            focus:border-[#6D1F2F]
+            transition
+          "
+        />
+
+      </div>
+
+    </div>
+
+
+    {/* DIAS */}
+    <div className="flex-1">
+
+      <p className="text-xs font-semibold text-zinc-600 mb-2">
+        Dias de funcionamento
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+
+        {[
+          { id: "seg", nome: "Seg" },
+          { id: "ter", nome: "Ter" },
+          { id: "qua", nome: "Qua" },
+          { id: "qui", nome: "Qui" },
+          { id: "sex", nome: "Sex" },
+          { id: "sab", nome: "Sáb" },
+          { id: "dom", nome: "Dom" },
+        ].map((dia) => {
+
+          const selecionado =
+            diasSelecionados[
+              dia.id as keyof typeof diasSelecionados
+            ]
+
+          return (
+            <button
+              key={dia.id}
+              type="button"
+              onClick={() =>
+                setDiasSelecionados({
+                  ...diasSelecionados,
+                  [dia.id]: !selecionado,
+                })
+              }
+              className={`
+                h-10
+                min-w-[52px]
+                px-3
+                rounded-xl
+                border
+                text-sm
+                font-semibold
+                transition-all
+                active:scale-95
+
+                ${
+                  selecionado
+                    ? "bg-[#6D1F2F] border-[#6D1F2F] text-white shadow-sm"
+                    : "bg-white border-zinc-300 text-zinc-500 hover:border-zinc-400"
+                }
+              `}
+            >
+              {dia.nome}
+            </button>
+          )
+
+        })}
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  {/* RODAPÉ */}
+  <div className="mt-5 pt-4 border-t border-zinc-200 flex items-center justify-between gap-4">
+
+    <p className="text-xs text-zinc-500">
+      Dias não selecionados serão definidos como fechados.
+    </p>
+
+    <button
+      type="button"
+      onClick={aplicarHorarioPadrao}
+      className="
+        h-11
+        px-5
+        rounded-xl
+        bg-[#6D1F2F]
+        hover:bg-[#531723]
+        text-white
+        text-sm
+        font-semibold
+        transition-all
+        active:scale-[0.98]
+        whitespace-nowrap
+      "
+    >
+      Aplicar horários
+    </button>
+
+  </div>
+
+</div>
+
+<div className="mt-8 space-y-4">
 
   {dias.map((dia) => (
 
@@ -437,5 +792,6 @@ active:scale-95
         </div>
       </div>
     </div>
+  </>
   )
 }
