@@ -1,193 +1,403 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowRight,
   Check,
-  CreditCard,
-  Wallet,
-  QrCode,
+  Smartphone,
+  ShoppingBag,
+  Bike,
+  CircleDollarSign,
+  Rocket,
 } from "lucide-react";
 
 export default function HeroMobile() {
   const beneficios = [
-    "Receba pagamentos com cartão online e receba em até 1 dia util na sua conta.",
-    "Aceite Pix e receba direto na sua conta.",
-    "Seu próprio link para divulgar no WhatsApp, Instagram e Google.",
-    "Configure tudo em menos de 5 minutos.",
-    "Sem mensalidade e sem burocracia.",
+    {
+      titulo: "Cardápio digital",
+      descricao: "com a sua cara",
+      Icone: Smartphone,
+    },
+    {
+      titulo: "Pedidos online",
+      descricao: "direto no seu link",
+      Icone: ShoppingBag,
+    },
+    {
+      titulo: "Mais pedidos",
+      descricao: "e mais resultados",
+      Icone: Bike,
+    },
+    {
+      titulo: "Sem mensalidade",
+      descricao: "e sem complicação",
+      Icone: CircleDollarSign,
+    },
   ];
 
   return (
-    <section className="relative overflow-hidden bg-[#F8F6F4] pt-6 pb-16">
+    <section className="relative overflow-hidden bg-[#16070A] text-white">
 
-      {/* Fundo */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_right,rgba(109,31,47,0.05),transparent_45%)]" />
+      {/* LUZ DE FUNDO */}
+      <div className="pointer-events-none absolute -right-20 top-10 h-72 w-72 rounded-full bg-[#6D1F2F]/25 blur-[90px]" />
 
-      <div className="mx-auto flex w-full max-w-xl flex-col px-6">
+      <div className="pointer-events-none absolute -left-24 bottom-0 h-64 w-64 rounded-full bg-[#6D1F2F]/15 blur-[90px]" />
 
-        {/* TÍTULO */}
+      {/* CONTEÚDO */}
+      <div className="relative z-10 mx-auto w-full max-w-xl px-5 pb-9 pt-5">
 
-<h1 className="text-center text-[26px] font-black tracking-[-0.03em] text-[#111111] md:text-6xl">
-
-  <span className="text-[#111111]">
-    O
-  </span>{" "}
-
-  <span className="text-[#6D1F2F]">
-    Cardápio Digital
-  </span>
-
-  <div className="mt-1">
-    perfeito para o seu negócio
-  </div>
-
-</h1>
-
-        {/* SUBTÍTULO */}
-
-        <p className="mt-5 text-center text-xl leading-8 text-zinc-600">
-
-          Em menos de
-
-          <span className="font-bold text-[#6D1F2F]">
-            {" "}5 minutos{" "}
-          </span>
-
-          você já está pronto para vender.
-
-        </p>
-
-        {/* BENEFÍCIOS */}
-
-        <div className="mt-8 space-y-4">
-
-          {beneficios.map((item) => (
-
-            <div
-              key={item}
-              className="flex items-start gap-3"
-            >
-
-              <div className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#6D1F2F]">
-
-                <Check
-                  size={16}
-                  className="text-white"
-                />
-
-              </div>
-
-              <p className="text-base leading-7 text-zinc-700">
-                {item}
-              </p>
-
-            </div>
-
-          ))}
-
-        </div>
-
-        {/* BOTÕES */}
-
-        <div className="mt-8 flex flex-col gap-3">
-
-          <Link
-            href="/cadastro"
-            className="flex items-center justify-center gap-2 rounded-2xl bg-[#6D1F2F] px-6 py-3 text-base font-bold text-white transition hover:bg-[#531723]"
-          >
-            Criar meu cardápio
-
-            <ArrowRight size={20} />
-          </Link>
-
-          <Link
-            href="/fornadapizzaria"
-            className="flex items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-6 py-3 text-base font-semibold text-[#6D1F2F] shadow-sm transition hover:bg-zinc-50"
-          >
-            Ver demonstração
-
-            <ArrowRight size={18} />
-          </Link>
-
-        </div>
-
-        {/* FORMAS DE PAGAMENTO */}
-
-        <div className="mt-6 rounded-3xl border border-[#E9E2DD] bg-white p-6 shadow-md">
-
-          <h3 className="text-center text-xl font-bold text-[#111111]">
-            Formas de pagamento
-          </h3>
-
-          <p className="mt-2 text-center text-sm text-zinc-500">
-            Aceite pagamentos online ou na entrega.
-          </p>
-
-          <div className="mt-6 grid grid-cols-3 gap-3">
-
-            <div className="flex flex-col items-center rounded-2xl bg-[#F8F6F4] p-4">
-
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#6D1F2F]/10">
-
-                <QrCode
-                  size={24}
-                  className="text-[#6D1F2F]"
-                />
-
-              </div>
-
-              <span className="mt-3 text-sm font-bold">
-                Pix
-              </span>
-
-            </div>
-
-            <div className="flex flex-col items-center rounded-2xl bg-[#F8F6F4] p-4">
-
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#6D1F2F]/10">
-
-                <CreditCard
-                  size={24}
-                  className="text-[#6D1F2F]"
-                />
-
-              </div>
-
-              <span className="mt-3 text-sm font-bold">
-                Cartão
-              </span>
-
-            </div>
-
-            <div className="flex flex-col items-center rounded-2xl bg-[#F8F6F4] p-4">
-
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#6D1F2F]/10">
-
-                <Wallet
-                  size={24}
-                  className="text-[#6D1F2F]"
-                />
-
-              </div>
-
-              <span className="mt-3 text-sm font-bold">
-                Dinheiro
-              </span>
-
-            </div>
-
+        {/* ==================================================
+            MARCA
+        ================================================== */}
+        <div className="relative z-30">
+          <div className="text-[34px] font-black leading-[0.85] tracking-[-0.05em]">
+            Meu
           </div>
+
+          <div className="mt-1.5 text-[19px] font-bold leading-none tracking-[-0.04em]">
+            <span className="text-white">
+              Cardápio
+            </span>
+
+            <span className="text-[#C32F50]">
+              App
+            </span>
+          </div>
+        </div>
+
+        {/* ==================================================
+            TAG
+        ================================================== */}
+        <div className="relative z-30 mt-6">
+          <span
+            className="
+              inline-flex
+              rounded-full
+              border border-[#8F263D]
+              bg-[#6D1F2F]/10
+              px-4 py-1.5
+              text-[9px]
+              font-semibold
+              uppercase
+              tracking-[0.20em]
+              text-zinc-200
+              transition-all
+              duration-300
+              active:scale-95
+              active:bg-[#6D1F2F]/25
+            "
+          >
+            O cardápio digital
+          </span>
+        </div>
+
+        {/* ==================================================
+            ÁREA PRINCIPAL
+        ================================================== */}
+        <div className="relative mt-4 min-h-[350px]">
+
+          {/* ==================================================
+              CONTEÚDO ESQUERDO
+          ================================================== */}
+          <div className="relative z-20 w-[56%]">
+
+            {/* TÍTULO */}
+            <h1 className="text-[31px] font-black leading-[1.02] tracking-[-0.045em]">
+              Perfeito para
+              <br />
+
+              <span className="text-[#C32F50]">
+                o seu negócio
+              </span>
+            </h1>
+
+            {/* DESCRIÇÃO */}
+            <p className="mt-4 max-w-[190px] text-[13px] leading-[1.55] text-zinc-300">
+              Tenha seu cardápio digital, receba pedidos online e venda mais sem
+              depender de aplicativos de delivery.
+            </p>
+
+            {/* ==================================================
+                BENEFÍCIOS
+            ================================================== */}
+            <div className="mt-5 space-y-2">
+
+              {beneficios.map(({ titulo, descricao, Icone }) => (
+                <div
+                  key={titulo}
+                  className="
+                    group
+                    -ml-2
+                    flex
+                    w-fit
+                    items-center
+                    gap-2.5
+                    rounded-2xl
+                    px-2
+                    py-1.5
+                    transition-all
+                    duration-300
+                    ease-out
+
+                    hover:bg-white/[0.04]
+                    hover:translate-x-1
+
+                    active:scale-[0.96]
+                    active:bg-white/[0.07]
+                  "
+                >
+
+                  {/* ÍCONE */}
+                  <div
+                    className="
+                      flex
+                      h-10
+                      w-10
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+                      border
+                      border-[#8F263D]/60
+                      bg-[#6D1F2F]
+                      shadow-[0_5px_18px_rgba(109,31,47,0.22)]
+                      transition-all
+                      duration-300
+
+                      group-hover:scale-110
+                      group-hover:bg-[#84253A]
+
+                      group-active:scale-90
+                    "
+                  >
+                    <Icone
+                      size={18}
+                      strokeWidth={1.8}
+                      className="text-white"
+                    />
                   </div>
 
+                  {/* TEXTO */}
+                  <div className="leading-tight">
+                    <p className="whitespace-nowrap text-[13px] font-bold text-white">
+                      {titulo}
+                    </p>
+
+                    <p className="mt-0.5 whitespace-nowrap text-[11.5px] text-zinc-400">
+                      {descricao}
+                    </p>
+                  </div>
+
+                </div>
+              ))}
+
+            </div>
+          </div>
+
+          {/* ==================================================
+              CELULAR
+          ================================================== */}
+          <div
+            className="
+              absolute
+              -right-14
+              top-[-30px]
+              z-10
+              h-[480px]
+              w-[66%]
+              transition-transform
+              duration-500
+              ease-out
+
+              hover:scale-[1.035]
+              hover:-translate-y-1
+
+              active:scale-[0.98]
+            "
+          >
+            <Image
+              src="/images/celular-hero.png"
+              alt="Cardápio digital Fornada Pizzaria"
+              fill
+              priority
+              sizes="66vw"
+              className="
+                object-contain
+                object-center
+                drop-shadow-[0_20px_30px_rgba(0,0,0,0.45)]
+              "
+            />
+          </div>
+
+        </div>
+
+        {/* ==================================================
+            DIVISOR
+        ================================================== */}
+        <div className="relative z-30 mx-auto mt-1 h-px w-[78%] bg-gradient-to-r from-transparent via-[#6D1F2F] to-transparent" />
+
+        {/* ==================================================
+            CTA
+        ================================================== */}
+        <div className="relative z-30 mt-5">
+
+          {/* TEXTO CTA */}
+          <div className="text-center">
+            <p className="text-[19px] font-bold leading-tight">
+              Crie seu cardápio{" "}
+
+              <span className="text-[#C32F50]">
+                grátis
+              </span>
+            </p>
+
+            <p className="mt-1.5 text-[14px] text-zinc-300">
+              e comece agora mesmo!
+            </p>
+          </div>
+
+          {/* BOTÃO PRINCIPAL */}
+          <Link
+            href="/cadastro"
+            className="
+              group
+              mx-auto
+              mt-5
+              flex
+              min-h-[55px]
+              w-full
+              max-w-[350px]
+              items-center
+              justify-center
+              gap-2.5
+              rounded-full
+              border
+              border-white/5
+              bg-gradient-to-r
+              from-[#6D1F2F]
+              to-[#C32F50]
+              px-5
+              text-[14px]
+              font-black
+              uppercase
+              text-white
+              shadow-[0_12px_35px_rgba(109,31,47,0.38)]
+              transition-all
+              duration-300
+              ease-out
+
+              hover:-translate-y-1
+              hover:shadow-[0_18px_45px_rgba(109,31,47,0.50)]
+
+              active:translate-y-0
+              active:scale-[0.96]
+              active:shadow-[0_7px_20px_rgba(109,31,47,0.35)]
+            "
+          >
+
+            <Rocket
+              size={19}
+              className="
+                transition-transform
+                duration-300
+                group-hover:-translate-y-0.5
+                group-hover:translate-x-0.5
+              "
+            />
+
+            <span>
+              Criar meu cardápio grátis
+            </span>
+
+            <ArrowRight
+              size={18}
+              className="
+                transition-transform
+                duration-300
+                group-hover:translate-x-1
+              "
+            />
+
+          </Link>
+
+          {/* ==================================================
+              MICRO BENEFÍCIOS
+          ================================================== */}
+          <div className="mt-4 flex items-center justify-center gap-3 text-[10px] text-zinc-400">
+
+            <span
+              className="
+                flex
+                items-center
+                gap-1.5
+                transition-colors
+                duration-300
+                hover:text-white
+              "
+            >
+              <Check
+                size={12}
+                className="text-zinc-300"
+              />
+
+              Sem mensalidade
+            </span>
+
+            <span className="h-1 w-1 rounded-full bg-[#8F263D]" />
+
+            <span
+              className="
+                flex
+                items-center
+                gap-1.5
+                transition-colors
+                duration-300
+                hover:text-white
+              "
+            >
+              <Check
+                size={12}
+                className="text-zinc-300"
+              />
+
+              Configure em poucos minutos
+            </span>
+
+          </div>
+
+          {/* ==================================================
+              DEMONSTRAÇÃO
+          ================================================== */}
+          <Link
+            href="/fornadapizzaria"
+            className="
+              mx-auto
+              mt-4
+              block
+              w-fit
+              text-center
+              text-[11px]
+              font-medium
+              text-zinc-500
+              underline
+              decoration-zinc-700
+              underline-offset-4
+              transition-all
+              duration-300
+
+              hover:text-zinc-200
+              hover:decoration-zinc-400
+
+              active:scale-95
+            "
+          >
+            Ver um cardápio de demonstração
+          </Link>
+
+        </div>
+
       </div>
-
-      {/* DETALHES DE FUNDO */}
-
-      <div className="pointer-events-none absolute -top-32 -right-24 h-72 w-72 rounded-full bg-[#6D1F2F]/5 blur-3xl" />
-
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-[#6D1F2F]/5 blur-3xl" />
-
     </section>
   );
 }
