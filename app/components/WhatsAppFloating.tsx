@@ -1,6 +1,7 @@
 "use client";
 
-import { MessageCircle, X } from "lucide-react";
+import { X } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 import { useState } from "react";
 
 export default function WhatsAppFloating() {
@@ -41,6 +42,7 @@ export default function WhatsAppFloating() {
 
           {/* FECHAR */}
           <button
+            type="button"
             onClick={() => setMostrarMensagem(false)}
             aria-label="Fechar aviso"
             className="
@@ -65,13 +67,14 @@ export default function WhatsAppFloating() {
         </div>
       )}
 
-      {/* WHATSAPP */}
+      {/* BOTÃO WHATSAPP */}
       <a
         href={linkWhatsApp}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Falar pelo WhatsApp"
         className="
+          relative
           flex
           h-12
           w-12
@@ -88,7 +91,20 @@ export default function WhatsAppFloating() {
           active:scale-95
         "
       >
-        <MessageCircle size={23} strokeWidth={2.2} />
+        {/* EFEITO SUAVE */}
+        <span
+          className="
+            absolute
+            inset-0
+            -z-10
+            animate-ping
+            rounded-full
+            bg-[#25D366]/20
+          "
+        />
+
+        {/* LOGO OFICIAL DO WHATSAPP */}
+        <FaWhatsapp size={27} />
       </a>
 
     </div>

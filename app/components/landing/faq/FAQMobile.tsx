@@ -12,8 +12,6 @@ import {
   Store,
   Palette,
   BadgeDollarSign,
-  MessageCircle,
-  ArrowRight,
 } from "lucide-react";
 
 const perguntas = [
@@ -81,9 +79,7 @@ export default function FAQMobile() {
         py-12
       "
     >
-      {/* =========================================
-          EFEITOS DE FUNDO
-      ========================================= */}
+      {/* EFEITOS DE FUNDO */}
 
       <div
         className="
@@ -115,9 +111,7 @@ export default function FAQMobile() {
 
       <div className="relative z-10 mx-auto w-full max-w-xl">
 
-        {/* =========================================
-            CABEÇALHO
-        ========================================= */}
+        {/* CABEÇALHO */}
 
         <div className="text-center">
 
@@ -194,9 +188,7 @@ export default function FAQMobile() {
           </p>
         </div>
 
-        {/* =========================================
-            PERGUNTAS
-        ========================================= */}
+        {/* PERGUNTAS */}
 
         <div className="mt-8 space-y-2.5">
 
@@ -325,9 +317,7 @@ export default function FAQMobile() {
 
                 </button>
 
-                {/* =========================================
-                    RESPOSTA
-                ========================================= */}
+                {/* RESPOSTA */}
 
                 <div
                   className={`
@@ -375,151 +365,6 @@ export default function FAQMobile() {
               </div>
             );
           })}
-
-        </div>
-
-        {/* =========================================
-            WHATSAPP
-        ========================================= */}
-
-        <div
-          className="
-            relative
-            mt-6
-            overflow-hidden
-            rounded-[22px]
-            border
-            border-[#6D1F2F]/10
-            bg-white
-            px-5
-            py-5
-            text-center
-            shadow-[0_8px_30px_rgba(35,15,20,0.05)]
-          "
-        >
-
-          {/* EFEITO */}
-
-          <div
-            className="
-              pointer-events-none
-              absolute
-              -right-10
-              -top-10
-              h-28
-              w-28
-              rounded-full
-              bg-[#C32F50]/[0.07]
-              blur-[35px]
-            "
-          />
-
-          {/* ÍCONE */}
-
-          <div
-            className="
-              relative
-              mx-auto
-              flex
-              h-10
-              w-10
-              items-center
-              justify-center
-              rounded-full
-              bg-[#6D1F2F]/[0.07]
-              text-[#6D1F2F]
-            "
-          >
-            <MessageCircle
-              size={19}
-              strokeWidth={2}
-            />
-          </div>
-
-          {/* TEXTO */}
-
-          <h3
-            className="
-              relative
-              mt-3
-              text-[14px]
-              font-black
-              tracking-[-0.02em]
-              text-[#1D1114]
-            "
-          >
-            Não encontrou o que procura?
-          </h3>
-
-          <p
-            className="
-              relative
-              mx-auto
-              mt-1
-              max-w-[270px]
-              text-[10.5px]
-              leading-[1.6]
-              text-zinc-500
-            "
-          >
-            Fale com a nossa equipe pelo WhatsApp.
-            Estamos prontos para ajudar.
-          </p>
-
-          {/* BOTÃO WHATSAPP */}
-
-          <a
-            href="https://wa.me/5592992338863?text=Ol%C3%A1%21%20Vim%20pelo%20site%20do%20MeuCardapioApp%20e%20preciso%20de%20ajuda."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="
-              relative
-              mx-auto
-              mt-4
-              flex
-              h-11
-              w-full
-              max-w-[280px]
-              items-center
-              justify-center
-              gap-2.5
-              rounded-full
-
-              bg-gradient-to-r
-              from-[#6D1F2F]
-              to-[#C32F50]
-
-              px-5
-
-              text-[11px]
-              font-extrabold
-              text-white
-
-              shadow-[0_8px_25px_rgba(109,31,47,0.25)]
-
-              transition-all
-              duration-300
-
-              hover:-translate-y-0.5
-              hover:shadow-[0_12px_30px_rgba(109,31,47,0.32)]
-
-              active:scale-[0.97]
-            "
-          >
-            <MessageCircle
-              size={16}
-              strokeWidth={2}
-            />
-
-            <span>
-              Falar pelo WhatsApp
-            </span>
-
-            <ArrowRight
-              size={15}
-              strokeWidth={2}
-            />
-          </a>
 
         </div>
 
