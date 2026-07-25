@@ -3,9 +3,54 @@
 import { X } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 
 export default function WhatsAppFloating() {
+  const pathname = usePathname();
+
   const [mostrarMensagem, setMostrarMensagem] = useState(true);
+
+  // =========================================================
+  // DEFINE ONDE O WHATSAPP PODE APARECER
+  // =========================================================
+
+  // Páginas institucionais exatas
+  const paginasPermitidas = [
+    "/",
+    "/faq",
+    "/cadastro",
+    "/login",
+    "/recuperar-senha",
+    "/redefinir-senha",
+    "/privacidade",
+    "/termos",
+    "/cookies",
+    "/contato",
+  ];
+
+  // Site institucional
+  const estaNoSite = paginasPermitidas.includes(pathname);
+
+  // Painel administrativo
+  const estaNoAdmin =
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/");
+
+  // Se NÃO estiver no site institucional
+  // e NÃO estiver no admin,
+  // não mostra absolutamente nada.
+  //
+  // Isso elimina o WhatsApp dos cardápios:
+  // /fornadapizzaria
+  // /fornadapizzaria/carrinho
+  // /qualquer-outro-restaurante
+  if (!estaNoSite && !estaNoAdmin) {
+    return null;
+  }
+
+  // =========================================================
+  // CONFIGURAÇÃO DO WHATSAPP
+  // =========================================================
 
   const numero = "5592992338863";
 
@@ -40,7 +85,7 @@ export default function WhatsAppFloating() {
             Dúvidas? Fale conosco
           </p>
 
-          {/* FECHAR */}
+          {/* FECHAR AVISO */}
           <button
             type="button"
             onClick={() => setMostrarMensagem(false)}
@@ -91,6 +136,7 @@ export default function WhatsAppFloating() {
           active:scale-95
         "
       >
+
         {/* EFEITO SUAVE */}
         <span
           className="
@@ -103,8 +149,9 @@ export default function WhatsAppFloating() {
           "
         />
 
-        {/* LOGO OFICIAL DO WHATSAPP */}
+        {/* LOGO WHATSAPP */}
         <FaWhatsapp size={27} />
+
       </a>
 
     </div>

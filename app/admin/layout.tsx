@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { supabase } from "@/utils/supabase/client"
 import { toast } from "sonner"
+import WhatsAppFloating from "../components/WhatsAppFloating"
 
 export default function AdminLayout({
   children,
@@ -341,6 +342,9 @@ lg:pt-10
   </button>
 )}
    </div>
+
+   {/* WHATSAPP SUPORTE MEUCARDAPIOAPP */}
+   <WhatsAppFloating />
 
 </>
 )

@@ -1370,56 +1370,95 @@ R$ {Number(pedidoSelecionado.total).toFixed(2)}
   <button
    
 onClick={async () => {
-
   let novoStatus = "";
 
-  if (pedidoSelecionado.status === "pendente")
+  if (pedidoSelecionado.status === "pendente") {
     novoStatus = "aceito";
-
-  else if (pedidoSelecionado.status === "aceito")
+  } else if (pedidoSelecionado.status === "aceito") {
     novoStatus = "entrega";
-
-  else if (pedidoSelecionado.status === "entrega")
+  } else if (pedidoSelecionado.status === "entrega") {
     novoStatus = "concluido";
+  }
 
   if (!novoStatus) return;
 
+  // Atualiza o status no banco
   await atualizarStatus(
     pedidoSelecionado.id,
     novoStatus
   );
 
+  // Limpa o telefone
+  let telefone = pedidoSelecionado.telefone.replace(/\D/g, "");
+
+  // Evita duplicar o 55 caso já esteja salvo
+  if (!telefone.startsWith("55")) {
+    telefone = `55${telefone}`;
+  }
+
+  // Busca os dados do restaurante
+  const restauranteId =
+    localStorage.getItem("restaurante_id");
+
+ let nomeRestaurante = "";
+
+try {
+  const { data: restaurante, error } = await supabase
+    .from("restaurantes")
+    .select("nome_restaurante")
+    .eq("id", restauranteId)
+    .single();
+
+  if (error) {
+    console.error("Erro ao buscar nome do restaurante:", error);
+  }
+
+  nomeRestaurante = restaurante?.nome_restaurante || "";
+} catch (error) {
+  console.error("Erro ao buscar dados do restaurante:", error);
+}
+
+  // ==========================================
+  // PEDIDO ACEITO
+  // ==========================================
   if (novoStatus === "aceito") {
-
-    const telefone = pedidoSelecionado.telefone.replace(/\D/g, "");
-
-    const restauranteId =
-      localStorage.getItem("restaurante_id");
-
-    const response = await fetch(
-      `/api/configuracoes/${restauranteId}`
-    );
-
-    const restaurante = await response.json();
-
     const mensagem =
 `Olá, ${pedidoSelecionado.cliente}! 😊
 
-Seu pedido #${pedidoSelecionado.numero_pedido ?? pedidoSelecionado.id}
-foi aceito pela ${restaurante.nome || restaurante.nome_fantasia || "restaurante"} e já entrou em produção.
+Seu pedido #${pedidoSelecionado.numero_pedido ?? pedidoSelecionado.id} foi aceito${nomeRestaurante ? ` pela ${nomeRestaurante}` : ""} e já entrou em produção.
 
 Assim que houver uma nova atualização no status do pedido, entraremos em contato por aqui.
 
 Obrigado pela preferência!`;
 
     window.open(
-      `https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`,
+      `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`,
       "_blank"
     );
   }
 
-  fecharPedido();
+// ==========================================
+// SAIU PARA ENTREGA
+// ==========================================
+if (novoStatus === "entrega") {
+  const mensagem =
+`Olá, ${pedidoSelecionado.cliente}! 🛵
 
+Seu pedido #${pedidoSelecionado.numero_pedido ?? pedidoSelecionado.id} acabou de sair para entrega!
+
+Já estamos a caminho do seu endereço. 📍
+
+${nomeRestaurante
+  ? `Obrigado por pedir na ${nomeRestaurante}! ❤️`
+  : "Obrigado pela preferência! ❤️"}`;
+
+  window.open(
+    `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`,
+    "_blank"
+  );
+}
+
+  fecharPedido();
 }}
 
 
@@ -1435,7 +1474,14 @@ Obrigado pela preferência!`;
       font-bold
       transition
     "
-  >
+
+
+
+
+
+
+
+>
 
     {
       pedidoSelecionado.status === "pendente"

@@ -289,6 +289,109 @@ const [notificacao, setNotificacao] = useState<{
 } | null>(null)
 
 
+// ======================================================
+// PRÉVIA AUTOMÁTICA DO HORÁRIO DE HOJE
+// ======================================================
+
+const diasSemana = [
+  "dom",
+  "seg",
+  "ter",
+  "qua",
+  "qui",
+  "sex",
+  "sab",
+] as const;
+
+const hoje = diasSemana[new Date().getDay()];
+
+const hojeAtivo = diasAtivos[hoje];
+
+const horarioInicioHoje =
+  horarios[`${hoje}_inicio` as keyof typeof horarios];
+
+const horarioFimHoje =
+  horarios[`${hoje}_fim` as keyof typeof horarios];
+
+function converterHorarioParaMinutos(horario: string) {
+  if (!horario) return 0;
+
+  const [hora, minuto] = horario.split(":").map(Number);
+
+  return hora * 60 + minuto;
+}
+
+const agora = new Date();
+
+const minutosAgora =
+  agora.getHours() * 60 + agora.getMinutes();
+
+const minutosInicio =
+  converterHorarioParaMinutos(horarioInicioHoje);
+
+const minutosFim =
+  converterHorarioParaMinutos(horarioFimHoje);
+
+const temHorarioHoje =
+  Boolean(horarioInicioHoje && horarioFimHoje);
+
+const estaAbertoAgora =
+  hojeAtivo &&
+  temHorarioHoje &&
+  minutosAgora >= minutosInicio &&
+  minutosAgora < minutosFim;
+
+
+// ======================================================
+// PRÓXIMA ABERTURA
+// ======================================================
+
+const nomesDias: Record<(typeof diasSemana)[number], string> = {
+  dom: "Domingo",
+  seg: "Segunda-feira",
+  ter: "Terça-feira",
+  qua: "Quarta-feira",
+  qui: "Quinta-feira",
+  sex: "Sexta-feira",
+  sab: "Sábado",
+};
+
+function calcularProximaAbertura() {
+  const indiceHoje = agora.getDay();
+
+  // Se o restaurante ainda vai abrir hoje
+  if (
+    hojeAtivo &&
+    temHorarioHoje &&
+    minutosAgora < minutosInicio
+  ) {
+    return `Hoje às ${horarioInicioHoje}`;
+  }
+
+  // Procura o próximo dia aberto
+  for (let i = 1; i <= 7; i++) {
+    const indiceDia = (indiceHoje + i) % 7;
+    const dia = diasSemana[indiceDia];
+
+    const diaAtivo = diasAtivos[dia];
+
+    const horarioInicio =
+      horarios[`${dia}_inicio` as keyof typeof horarios];
+
+    if (diaAtivo && horarioInicio) {
+      if (i === 1) {
+        return `Amanhã às ${horarioInicio}`;
+      }
+
+      return `${nomesDias[dia]} às ${horarioInicio}`;
+    }
+  }
+
+  return "Nenhum horário configurado";
+}
+
+const proximaAbertura = calcularProximaAbertura();
+
 return (
   <>
     {/* NOTIFICAÇÃO */}
@@ -386,56 +489,80 @@ return (
 
       <div className="space-y-6">
 
-  <div className="grid grid-cols-2 gap-6">
-        {/* STATUS */}
+<div className="grid grid-cols-2 gap-6">
 
-        <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
-          <h2 className="text-xl font-bold text-zinc-900">
-            Status Atual
-          </h2>
+  {/* STATUS ATUAL */}
+  <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
 
-          <div className="mt-6 flex items-center gap-3">
-            <div className="w-4 h-4 rounded-full bg-green-500" />
+    <h2 className="text-xl font-bold text-zinc-900">
+      Status Atual
+    </h2>
 
-            <span className="text-2xl font-bold text-green-600">
-              Aberto Agora
-            </span>
-          </div>
+    <div className="mt-6 flex items-center gap-3">
 
-          <p className="text-zinc-600 mt-2">
-            Fecha às 23:00
-          </p>
-        </div>
+      <div
+        className={`w-4 h-4 rounded-full ${
+          estaAbertoAgora
+            ? "bg-green-500"
+            : "bg-red-500"
+        }`}
+      />
 
-        <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
-
-    <div className="flex items-center gap-5">
-
-        <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-3xl">
-
-            📅
-
-        </div>
-
-        <div>
-
-            <p className="text-zinc-500 text-sm">
-
-                Próxima abertura
-
-            </p>
-
-            <h2 className="text-3xl font-bold text-zinc-900">
-
-                Domingo às 08:00
-
-            </h2>
-
-        </div>
+      <span
+        className={`text-2xl font-bold ${
+          estaAbertoAgora
+            ? "text-green-600"
+            : "text-red-600"
+        }`}
+      >
+        {estaAbertoAgora
+          ? "Aberto Agora"
+          : "Fechado Agora"}
+      </span>
 
     </div>
 
-</div>
+    {hojeAtivo && temHorarioHoje ? (
+      <p className="text-zinc-600 mt-2">
+        {estaAbertoAgora
+          ? `Fecha às ${horarioFimHoje}`
+          : minutosAgora < minutosInicio
+          ? `Abre hoje às ${horarioInicioHoje}`
+          : `Fechou hoje às ${horarioFimHoje}`}
+      </p>
+    ) : (
+      <p className="text-zinc-600 mt-2">
+        Restaurante fechado hoje
+      </p>
+    )}
+
+  </div>
+
+
+  {/* PRÓXIMA ABERTURA */}
+  <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
+
+    <div className="flex items-center gap-5">
+
+      <div className="w-16 h-16 rounded-2xl bg-[#6D1F2F]/10 flex items-center justify-center text-3xl">
+        📅
+      </div>
+
+      <div>
+
+        <p className="text-zinc-500 text-sm">
+          Próxima abertura
+        </p>
+
+        <h2 className="text-3xl font-bold text-zinc-900">
+          {proximaAbertura}
+        </h2>
+
+      </div>
+
+    </div>
+
+  </div>
 
 </div>
 
@@ -769,27 +896,58 @@ active:scale-95
 </div>
         </div>
 
-        {/* PREVIEW */}
+{/* PREVIEW */}
 
-        <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
-          <h2 className="text-2xl font-bold text-zinc-900">
-            Prévia do Cliente
-          </h2>
+<div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
+  <h2 className="text-2xl font-bold text-zinc-900">
+    Prévia do Cliente
+  </h2>
 
-          <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
+  <p className="mt-2 text-sm text-zinc-500">
+    Veja como o horário de hoje será exibido no cardápio.
+  </p>
 
-              <span className="font-bold text-lg text-zinc-900">
-                Aberto Agora
-              </span>
-            </div>
+  <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-6">
 
-            <p className="text-zinc-600 mt-2">
-              Hoje: 18:00 às 23:00
-            </p>
-          </div>
-        </div>
+    <div className="flex items-center gap-2">
+
+      <div
+        className={`w-3 h-3 rounded-full ${
+          estaAbertoAgora
+            ? "bg-green-500"
+            : "bg-red-500"
+        }`}
+      />
+
+      <span
+        className={`font-bold text-lg ${
+          estaAbertoAgora
+            ? "text-green-600"
+            : "text-red-600"
+        }`}
+      >
+        {estaAbertoAgora
+          ? "Aberto Agora"
+          : "Fechado Agora"}
+      </span>
+
+    </div>
+
+    {hojeAtivo && temHorarioHoje ? (
+      <p className="text-zinc-600 mt-2">
+        Hoje:{" "}
+        <strong className="text-zinc-900">
+          {horarioInicioHoje} às {horarioFimHoje}
+        </strong>
+      </p>
+    ) : (
+      <p className="text-zinc-600 mt-2">
+        Restaurante fechado hoje
+      </p>
+    )}
+
+  </div>
+</div>
       </div>
     </div>
   </>

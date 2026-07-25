@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
-import { Toaster } from "sonner"
+import { Toaster } from "sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import WhatsAppFloating from "./components/WhatsAppFloating";
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -87,8 +89,6 @@ export const metadata: Metadata = {
     shortcut: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
-
-
 };
 
 export const viewport = {
@@ -102,29 +102,25 @@ export default function RootLayout({
 }>) {
   return (
     <html
-  lang="pt-BR"
-  className={cn(
-    "h-full",
-    "antialiased",
-    geistSans.variable,
-    geistMono.variable,
-    "font-sans",
-    inter.variable
-  )}
->
-<body className="min-h-full flex flex-col">
-  {children}
+      lang="pt-BR"
+      className={cn(
+        "h-full",
+        "antialiased",
+        geistSans.variable,
+        geistMono.variable,
+        "font-sans",
+        inter.variable
+      )}
+    >
+      <body className="min-h-full flex flex-col">
+        {children}
 
-  {/* WhatsApp flutuante */}
-  <WhatsAppFloating />
-
-  <Toaster
-    position="top-right"
-    richColors
-    closeButton
-  />
-</body>
-
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+        />
+      </body>
     </html>
   );
 }
