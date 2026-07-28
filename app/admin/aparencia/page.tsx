@@ -101,6 +101,9 @@ const [statusAssinatura, setStatusAssinatura] =
   const bannerInputRef =
     useRef<HTMLInputElement>(null)
 
+    const colorInputRef =
+  useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     carregarAparencia()
   }, [])
@@ -355,7 +358,9 @@ const {
     nome_restaurante:
   nomeRestaurante,
 
- pedido_minimo: Number(pedidoMinimo),
+pedido_minimo: Number(
+  pedidoMinimo.replace(",", ".")
+),
 
   cor_primaria:
     selectedColor,
@@ -454,7 +459,9 @@ console.log("UPDATE OK")
   tipo_atendimento:
     tipoAtendimento,
 
-    pedido_minimo: Number(pedidoMinimo),
+pedido_minimo: Number(
+  pedidoMinimo.replace(",", ".")
+),
 
   cor_primaria:
     selectedColor,
@@ -710,23 +717,42 @@ setTimeout(() => {
   }
 }
 
- 
+if (loading) {
+  return (
+    <main className={`${bgPage} min-h-screen p-6 md:p-10`}>
+      <div className="max-w-7xl mx-auto space-y-8">
 
-  if (loading) {
+        <div className="space-y-3">
+          <div className="w-14 h-14 rounded-full bg-zinc-200 animate-pulse" />
+          <div className="w-52 h-10 bg-zinc-200 rounded-xl animate-pulse" />
+          <div className="w-96 max-w-full h-5 bg-zinc-200 rounded-lg animate-pulse" />
+        </div>
 
-    return (
-      <div className="
-        min-h-screen
-        flex
-        items-center
-        justify-center
-        bg-black
-        text-white
-      ">
-        Carregando aparência...
+        <div className="bg-white border border-[#DDD6CC] rounded-3xl p-6 shadow-sm">
+          <div className="space-y-5 animate-pulse">
+            <div className="w-72 max-w-full h-8 bg-zinc-200 rounded-lg" />
+            <div className="w-full h-12 bg-zinc-100 rounded-xl" />
+            <div className="w-full h-12 bg-zinc-100 rounded-xl" />
+            <div className="w-full h-12 bg-zinc-100 rounded-xl" />
+          </div>
+        </div>
+
+        <div className="bg-white border border-[#DDD6CC] rounded-3xl p-6 shadow-sm">
+          <div className="space-y-5 animate-pulse">
+            <div className="w-64 h-8 bg-zinc-200 rounded-lg" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="h-28 bg-zinc-100 rounded-2xl" />
+              <div className="h-28 bg-zinc-100 rounded-2xl" />
+              <div className="h-28 bg-zinc-100 rounded-2xl" />
+            </div>
+          </div>
+        </div>
+
       </div>
-    )
-  }
+    </main>
+  )
+}
 
   return (
 
@@ -891,23 +917,82 @@ Personalize o visual e as informações do seu cardápio
     Pedido mínimo
   </label>
 
-  <input
-    type="number"
-    value={pedidoMinimo}
-    onChange={(e) =>
-      setPedidoMinimo(
-        e.target.value
-      )
+  <div className="relative mt-2">
+    <span
+      className="
+        absolute
+        left-4
+        top-1/2
+        -translate-y-1/2
+        text-zinc-500
+        font-semibold
+        pointer-events-none
+      "
+    >
+      R$
+    </span>
+
+<input
+  type="text"
+  inputMode="decimal"
+  value={pedidoMinimo}
+  onChange={(e) => {
+    let valor = e.target.value;
+
+    // Aceita ponto ou vírgula durante a digitação
+    valor = valor.replace(/[^\d.,]/g, "");
+
+    // Impede mais de um separador decimal
+    const partes = valor.split(/[.,]/);
+
+    if (partes.length > 2) {
+      valor = partes[0] + "," + partes.slice(1).join("");
     }
-    placeholder="Ex: R$:49,00"
-    className="
-      w-full
-      mt-2
-      border
-      rounded-xl
-      p-3
-    "
-  />
+
+    setPedidoMinimo(valor);
+  }}
+  onBlur={() => {
+    if (!pedidoMinimo) return;
+
+    const numero = Number(
+      pedidoMinimo.replace(",", ".")
+    );
+
+    if (!isNaN(numero)) {
+      setPedidoMinimo(
+        numero.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      );
+    }
+  }}
+  onFocus={() => {
+    if (!pedidoMinimo) return;
+
+    setPedidoMinimo(
+      pedidoMinimo.replace(",", ".")
+    );
+  }}
+  placeholder="0,00"
+  className="
+    w-full
+    border
+    rounded-xl
+    py-3
+    pl-12
+    pr-4
+    outline-none
+    focus:border-[#7F1D1D]
+    transition
+  "
+/>
+
+  </div>
+
+  <p className="text-xs text-zinc-500 mt-2">
+    Valor mínimo que o cliente precisa atingir para fazer um pedido.
+  </p>
 
 </div>
 
@@ -1110,46 +1195,93 @@ Personalize o visual e as informações do seu cardápio
 
     </button>
      
-<div
-  className="
+<button
+  type="button"
+  onClick={() => colorInputRef.current?.click()}
+  className={`
     border
     rounded-2xl
     p-5
-  "
+    flex
+    items-center
+    gap-4
+    text-left
+    transition-all
+    hover:bg-zinc-50
+
+    ${
+      selectedColor !== "#7F1D1D" &&
+      selectedColor !== "#18181B"
+        ? "border-red-700"
+        : "border-zinc-200"
+    }
+  `}
 >
 
-  <label className="font-bold">
-    Personalizada
-  </label>
+  <div
+    className="
+      w-10
+      h-10
+      rounded-full
+      flex-shrink-0
+      relative
+      overflow-hidden
+      border
+      border-zinc-200
+    "
+    style={{
+      background:
+        "conic-gradient(#ef4444, #f59e0b, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444)",
+    }}
+  >
+    <div
+      className="
+        absolute
+        inset-[9px]
+        rounded-full
+        border-2
+        border-white
+      "
+      style={{
+        backgroundColor:
+          selectedColor !== "#7F1D1D" &&
+          selectedColor !== "#18181B"
+            ? selectedColor
+            : "white",
+      }}
+    />
+  </div>
+
+  <div>
+    <div className="font-bold">
+      Personalizada
+    </div>
+
+    <div className="text-sm text-zinc-500">
+      Escolha qualquer cor
+    </div>
+  </div>
 
   <input
+    ref={colorInputRef}
     type="color"
     value={selectedColor}
     onChange={(e) =>
       setSelectedColor(e.target.value)
     }
+    onClick={(e) =>
+      e.stopPropagation()
+    }
     className="
-      w-full
-      h-12
-      mt-3
-      cursor-pointer
+      absolute
+      opacity-0
+      pointer-events-none
+      w-0
+      h-0
     "
   />
 
- <input
-  value={selectedColor}
-  onChange={(e) =>
-    setSelectedColor(e.target.value)
-  }
-  className="
-    mt-3
-    w-full
-    border
-    rounded-xl
-    p-2
-  "
-/>
-</div>
+</button>
 
 <div className="mt-4">
 

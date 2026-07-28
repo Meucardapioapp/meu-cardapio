@@ -10,8 +10,6 @@ import {
   Clock3,
   ArrowRight,
   CalendarDays,
-  Plus,
-  TrendingUp,
 } from "lucide-react";
 
 import {
@@ -30,7 +28,13 @@ export default function DashboardPage() {
 const [pedidosHoje, setPedidosHoje] = useState(0);
 const [produtosVendidos, setProdutosVendidos] = useState(0);
 const [pedidosPendentes, setPedidosPendentes] = useState(0);
-const [periodo, setPeriodo] = useState(30);
+const [periodo, setPeriodo] = useState(() => {
+  if (typeof window === "undefined") return 1;
+
+  const periodoSalvo = localStorage.getItem("dashboard_periodo");
+
+  return periodoSalvo ? Number(periodoSalvo) : 1;
+});
 
 const [grafico, setGrafico] = useState<
   {
@@ -71,57 +75,79 @@ if (!restauranteId) return;
 
   amanha.setDate(amanha.getDate() + 1);
 
-  const inicioPeriodo = new Date();
+const inicioPeriodo = new Date();
+
+inicioPeriodo.setHours(0, 0, 0, 0);
 
 inicioPeriodo.setDate(
-  inicioPeriodo.getDate() - periodo
+  inicioPeriodo.getDate() - (periodo - 1)
 );
 
-const { data: pedidos } = await supabase
+const fimPeriodo = new Date();
+fimPeriodo.setHours(23, 59, 59, 999);
+
+const { data: pedidos, error } = await supabase
   .from("pedidos")
   .select("*")
   .eq("restaurante_id", restauranteId)
   .neq("status", "cancelado")
-  .gte(
-    "created_at",
-    inicioPeriodo.toISOString()
+  .or(
+    "payment_method.eq.cash,payment_method.eq.card_delivery,payment_status.eq.approved"
   )
+  .gte("created_at", inicioPeriodo.toISOString())
+  .lte("created_at", fimPeriodo.toISOString())
   .order("created_at");
 
-  if (!pedidos) return;
+if (error) {
+  console.error("Erro ao carregar dashboard:", error);
+  return;
+}
 
-  const pedidosHojeLista = pedidos.filter((pedido: any) => {
-  const dataPedido = new Date(pedido.created_at);
+if (!pedidos) return;
 
-  return dataPedido >= hoje && dataPedido < amanha;
+console.log("PERÍODO:", {
+  periodo,
+  inicioPeriodo: inicioPeriodo.toISOString(),
+  fimPeriodo: fimPeriodo.toISOString(),
 });
 
-  setPedidosHoje(pedidosHojeLista.length);
+console.log(
+  "PEDIDOS RETORNADOS:",
+  pedidos.map((p: any) => ({
+    id: p.id,
+    created_at: p.created_at,
+    status: p.status,
+    total: p.total,
+  }))
+);
 
-  setPedidosPendentes(
-  pedidosHojeLista.filter(
+// TODOS OS CARDS USAM O PERÍODO SELECIONADO
+
+setPedidosHoje(pedidos.length);
+
+setPedidosPendentes(
+  pedidos.filter(
     (p: any) =>
       p.status !== "concluido" &&
       p.status !== "cancelado"
   ).length
 );
 
-  let faturamento = 0;
-  let produtos = 0;
+let faturamento = 0;
+let produtos = 0;
 
-  pedidosHojeLista.forEach((pedido: any) => {
-    faturamento += Number(pedido.total || 0);
+pedidos.forEach((pedido: any) => {
+  faturamento += Number(pedido.total || 0);
 
-    if (Array.isArray(pedido.itens)) {
-      pedido.itens.forEach((item: any) => {
-        produtos += Number(item.quantidade || 1);
-      });
-    }
-  });
+  if (Array.isArray(pedido.itens)) {
+    pedido.itens.forEach((item: any) => {
+      produtos += Number(item.quantidade || 1);
+    });
+  }
+});
 
-  setFaturamentoHoje(faturamento);
-
-  setProdutosVendidos(produtos);
+setFaturamentoHoje(faturamento);
+setProdutosVendidos(produtos);
 
  const mapaDias: Record<string, number> = {};
 
@@ -151,7 +177,22 @@ for (let i = periodo - 1; i >= 0; i--) {
   });
 }
 
-setGrafico(resultado);
+if (periodo === 1 && resultado.length === 1) {
+  const valorHoje = resultado[0].valor;
+
+  setGrafico([
+    {
+      data: "Início do dia",
+      valor: valorHoje,
+    },
+    {
+      data: "Hoje",
+      valor: valorHoje,
+    },
+  ]);
+} else {
+  setGrafico(resultado);
+}
 
 const total = resultado.reduce(
   (acc, item) => acc + item.valor,
@@ -163,7 +204,7 @@ setTotalPeriodo(total);
 }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
 
       {/* HEADER */}
 
@@ -171,11 +212,11 @@ setTotalPeriodo(total);
 
         <div>
 
-          <h1 className="text-[44px] font-black tracking-tight text-[#22181C]">
+          <h1 className="text-[32px] font-black tracking-tight text-[#22181C]">
             Boas vendas hoje 👋
           </h1>
 
-          <p className="text-zinc-500 mt-2 text-lg">
+          <p className="text-zinc-500 mt-1 text-sm">
             Aqui está o que está acontecendo no seu restaurante hoje.
           </p>
 
@@ -185,7 +226,7 @@ setTotalPeriodo(total);
 
           <button
             className="
-            h-14
+            h-11
             px-5
             rounded-2xl
             bg-white
@@ -209,28 +250,49 @@ setTotalPeriodo(total);
 })}
           </button>
 
-          <button
-            className="
-            h-14
-            px-7
-            rounded-2xl
-            bg-gradient-to-r
-            from-[#7A1F3D]
-            to-[#5A1B33]
-            text-white
-            font-bold
-            flex
-            items-center
-            gap-2
-            shadow-lg
-            hover:scale-[1.02]
-            transition
-            "
-          >
-            <Plus size={20} />
 
-            Novo Pedido
-          </button>
+        </div>
+
+      </div>
+
+      {/* SELETOR DE PERÍODO */}
+
+      <div className="bg-white rounded-[22px] border border-zinc-100 shadow-sm p-4">
+
+        <p className="font-bold text-[#22181C] mb-4">
+          Período
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3">
+
+          {[
+            { valor: 1, label: "Hoje" },
+            { valor: 7, label: "Últimos 7 dias" },
+            { valor: 30, label: "Últimos 30 dias" },
+            { valor: 90, label: "Últimos 90 dias" },
+            { valor: 365, label: "Últimos 365 dias" },
+          ].map((item) => (
+            <button
+              key={item.valor}
+              onClick={() => {
+  setPeriodo(item.valor);
+  localStorage.setItem(
+    "dashboard_periodo",
+    String(item.valor)
+  );
+}}
+              className={`
+                h-10 px-5 rounded-xl border text-sm font-semibold transition-all
+                ${
+                  periodo === item.valor
+                    ? "bg-[#7A1F3D] text-white border-[#7A1F3D] shadow-sm"
+                    : "bg-[#FAFAFA] text-[#22181C] border-zinc-200 hover:border-[#7A1F3D]"
+                }
+              `}
+            >
+              {item.label}
+            </button>
+          ))}
 
         </div>
 
@@ -238,18 +300,18 @@ setTotalPeriodo(total);
 
       {/* CARDS */}
 
-      <div className="grid xl:grid-cols-4 md:grid-cols-2 gap-6">
+      <div className="grid xl:grid-cols-4 md:grid-cols-2 gap-4">
 
         {/* FATURAMENTO */}
 
-        <div className="bg-white rounded-[28px] border border-zinc-100 shadow-sm p-7">
+        <div className="bg-white rounded-[22px] border border-zinc-100 shadow-sm p-5">
 
           <div className="flex items-center justify-between">
 
             <div
               className="
-              w-16
-              h-16
+              w-12
+              h-12
               rounded-full
               bg-[#FDECEE]
               flex
@@ -265,44 +327,28 @@ setTotalPeriodo(total);
 
           </div>
 
-          <p className="mt-6 text-zinc-500 font-medium">
-            Faturamento hoje
+          <p className="mt-3 text-sm text-zinc-500 text-sm font-medium">
+             Faturamento no período
           </p>
 
-          <h2 className="text-5xl font-black mt-2">
+          <h2 className="text-xl font-black mt-1">
             {faturamentoHoje.toLocaleString("pt-BR", {
   style: "currency",
   currency: "BRL",
 })}
           </h2>
 
-          <div className="flex items-center gap-2 mt-4">
-
-            <TrendingUp
-              size={18}
-              className="text-green-600"
-            />
-
-            <span className="text-green-600 font-bold">
-              0%
-            </span>
-
-            <span className="text-zinc-400">
-              vs ontem
-            </span>
-
-          </div>
 
         </div>
 
         {/* PEDIDOS */}
 
-        <div className="bg-white rounded-[28px] border border-zinc-100 shadow-sm p-7">
+        <div className="bg-white rounded-[28px] border border-zinc-100 shadow-sm p-5">
 
           <div
             className="
-            w-16
-            h-16
+            w-12
+            h-12
             rounded-full
             bg-[#F2EBFF]
             flex
@@ -316,89 +362,24 @@ setTotalPeriodo(total);
             />
           </div>
 
-          <p className="mt-6 text-zinc-500 font-medium">
-            Pedidos hoje
+          <p className="mt-3 text-sm text-zinc-500 text-sm font-medium">
+             Pedidos no período
           </p>
 
-          <h2 className="text-5xl font-black mt-2">
+          <h2 className="text-xl font-black mt-1">
             {pedidosHoje}
           </h2>
-
-          <div className="flex items-center gap-2 mt-4">
-
-            <TrendingUp
-              size={18}
-              className="text-green-600"
-            />
-
-            <span className="text-green-600 font-bold">
-              0%
-            </span>
-
-            <span className="text-zinc-400">
-              vs ontem
-            </span>
-
-          </div>
-
-        </div>
-
-        {/* PRODUTOS */}
-
-        <div className="bg-white rounded-[28px] border border-zinc-100 shadow-sm p-7">
-
-          <div
-            className="
-            w-16
-            h-16
-            rounded-full
-            bg-[#ECFFF2]
-            flex
-            items-center
-            justify-center
-            "
-          >
-            <Package
-              className="text-green-600"
-              size={28}
-            />
-          </div>
-
-          <p className="mt-6 text-zinc-500 font-medium">
-            Produtos vendidos
-          </p>
-
-          <h2 className="text-5xl font-black mt-2">
-            {produtosVendidos}
-          </h2>
-
-          <div className="flex items-center gap-2 mt-4">
-
-            <TrendingUp
-              size={18}
-              className="text-green-600"
-            />
-
-            <span className="text-green-600 font-bold">
-              0%
-            </span>
-
-            <span className="text-zinc-400">
-              vs ontem
-            </span>
-
-          </div>
 
         </div>
 
         {/* PENDENTES */}
 
-        <div className="bg-white rounded-[28px] border border-zinc-100 shadow-sm p-7">
+        <div className="bg-white rounded-[28px] border border-zinc-100 shadow-sm p-5">
 
           <div
             className="
-            w-16
-            h-16
+            w-12
+            h-12
             rounded-full
             bg-[#FFF2EC]
             flex
@@ -412,16 +393,16 @@ setTotalPeriodo(total);
             />
           </div>
 
-          <p className="mt-6 text-zinc-500 font-medium">
+          <p className="mt-3 text-sm text-zinc-500 text-sm font-medium">
             Pedidos pendentes
           </p>
 
-          <h2 className="text-5xl font-black mt-2">
+          <h2 className="text-xl font-black mt-1">
             {pedidosPendentes}
 
           </h2>
 
-          <div className="mt-4">
+          <div className="mt-3 text-sm">
 
             <span className="text-orange-500 font-semibold">
               Aguardando preparo
@@ -435,52 +416,35 @@ setTotalPeriodo(total);
 
       {/* GRID PRINCIPAL */}
 
-      <div className="grid xl:grid-cols-[1fr_340px] gap-6"> 
+      <div>
 
                 {/* GRÁFICO */}
 
         <div className="col-span-1"> 
 
-          <div className="bg-white rounded-[30px] border border-zinc-100 shadow-sm p-8 h-full">
+          <div className="bg-white rounded-[30px] border border-zinc-100 shadow-sm p-5 h-full">
 
-            <div className="flex items-center justify-between mb-10">
+            <div className="flex items-center justify-between mb-5">
 
               <div>
 
-                <h2 className="text-3xl font-bold text-[#22181C]">
+                <h2 className="text-xl font-bold text-[#22181C]">
   Faturamento nos últimos {periodo} dias
 </h2>
 
-                <p className="text-zinc-500 mt-2">
+                <p className="text-zinc-500 text-sm mt-1">
                   Acompanhe a evolução do faturamento.
                 </p>
 
               </div>
 
-<select
-  value={periodo}
-  onChange={(e) => setPeriodo(Number(e.target.value))}
-  className="
-  h-11
-  px-4
-  rounded-xl
-  border
-  border-zinc-200
-  bg-white
-  text-sm
-  "
->
-  <option value={7}>Últimos 7 dias</option>
-  <option value={30}>Últimos 30 dias</option>
-  <option value={90}>Últimos 90 dias</option>
-  <option value={365}>Últimos 365 dias</option>
-</select>
+
 
             </div>
 
             {/* PLACEHOLDER DO GRÁFICO */}
 
-            <div className="h-[430px]">
+            <div className="h-[280px]">
   <ResponsiveContainer width="100%" height="100%">
     <AreaChart data={grafico}>
       <defs>
@@ -497,8 +461,26 @@ setTotalPeriodo(total);
         tick={{ fontSize: 12 }}
       />
 
-   <YAxis
-  tickFormatter={(v) => `R$ ${Number(v)}`}
+<YAxis
+  width={75}
+  tick={{ fontSize: 11 }}
+  tickFormatter={(value) => {
+    const v = Number(value);
+
+    if (v >= 1000000) {
+      return `R$ ${(v / 1000000).toLocaleString("pt-BR", {
+        maximumFractionDigits: 1,
+      })} mi`;
+    }
+
+    if (v >= 1000) {
+      return `R$ ${(v / 1000).toLocaleString("pt-BR", {
+        maximumFractionDigits: 1,
+      })} mil`;
+    }
+
+    return `R$ ${v.toLocaleString("pt-BR")}`;
+  }}
 />
 
   <Tooltip
@@ -523,117 +505,28 @@ setTotalPeriodo(total);
 </div>
 </div>
 </div>
-                {/* COLUNA DIREITA */}
-
-       <div className="space-y-6"> 
-
-          {/* TOTAL DO PERÍODO */}
-
-          <div
-            className="
-            bg-white
-            rounded-[30px]
-            border
-            border-zinc-100
-            shadow-sm
-            p-7
-            "
-          >
-
-            <p className="text-zinc-500 font-medium">
-              Total do período
-            </p>
-
-<h2
-  className="
-  text-5xl
-  font-black
-  mt-3
-  tracking-tight
-  "
->
-  {totalPeriodo.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  })}
-</h2>
-
-            <div
-              className="
-              mt-6
-              flex
-              items-center
-              gap-2
-              "
-            >
-
-              <div
-                className="
-                w-9
-                h-9
-                rounded-full
-                bg-green-100
-                flex
-                items-center
-                justify-center
-                "
-              >
-
-                <TrendingUp
-                  size={18}
-                  className="text-green-600"
-                />
-
-              </div>
-
-              <div>
-
-                <p
-                  className="
-                  font-bold
-                  text-green-600
-                  "
-                >
-                  +0%
-                </p>
-
-                <p
-                  className="
-                  text-xs
-                  text-zinc-400
-                  "
-                >
-                  Comparado ao período anterior
-                </p>
-
-              </div>
-
-            </div>
-
-          </div>
-          </div>
-</div>
 
             {/* AÇÕES RÁPIDAS */}
 
       <div
         className="
+        mt-5
         bg-white
         rounded-[30px]
         border
         border-zinc-100
         shadow-sm
-        p-8
+        p-5
         "
       >
 
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-5">
 
           <div>
 
             <h2
               className="
-              text-3xl
+              text-xl
               font-bold
               text-[#22181C]
               "
@@ -654,17 +547,17 @@ setTotalPeriodo(total);
 
         </div>
 
-        <div className="grid xl:grid-cols-4 md:grid-cols-2 gap-6">
+        <div className="grid xl:grid-cols-4 md:grid-cols-2 gap-4">
 
           <Link
             href="/admin/produtos"
             className="
             group
             bg-[#FAFAFA]
-            rounded-[24px]
+            rounded-[18px]
             border
             border-zinc-100
-            p-7
+            p-4
             hover:border-[#7A1F3D]
             hover:shadow-md
             transition-all
@@ -673,8 +566,8 @@ setTotalPeriodo(total);
 
             <div
               className="
-              w-14
-              h-14
+              w-10
+              h-11
               rounded-2xl
               bg-[#FDECEE]
               flex
@@ -689,17 +582,17 @@ setTotalPeriodo(total);
 
             </div>
 
-            <h3 className="font-bold text-xl mt-6">
+            <h3 className="font-bold text-base mt-4">
               Produtos
             </h3>
 
-            <p className="text-zinc-500 mt-2">
+            <p className="text-zinc-500 text-sm mt-1">
               Cadastre e gerencie os produtos.
             </p>
 
             <ArrowRight
               className="
-              mt-8
+              mt-4
               group-hover:translate-x-1
               transition
               "
@@ -712,10 +605,10 @@ setTotalPeriodo(total);
             className="
             group
             bg-[#FAFAFA]
-            rounded-[24px]
+            rounded-[18px]
             border
             border-zinc-100
-            p-7
+            p-4
             hover:border-[#7A1F3D]
             hover:shadow-md
             transition-all
@@ -724,8 +617,8 @@ setTotalPeriodo(total);
 
             <div
               className="
-              w-14
-              h-14
+              w-10
+              h-11
               rounded-2xl
               bg-[#F2EBFF]
               flex
@@ -740,17 +633,17 @@ setTotalPeriodo(total);
 
             </div>
 
-            <h3 className="font-bold text-xl mt-6">
+            <h3 className="font-bold text-base mt-4">
               Pedidos
             </h3>
 
-            <p className="text-zinc-500 mt-2">
+            <p className="text-zinc-500 text-sm mt-1">
               Acompanhe os pedidos em tempo real.
             </p>
 
             <ArrowRight
               className="
-              mt-8
+              mt-4
               group-hover:translate-x-1
               transition
               "
@@ -763,10 +656,10 @@ setTotalPeriodo(total);
             className="
             group
             bg-[#FAFAFA]
-            rounded-[24px]
+            rounded-[18px]
             border
             border-zinc-100
-            p-7
+            p-4
             hover:border-[#7A1F3D]
             hover:shadow-md
             transition-all
@@ -775,8 +668,8 @@ setTotalPeriodo(total);
 
             <div
               className="
-              w-14
-              h-14
+              w-10
+              h-11
               rounded-2xl
               bg-[#ECFFF2]
               flex
@@ -791,17 +684,17 @@ setTotalPeriodo(total);
 
             </div>
 
-            <h3 className="font-bold text-xl mt-6">
+            <h3 className="font-bold text-base mt-4">
               Link do Cardápio
             </h3>
 
-            <p className="text-zinc-500 mt-2">
+            <p className="text-zinc-500 text-sm mt-1">
               Compartilhe seu cardápio digital.
             </p>
 
             <ArrowRight
               className="
-              mt-8
+              mt-4
               group-hover:translate-x-1
               transition
               "
@@ -814,10 +707,10 @@ setTotalPeriodo(total);
             className="
             group
             bg-[#FAFAFA]
-            rounded-[24px]
+            rounded-[18px]
             border
             border-zinc-100
-            p-7
+            p-4
             hover:border-[#7A1F3D]
             hover:shadow-md
             transition-all
@@ -826,8 +719,8 @@ setTotalPeriodo(total);
 
             <div
               className="
-              w-14
-              h-14
+              w-10
+              h-11
               rounded-2xl
               bg-[#FFF2EC]
               flex
@@ -842,17 +735,17 @@ setTotalPeriodo(total);
 
             </div>
 
-            <h3 className="font-bold text-xl mt-6">
+            <h3 className="font-bold text-base mt-4">
               Aparência
             </h3>
 
-            <p className="text-zinc-500 mt-2">
+            <p className="text-zinc-500 text-sm mt-1">
               Personalize o visual do cardápio.
             </p>
 
             <ArrowRight
               className="
-              mt-8
+              mt-4
               group-hover:translate-x-1
               transition
               "
@@ -865,5 +758,7 @@ setTotalPeriodo(total);
       </div>
 
     </div>
+
+  </div>
   );
 }
