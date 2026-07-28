@@ -14,6 +14,10 @@ export default function EnderecoPage() {
   const slug = params.slug as string;
   const [carregandoPagamento, setCarregandoPagamento] = useState(false);
   const [lojaAberta, setLojaAberta] = useState(true);
+  const [alerta, setAlerta] = useState<{
+  titulo: string;
+  mensagem: string;
+} | null>(null);
 
 useEffect(() => {
 
@@ -562,7 +566,97 @@ setEstado(
 
 }
 
-  return (
+return (
+  <>
+
+    {alerta && (
+      <div
+        className="
+          fixed inset-0 z-[9999]
+          bg-black/50
+          backdrop-blur-[2px]
+          flex items-center justify-center
+          px-5
+        "
+      >
+        <div
+          className="
+            w-full max-w-[380px]
+            bg-white
+            rounded-3xl
+            shadow-2xl
+            overflow-hidden
+          "
+        >
+          <div
+            className="h-2 w-full"
+            style={{
+              backgroundColor: corPrincipal,
+            }}
+          />
+
+          <div className="px-7 pt-8 pb-7 text-center">
+
+            <div
+              className="
+                w-16 h-16
+                rounded-full
+                mx-auto mb-5
+                flex items-center justify-center
+              "
+              style={{
+                backgroundColor: `${corPrincipal}15`,
+                color: corPrincipal,
+              }}
+            >
+              <svg
+                width="30"
+                height="30"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+
+            <h2 className="text-2xl font-black text-zinc-900">
+              {alerta.titulo}
+            </h2>
+
+            <p className="mt-3 text-[15px] leading-6 text-zinc-500">
+              {alerta.mensagem}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setAlerta(null)}
+              className="
+                w-full mt-7
+                py-4
+                rounded-2xl
+                text-white
+                font-bold
+                text-base
+                active:scale-[0.98]
+                transition
+              "
+              style={{
+                backgroundColor: corPrincipal,
+              }}
+            >
+              Entendi
+            </button>
+
+          </div>
+        </div>
+      </div>
+    )}
 
     <main
       className="
@@ -1364,13 +1458,46 @@ onClick={() => {
 
   }
 
-  if (carregandoPagamento) return;
+if (carregandoPagamento) return;
 
-  if (!validarCPF(cpf)) {
 
-      alert("Informe um CPF válido.");
-      return;
-    }
+// NOME OBRIGATÓRIO
+
+if (!nome.trim()) {
+  setAlerta({
+    titulo: "Informe seu nome",
+    mensagem:
+      "Preencha seu nome e sobrenome para continuar com o pedido.",
+  });
+
+  return;
+}
+
+
+// WHATSAPP OBRIGATÓRIO
+
+if (whatsapp.replace(/\D/g, "").length !== 11) {
+  setAlerta({
+    titulo: "Telefone obrigatório",
+    mensagem:
+      "Informe um telefone válido com DDD para continuar.",
+  });
+
+  return;
+}
+
+
+// CPF OBRIGATÓRIO E VÁLIDO
+
+if (!validarCPF(cpf)) {
+  setAlerta({
+    titulo: "CPF inválido",
+    mensagem:
+      "Informe um CPF válido para continuar.",
+  });
+
+  return;
+}
 
     setCarregandoPagamento(true);
 
@@ -1451,5 +1578,6 @@ onClick={() => {
 
     </main>
 
+  </>
   );
 }

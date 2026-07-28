@@ -57,6 +57,12 @@ export default function ProductModal({
   const [observation, setObservation] =
     useState("")
 
+    const [avisoObrigatorio, setAvisoObrigatorio] =
+  useState<{
+    titulo: string
+    mensagem: string
+  } | null>(null)
+
   const [
     adicionaisSelecionados,
     setAdicionaisSelecionados,
@@ -220,6 +226,128 @@ const total =
     : "bg-zinc-900 border border-zinc-800"
 
   return (
+
+
+    <>
+  {avisoObrigatorio && (
+    <div
+      className="
+        fixed inset-0
+        z-[9999]
+        bg-black/60
+        backdrop-blur-[2px]
+        flex
+        items-center
+        justify-center
+        px-5
+      "
+    >
+      <div
+        className="
+          w-full
+          max-w-[380px]
+          bg-white
+          rounded-3xl
+          shadow-2xl
+          overflow-hidden
+          animate-in
+          zoom-in-95
+          duration-200
+        "
+      >
+        {/* Faixa com a cor do restaurante */}
+        <div
+          className="h-2 w-full"
+          style={{
+            backgroundColor: corPrincipal,
+          }}
+        />
+
+        <div className="px-7 pt-8 pb-7 text-center">
+
+          {/* Ícone */}
+          <div
+            className="
+              w-16 h-16
+              rounded-full
+              mx-auto
+              flex
+              items-center
+              justify-center
+              mb-5
+            "
+            style={{
+              backgroundColor: `${corPrincipal}15`,
+              color: corPrincipal,
+            }}
+          >
+            <svg
+              width="30"
+              height="30"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
+
+          {/* Título */}
+          <h3
+            className="
+              text-[22px]
+              font-black
+              text-zinc-900
+              leading-tight
+            "
+          >
+            {avisoObrigatorio.titulo}
+          </h3>
+
+          {/* Mensagem */}
+          <p
+            className="
+              mt-3
+              text-[15px]
+              text-zinc-500
+              leading-6
+            "
+          >
+            {avisoObrigatorio.mensagem}
+          </p>
+
+          {/* Botão */}
+          <button
+            type="button"
+            onClick={() =>
+              setAvisoObrigatorio(null)
+            }
+            className="
+              w-full
+              mt-7
+              py-4
+              rounded-2xl
+              text-white
+              font-bold
+              text-base
+              transition
+              active:scale-[0.98]
+            "
+            style={{
+              backgroundColor: corPrincipal,
+            }}
+          >
+            Entendi
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
 
  <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center px-3 pt-3 pb-0">
 
@@ -649,12 +777,15 @@ shrink-0
 
 if (selecionados.length < grupo.minimo) {
 
-  alert(
-    `Selecione pelo menos ${grupo.minimo} item(ns) de "${grupo.nome}".`
-  )
+  setAvisoObrigatorio({
+    titulo: `Selecione ${grupo.nome}`,
+    mensagem:
+      grupo.minimo === 1
+        ? `Escolha pelo menos 1 opção para continuar.`
+        : `Escolha pelo menos ${grupo.minimo} opções para continuar.`,
+  })
 
   return
-
 }
 
       }
@@ -723,7 +854,8 @@ onAdd(
 </div>
 
 </div> 
+</div>
 
-</div> 
+</>
 )
 }
