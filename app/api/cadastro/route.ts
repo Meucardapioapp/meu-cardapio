@@ -174,14 +174,53 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 6. Cadastro concluído
-    return NextResponse.json({
-      success: true,
-      restaurante: {
-        id: restaurante.id,
-        slug: restaurante.slug,
+// 6. Envia notificação de novo restaurante para o Pushcut
+try {
+  const pushcutUrl =
+    process.env.PUSHCUT_NOVO_RESTAURANTE_URL
+
+  if (pushcutUrl) {
+    const pushcutResponse = await fetch(pushcutUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        title: "🎉 Novo restaurante cadastrado!",
+        text: `Restaurante: ${nomeRestaurante}
+Responsável: ${nomeResponsavel}
+Categoria: ${categoria || "Não informada"}
+Cidade: ${cidade} - ${uf}
+WhatsApp: ${whatsapp}`,
+      }),
     })
+
+    if (!pushcutResponse.ok) {
+      console.error(
+        "Pushcut respondeu com erro:",
+        pushcutResponse.status
+      )
+    }
+  } else {
+    console.warn(
+      "PUSHCUT_NOVO_RESTAURANTE_URL não configurada na Vercel."
+    )
+  }
+} catch (pushcutError) {
+  console.error(
+    "Erro ao enviar notificação para o Pushcut:",
+    pushcutError
+  )
+}
+
+// 7. Cadastro concluído
+return NextResponse.json({
+  success: true,
+  restaurante: {
+    id: restaurante.id,
+    slug: restaurante.slug,
+  },
+})
   } catch (error) {
     console.error(
       "Erro inesperado no cadastro:",
