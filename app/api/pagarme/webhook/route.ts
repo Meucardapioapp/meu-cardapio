@@ -38,13 +38,12 @@ export async function POST(req: NextRequest) {
         status = "pendente";
       }
 
-      // Busca o pedido ANTES de atualizar
-      // para saber se ele já estava aprovado.
+      // Busca o pedido
       const { data: pedido, error: pedidoError } =
         await supabaseAdmin
           .from("pedidos")
           .select(
-            "id, total, payment_method, payment_status"
+            "id, total, payment_method, payment_status, pushcut_pix_enviado"
           )
           .eq("pagarme_order_id", orderId)
           .maybeSingle();
@@ -56,7 +55,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Atualiza o status do pedido
+      // Atualiza status do pedido
       const { error } = await supabaseAdmin
         .from("pedidos")
         .update({
@@ -77,7 +76,7 @@ export async function POST(req: NextRequest) {
       }
 
       // ==========================================
-      // NOTIFICAÇÃO PUSHCUT - PIX PAGO
+      // PUSHCUT - PIX PAGO
       // ==========================================
 
       const metodoPagamento =
@@ -85,65 +84,119 @@ export async function POST(req: NextRequest) {
           pedido?.payment_method ?? ""
         ).toLowerCase();
 
-      const eraAprovado =
-        pedido?.payment_status === "approved";
-
       if (
         paymentStatus === "paid" &&
         metodoPagamento === "pix" &&
-        pedido &&
-        !eraAprovado
+        pedido
       ) {
-        try {
-          const valorPedido =
-            Number(pedido.total ?? 0);
+        /*
+         * Tenta "reservar" a notificação.
+         *
+         * Só consegue alterar false -> true.
+         * Se outro webhook já fez isso,
+         * nenhum registro será retornado.
+         */
+        const {
+          data: pedidoReservado,
+          error: reservaError,
+        } = await supabaseAdmin
+          .from("pedidos")
+          .update({
+            pushcut_pix_enviado: true,
+          })
+          .eq("id", pedido.id)
+          .eq("pushcut_pix_enviado", false)
+          .select("id")
+          .maybeSingle();
 
-          // 1% da venda + R$ 0,99
-          const comissao =
-            valorPedido * 0.01 + 0.99;
+        if (reservaError) {
+          console.error(
+            "Erro ao reservar notificação Pushcut:",
+            reservaError
+          );
+        }
 
-          const comissaoFormatada =
-            comissao.toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            });
+        // Somente o webhook que conseguiu
+        // alterar false -> true envia a notificação.
+        if (pedidoReservado) {
+          try {
+            const valorPedido =
+              Number(pedido.total ?? 0);
 
-          const pushcutUrl =
-            process.env.PUSHCUT_NOVA_VENDA_PIX_URL;
+            const comissao =
+              valorPedido * 0.01 + 0.99;
 
-          if (pushcutUrl) {
-            const pushcutResponse =
-              await fetch(pushcutUrl, {
-                method: "POST",
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-                body: JSON.stringify({
-                  title: `Pix - R$ ${comissaoFormatada}`,
-                  text: `Pix - R$ ${comissaoFormatada}`,
-                }),
+            const comissaoFormatada =
+              comissao.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
               });
 
-            if (!pushcutResponse.ok) {
-              console.error(
-                "Erro Pushcut:",
-                pushcutResponse.status
-              );
+            const pushcutUrl =
+              process.env
+                .PUSHCUT_NOVA_VENDA_PIX_URL;
+
+            if (pushcutUrl) {
+              const pushcutResponse =
+                await fetch(pushcutUrl, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type":
+                      "application/json",
+                  },
+                  body: JSON.stringify({
+                    title: `Pix - R$ ${comissaoFormatada}`,
+                    text: `Pix - R$ ${comissaoFormatada}`,
+                  }),
+                });
+
+              if (!pushcutResponse.ok) {
+                console.error(
+                  "Erro Pushcut:",
+                  pushcutResponse.status
+                );
+
+                // Libera para uma futura
+                // tentativa caso o Pushcut falhe.
+                await supabaseAdmin
+                  .from("pedidos")
+                  .update({
+                    pushcut_pix_enviado: false,
+                  })
+                  .eq("id", pedido.id);
+              } else {
+                console.log(
+                  `Notificação enviada: Pix - R$ ${comissaoFormatada}`
+                );
+              }
             } else {
-              console.log(
-                `Notificação enviada: Pix - R$ ${comissaoFormatada}`
+              console.warn(
+                "PUSHCUT_NOVA_VENDA_PIX_URL não configurada."
               );
+
+              await supabaseAdmin
+                .from("pedidos")
+                .update({
+                  pushcut_pix_enviado: false,
+                })
+                .eq("id", pedido.id);
             }
-          } else {
-            console.warn(
-              "PUSHCUT_NOVA_VENDA_PIX_URL não configurada."
+          } catch (pushcutError) {
+            console.error(
+              "Erro ao enviar notificação PIX:",
+              pushcutError
             );
+
+            await supabaseAdmin
+              .from("pedidos")
+              .update({
+                pushcut_pix_enviado: false,
+              })
+              .eq("id", pedido.id);
           }
-        } catch (pushcutError) {
-          console.error(
-            "Erro ao enviar notificação PIX:",
-            pushcutError
+        } else {
+          console.log(
+            "Notificação deste PIX já foi processada. Ignorando duplicata."
           );
         }
       }
