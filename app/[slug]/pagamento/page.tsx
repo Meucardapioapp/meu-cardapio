@@ -1037,6 +1037,18 @@ formaPagamento === "dinheiro"
 const pedidoResultado =
   await pedidoResponse.json();
 
+  console.log("RETORNO DA API:");
+console.log("CLIENTE:", pedidoResultado.cliente);
+console.log("TOKEN:", pedidoResultado.cliente?.token_acesso);
+
+
+if (pedidoResultado.cliente?.token_acesso) {
+  localStorage.setItem(
+    `cliente_token-${slug}`,
+    pedidoResultado.cliente.token_acesso
+  );
+}
+
 if (!pedidoResultado.success) {
     setCarregandoPagamento(false);
     alert("Erro ao criar pedido");
@@ -1095,6 +1107,7 @@ body: JSON.stringify({
 console.dir(resultado, { depth: null });
 
   console.log("PIX COMPLETO:");
+console.log(resultado);
 console.log(resultado);
 
 window.location.href =

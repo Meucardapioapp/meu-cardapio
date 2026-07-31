@@ -92,6 +92,7 @@ export async function POST(req: Request) {
       bairro,
       cidade,
       estado,
+       enderecoManual,
     } = await req.json()
 
     const { data: restaurante } =
@@ -108,6 +109,35 @@ export async function POST(req: Request) {
     },
     { status: 404 }
   )
+}
+
+const { data: taxaEntrega } =
+  await supabaseAdmin
+    .from("taxas_entrega")
+    .select("*")
+    .eq("restaurante_id", restauranteId)
+    .single()
+
+if (!taxaEntrega) {
+  return NextResponse.json(
+    {
+      erro: "Configuração de entrega não encontrada",
+    },
+    { status: 404 }
+  )
+}
+
+if (enderecoManual) {
+  return NextResponse.json({
+    sucesso: true,
+    distanciaKm: null,
+    faixaFrete: {
+      valor:
+        taxaEntrega.tipo === "gratis"
+          ? 0
+          : Number(taxaEntrega.taxa_fixa),
+    },
+  })
 }
 
 const enderecoRestaurante = `
@@ -168,21 +198,6 @@ if (distanciaKm == null) {
   )
 }
 
-const { data: taxaEntrega } =
-  await supabaseAdmin
-    .from("taxas_entrega")
-    .select("*")
-    .eq("restaurante_id", restauranteId)
-    .single()
-
-if (!taxaEntrega) {
-  return NextResponse.json(
-    {
-      erro: "Configuração de entrega não encontrada",
-    },
-    { status: 404 }
-  )
-}
 
 if (
   taxaEntrega.tipo === "distancia" &&
@@ -268,6 +283,7 @@ console.log(
     bairro,
     cidade,
     estado,
+     enderecoManual,
   },
 })
   } catch (error) {

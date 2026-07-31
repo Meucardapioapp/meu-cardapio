@@ -11,6 +11,7 @@ import {
 import { supabase } from "@/lib/supabase"
 import Toast from "@/app/components/ui/toast"
 
+
 export default function RestaurantePage() {
   const [cep, setCep] = useState("")
   const [endereco, setEndereco] = useState("")
@@ -20,8 +21,8 @@ export default function RestaurantePage() {
   const [cidade, setCidade] = useState("")
   const [estado, setEstado] = useState("")
 
-const [latitude, setLatitude] = useState<number | null>(null)
-const [longitude, setLongitude] = useState<number | null>(null)
+
+
   const [loadingCep, setLoadingCep] = useState(false)
   const [loadingSalvar, setLoadingSalvar] =
   useState(false)
@@ -31,6 +32,8 @@ const [toast, setToast] = useState<{
   titulo: string
   mensagem: string
 } | null>(null)
+
+
 
 useEffect(() => {
   carregarEndereco()
@@ -69,81 +72,43 @@ async function carregarEndereco() {
   setBairro("")
   setCidade("")
   setEstado("")
-  setLatitude(null)
-  setLongitude(null)
 
 }
 }
 
-async function buscarCEP(valor: string) {
 
-const cepLimpo = valor.replace(/\D/g, "")
+async function buscarCEP(cepDigitado: string) {
+  const cepLimpo = cepDigitado.replace(/\D/g, "")
 
-if (cepLimpo.length !== 8) {
-
-  setEndereco("")
-  setBairro("")
-  setCidade("")
-  setEstado("")
-  setLatitude(null)
-  setLongitude(null)
-
-  return
-}
+  if (cepLimpo.length !== 8) return
 
   try {
-
     setLoadingCep(true)
 
     const response = await fetch(
-      `https://viacep.com.br/ws/${cepLimpo}/json`
+      `https://viacep.com.br/ws/${cepLimpo}/json/`
     )
 
     const data = await response.json()
 
-if (data.erro) {
-
-  setEndereco("")
-  setBairro("")
-  setCidade("")
-  setEstado("")
-  setLatitude(null)
-  setLongitude(null)
-
-  alert("CEP não encontrado.")
-
-  return
-}
+    if (data.erro) {
+      return
+    }
 
     setEndereco(data.logradouro || "")
     setBairro(data.bairro || "")
     setCidade(data.localidade || "")
     setEstado(data.uf || "")
 
-    const geo = await fetch(
-  `/api/autocomplete?search=${encodeURIComponent(
-    `${data.logradouro}, ${data.localidade}, ${data.uf}`
-  )}`
-)
-
-const geoData = await geo.json()
-
-if (geoData.length > 0) {
-  setLatitude(geoData[0].properties.lat)
-  setLongitude(geoData[0].properties.lon)
-}
-
   } catch (error) {
-
     console.log(error)
-
   } finally {
-
     setLoadingCep(false)
-
   }
-
 }
+
+
+
 
  async function salvarEndereco() {
   try {
@@ -178,8 +143,7 @@ if (geoData.length > 0) {
           cidade,
           estado,
           complemento,
-          latitude,
-          longitude,
+
         })
         .eq("id", restauranteId)
 
@@ -313,16 +277,22 @@ return (
   value={cep}
   placeholder="CEP"
   className="h-14 rounded-2xl"
-  onChange={(e) => {
+ onChange={(e) => {
+  const valor = e.target.value
 
-    const valor = e.target.value
+  setCep(valor)
 
-    setCep(valor)
-
-    buscarCEP(valor)
-
-  }}
+  buscarCEP(valor)
+}}
 />
+
+
+
+
+
+
+
+
 
             <p className="text-sm text-zinc-500 mt-2">
  Digite o CEP do restaurante. O endereço será preenchido automaticamente.
@@ -340,7 +310,7 @@ return (
 
 <Input
   value={endereco}
-  readOnly
+  onChange={(e)=>setEndereco(e.target.value)}
   placeholder="Endereço"
   className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
 />
@@ -360,7 +330,7 @@ return (
 
 <Input
   value={bairro}
-  readOnly
+  onChange={(e)=>setBairro(e.target.value)}
   placeholder="Bairro"
   className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
 />
@@ -373,14 +343,14 @@ return (
 
 <Input
   value={cidade}
-  readOnly
+  onChange={(e)=>setCidade(e.target.value)}
   placeholder="Cidade"
   className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
 />
 
 <Input
   value={estado}
-  readOnly
+  onChange={(e)=>setEstado(e.target.value)}
   placeholder="Estado"
   className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
 />
@@ -427,7 +397,17 @@ return (
 
       {/* BOTÃO */}
 
+    
       <div className="flex justify-end">
+
+
+
+
+
+
+
+
+
 
         <Button
   onClick={salvarEndereco}

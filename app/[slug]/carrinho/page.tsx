@@ -274,6 +274,35 @@ if (produtos) {
 
 }, [slug]);
 
+
+useEffect(() => {
+  async function carregarCliente() {
+    const token = localStorage.getItem("cliente_token");
+
+    if (!token) return;
+
+    try {
+      const response = await fetch(`/api/cliente/me?token=${token}`);
+      const resultado = await response.json();
+
+      if (!resultado.success) return;
+
+      const cliente = resultado.cliente;
+
+      setNomeRetirada(cliente.nome || "");
+      setCpfRetirada(cliente.cpf || "");
+      setTelefoneRetirada(cliente.telefone || "");
+
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  carregarCliente();
+}, []);
+
+
+
  function salvarCarrinho(
   novoCarrinho: any[]
 ) {

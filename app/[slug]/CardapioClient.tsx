@@ -58,6 +58,40 @@ useEffect(() => {
   )
 }, [slug])
 
+useEffect(() => {
+  async function carregarCliente() {
+    const token = localStorage.getItem("cliente_token");
+
+    if (!token) {
+      setCarregandoCliente(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/cliente/me?token=${token}`
+      );
+
+      const resultado = await response.json();
+
+      if (resultado.success) {
+        setCliente(resultado.cliente);
+
+        console.log(
+          "CLIENTE LOGADO:",
+          resultado.cliente
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    setCarregandoCliente(false);
+  }
+
+  carregarCliente();
+}, []);
+
   const [produtos, setProdutos] =
     useState<ProdutoFormatado[]>([])
 
@@ -120,6 +154,12 @@ const [restaurante, setRestaurante] =
 
 const [aparencia, setAparencia] =
   useState<any>(null)
+
+  const [cliente, setCliente] =
+  useState<any>(null);
+
+const [carregandoCliente, setCarregandoCliente] =
+  useState(true);
 
 /* APARÊNCIA */
 

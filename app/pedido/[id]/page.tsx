@@ -1,717 +1,749 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-
-import { useParams, useRouter } from "next/navigation"
-
-import { motion } from "framer-motion"
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 
 import {
-  CheckCircle,
+  ArrowLeft,
   Clock,
-  ChefHat,
+  MapPin,
+  CreditCard,
+  ShoppingBag,
+  CheckCircle2,
   Bike,
-  Home,
-  Loader2,
-} from "lucide-react"
-
-import { supabase } from "@/lib/supabase"
-
-import { getThemeSettings } from "../../lib/theme"
+  Store
+} from "lucide-react";
 
 interface ItemPedido {
-  nome: string
-  quantidade: number
-  preco: number
-  imagem?: string
+  id?: string;
+  nome: string;
+  quantidade: number;
+  preco: number;
+  imagem?: string;
+  adicionais?: any[];
+  observacao?: string;
 }
 
 interface Pedido {
-  id: number
-  cliente_nome: string
-  cliente_telefone: string
-  endereco: string
-  status: string
-  total: number
-  itens: ItemPedido[]
-  created_at: string
+  id: number;
+  numero_pedido: number;
+  status: string;
+
+  subtotal: number;
+  taxa_entrega: number;
+  taxa_operacional: number;
+  total_pago: number;
+
+  payment_method: string;
+
+  observacoes?: string;
+
+  retirada_no_local: boolean;
+
+  tipo_pedido: string;
+
+  created_at: string;
 }
 
 export default function PedidoPage() {
 
-  const params = useParams()
+  const router = useRouter();
 
-  const router = useRouter()
+  const params = useParams();
 
-  const {
-    lightMode,
-    selectedColor,
-  } = getThemeSettings()
+  const [loading, setLoading] = useState(true);
 
-  const bgPage = lightMode
-    ? "bg-[#F6F1E7]"
-    : "bg-black"
+  const [pedido, setPedido] = useState<Pedido | null>(null);
 
-  const cardBg = lightMode
-    ? "bg-white border border-zinc-200"
-    : "bg-zinc-900 border border-zinc-800"
+  const [cliente, setCliente] = useState<any>(null);
 
-  const innerCard = lightMode
-    ? "bg-zinc-100"
-    : "bg-zinc-800"
+  const [endereco, setEndereco] = useState<any>(null);
 
-  const textPrimary = lightMode
-    ? "text-zinc-900"
-    : "text-white"
-
-  const textSecondary = lightMode
-    ? "text-zinc-500"
-    : "text-zinc-400"
-
-  const borderColor = lightMode
-    ? "border-zinc-200"
-    : "border-zinc-700"
-
-  const [pedido, setPedido] =
-    useState<Pedido | null>(null)
-
-  const [loading, setLoading] =
-    useState(true)
-
-  async function buscarPedido() {
-
-    try {
-
-      console.log(
-        "BUSCANDO PEDIDO:",
-        params.id
-      )
-
-      const { data, error } =
-        await supabase
-          .from("pedidos")
-          .select("*")
-          .eq("id", Number(params.id))
-          .single()
-
-      if (error) {
-
-        console.log(
-          "ERRO AO BUSCAR:",
-          error
-        )
-
-        return
-      }
-
-      console.log(
-        "PEDIDO ENCONTRADO:",
-        data
-      )
-
-      setPedido(data)
-
-    } catch (error) {
-
-      console.log(
-        "ERRO GERAL:",
-        error
-      )
-
-    } finally {
-
-      setLoading(false)
-    }
-  }
+  const [itens, setItens] = useState<ItemPedido[]>([]);
 
   useEffect(() => {
 
-    if (!params.id) return
+    async function carregarPedido() {
 
-    buscarPedido()
+      try {
 
-    const channel = supabase
-      .channel(
-        `pedido-${params.id}`
-      )
+        const response = await fetch(
+          `/api/pedido/${params.id}`
+        );
 
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "pedidos",
-        },
-        async (payload) => {
+        const resultado = await response.json();
 
-          console.log(
-            "REALTIME RECEBIDO:",
-            payload
-          )
+        if (!resultado.success) {
 
-          const novoPedido =
-            payload.new as Pedido
+          router.back();
 
-          if (
-            Number(novoPedido.id) ===
-            Number(params.id)
-          ) {
+          return;
 
-            console.log(
-              "ATUALIZANDO CLIENTE:",
-              novoPedido.status
-            )
-
-            setPedido({
-              ...novoPedido,
-            })
-          }
         }
-      )
 
-      .subscribe((status) => {
+        setPedido(resultado.pedido);
 
-        console.log(
-          "STATUS REALTIME:",
-          status
-        )
-      })
+        setCliente(resultado.cliente);
 
-    return () => {
+        setEndereco(resultado.endereco);
 
-      supabase.removeChannel(
-        channel
-      )
+        setItens(resultado.itens || []);
+
+      } catch (err) {
+
+        console.error(err);
+
+      }
+
+      setLoading(false);
+
     }
 
-  }, [params.id])
+    carregarPedido();
 
-  const etapas = [
-    {
-      nome: "Pedido",
-      status: "pendente",
-      icon: Clock,
-    },
-    {
-  nome: "Aceito",
-  status: "aceito",
-  icon: ChefHat,
-},
-    {
-      nome: "Entrega",
-      status: "entrega",
-      icon: Bike,
-    },
-    {
-      nome: "Concluído",
-      status: "concluido",
-      icon: CheckCircle,
-    },
-  ]
+  }, [params.id, router]);
 
-  function etapaAtiva(
-    statusEtapa: string
-  ) {
+  function traduzirStatus(status: string) {
+  switch ((status || "").toLowerCase()) {
+    case "pending":
+      return "Aguardando pagamento";
 
-    const ordem = [
-      "pendente",
-      "aceito",
-      "entrega",
-      "concluido",
-    ]
+    case "paid":
+      return "Pagamento aprovado";
 
-    const atual = ordem.indexOf(
-      pedido?.status || "pendente"
-    )
+    case "preparing":
+      return "Em preparo";
 
-    const etapa =
-      ordem.indexOf(statusEtapa)
+    case "ready":
+      return "Pronto";
 
-    return etapa <= atual
+    case "delivery":
+      return "Saiu para entrega";
+
+    case "delivered":
+      return "Entregue";
+
+    case "cancelled":
+      return "Cancelado";
+
+    default:
+      return status;
   }
+}
 
- function corStatus(status: string) {
-
-  switch (status) {
-
-    case "pendente":
-      return "bg-yellow-500"
-
-    case "aceito":
-      return "bg-green-500"
-
-    case "entrega":
-      return "bg-blue-500"
-
-    case "concluido":
-      return "bg-green-500"
-
-      default:
-        return "bg-zinc-500"
-    }
+async function pedirNovamente() {
+  try {
+    alert("Em breve você poderá repetir este pedido.");
+  } catch (err) {
+    console.error(err);
   }
+}
 
   if (loading) {
 
+function traduzirStatus(status: string) {
+  switch ((status || "").toLowerCase()) {
+    case "pending":
+      return "Aguardando pagamento";
+
+    case "paid":
+      return "Pagamento aprovado";
+
+    case "preparing":
+      return "Em preparo";
+
+    case "ready":
+      return "Pronto";
+
+    case "delivery":
+      return "Saiu para entrega";
+
+    case "delivered":
+      return "Entregue";
+
+    case "cancelled":
+      return "Cancelado";
+
+    default:
+      return status;
+  }
+}
+
+async function pedirNovamente() {
+  try {
+    alert("Em breve você poderá repetir este pedido.");
+  } catch (err) {
+    console.error(err);
+  }
+}
+
     return (
 
-      <div className={`
-        min-h-screen
-        ${bgPage}
-        flex
-        items-center
-        justify-center
-      `}>
+      <div className="min-h-screen flex items-center justify-center">
 
-        <motion.div
-          animate={{
-            rotate: 360,
-          }}
-          transition={{
-            repeat: Infinity,
-            duration: 1,
-            ease: "linear",
-          }}
-        >
-
-          <Loader2
-            size={60}
-            style={{
-              color: selectedColor,
-            }}
-          />
-
-        </motion.div>
+        Carregando pedido...
 
       </div>
-    )
+
+    );
+
   }
 
-  if (!pedido) {
-
-    return (
-
-      <div className={`
-        min-h-screen
-        ${bgPage}
-        flex
-        items-center
-        justify-center
-        ${textPrimary}
-      `}>
-
-        Pedido não encontrado
-
-      </div>
-    )
-  }
+  if (!pedido) return null;
 
   return (
+  <div className="min-h-screen bg-zinc-100">
 
-    <div className={`
-      min-h-screen
-      ${bgPage}
-      flex
-      items-center
-      justify-center
-      p-6
-    `}>
+    <div className="sticky top-0 z-50 bg-white border-b">
 
-      <motion.div
-        initial={{
-          opacity: 0,
-          y: 30,
-        }}
-        animate={{
-          opacity: 1,
-          y: 0,
-        }}
-        className={`
-          w-full
-          max-w-md
-          ${cardBg}
-          rounded-3xl
-          p-6
-        `}
-      >
+      <div className="max-w-lg mx-auto h-16 flex items-center justify-between px-4">
 
-        <div className="
-          flex
-          flex-col
-          items-center
-        ">
+        <button
+          onClick={() => router.back()}
+          className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center"
+        >
+          <ArrowLeft size={20} />
+        </button>
 
-          <div
-            className="
-              w-16
-              h-16
-              rounded-full
-              flex
-              items-center
-              justify-center
-              mb-4
-            "
-            style={{
-              backgroundColor:
-                `${selectedColor}20`,
-            }}
-          >
+        <div className="text-center">
 
-            <CheckCircle
-              size={34}
-              style={{
-                color: selectedColor,
-              }}
-            />
-
-          </div>
-
-          <h1 className={`
-            text-4xl
-            font-bold
-            text-center
-            ${textPrimary}
-          `}>
-            Pedido Confirmado
-          </h1>
-
-          <p className={`
-            text-center
-            mt-2
-            ${textSecondary}
-          `}>
-            Acompanhe seu pedido
+          <p className="text-xs text-zinc-500">
+            Pedido
           </p>
 
+          <h1 className="font-black text-lg">
+            #{pedido.numero_pedido || pedido.id}
+          </h1>
+
         </div>
 
-        <div className={`
-          mt-8
-          ${innerCard}
-          rounded-2xl
-          p-5
-        `}>
+        <div className="w-10" />
 
-          <div className="
-            flex
-            justify-between
-            items-start
-          ">
+      </div>
 
-            <div>
+    </div>
 
-              <p className={`
-                text-sm
-                ${textSecondary}
-              `}>
-                Pedido
-              </p>
+    <div className="max-w-lg mx-auto px-4 py-6">
 
-              <h2 className={`
-                text-4xl
-                font-bold
-                ${textPrimary}
-              `}>
-                #{pedido.id}
-              </h2>
+      <div className="bg-white rounded-3xl p-6 shadow-sm">
 
-            </div>
+        <div className="flex items-center justify-between">
+
+          <div>
+
+            <p className="text-sm text-zinc-500">
+              Status
+            </p>
+
+            <h2 className="text-2xl font-black mt-1">
+               {traduzirStatus(pedido.status)}
+            </h2>
+
+          </div>
+
+{pedido.status === "cancelled" ? (
+  <Clock size={34} className="text-red-500" />
+) : (
+  <CheckCircle2
+    size={34}
+    className="text-green-500"
+  />
+)}
+
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mt-8">
+
+          <div>
+
+            <p className="text-xs text-zinc-500">
+              Data
+            </p>
+
+            <p className="font-semibold mt-1">
+
+              {new Date(
+                pedido.created_at
+              ).toLocaleDateString(
+                "pt-BR"
+              )}
+
+            </p>
+
+          </div>
+
+          <div>
+
+            <p className="text-xs text-zinc-500">
+              Hora
+            </p>
+
+            <p className="font-semibold mt-1">
+
+              {new Date(
+                pedido.created_at
+              ).toLocaleTimeString(
+                "pt-BR",
+                {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }
+              )}
+
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
+            {/* ===========================
+            ITENS DO PEDIDO
+      =========================== */}
+
+      <div className="mt-6">
+
+        <div className="flex items-center gap-2 mb-4">
+
+          <ShoppingBag size={20} />
+
+          <h2 className="text-xl font-black">
+            Itens do pedido
+          </h2>
+
+        </div>
+
+        <div className="space-y-4">
+
+          {itens.map((item, index) => (
 
             <div
-              className={`
-                px-4
-                py-1
-                rounded-full
-                text-sm
-                font-bold
-                text-white
-                ${corStatus(
-                  pedido.status
-                )}
-              `}
+              key={index}
+              className="bg-white rounded-3xl p-5 shadow-sm"
             >
-              {pedido.status}
-            </div>
 
-          </div>
+              <div className="flex gap-4">
 
-          <div className={`
-            mt-5
-            space-y-2
-            text-sm
-            ${textSecondary}
-          `}>
+                {item.imagem ? (
 
-    <p>
-  <strong>Cliente:</strong>{" "}
-  {pedido.cliente_nome}
-</p>
+                  <img
+                    src={item.imagem}
+                    alt={item.nome}
+                    className="w-20 h-20 rounded-2xl object-cover"
+                  />
 
-<p>
-  <strong>Telefone:</strong>{" "}
-  {pedido.cliente_telefone}
-</p>
-
-<p>
-  <strong>Endereço:</strong>{" "}
-  {pedido.endereco}
-</p>
-
-          </div>
-
-        </div>
-
-        <div className="mt-8">
-
-          <div className="
-            flex
-            justify-between
-          ">
-
-            {etapas.map(
-              (
-                etapa,
-                index
-              ) => {
-
-                const Icon =
-                  etapa.icon
-
-                const ativo =
-                  etapaAtiva(
-                    etapa.status
-                  )
-
-                return (
+                ) : (
 
                   <div
-                    key={index}
                     className="
+                      w-20
+                      h-20
+                      rounded-2xl
+                      bg-zinc-100
                       flex
-                      flex-col
                       items-center
-                      flex-1
+                      justify-center
                     "
                   >
+                    <ShoppingBag size={28} />
+                  </div>
+
+                )}
+
+                <div className="flex-1">
+
+                  <div className="flex justify-between">
+
+                    <h3 className="font-bold text-lg">
+                      {item.quantidade}x {item.nome}
+                    </h3>
+
+                    <span className="font-black">
+
+                      R$ {Number(item.preco).toFixed(2)}
+
+                    </span>
+
+                  </div>
+
+                  {item.adicionais &&
+                    item.adicionais.length > 0 && (
+
+                      <div className="mt-3">
+
+                        <p className="text-sm font-semibold text-zinc-500 mb-2">
+                          Adicionais
+                        </p>
+
+                        <div className="space-y-1">
+
+                          {item.adicionais.map(
+                            (adicional: any, i: number) => (
+
+                              <div
+                                key={i}
+                                className="flex justify-between text-sm"
+                              >
+
+                                <span>
+
+                                  + {adicional.nome}
+
+                                </span>
+
+                                <span>
+
+                                  R$ {Number(adicional.preco || 0).toFixed(2)}
+
+                                </span>
+
+                              </div>
+
+                            )
+                          )}
+
+                        </div>
+
+                      </div>
+
+                    )}
+
+                  {item.observacao && (
 
                     <div
-                      className={`
-                        w-12
-                        h-12
-                        rounded-full
-                        flex
-                        items-center
-                        justify-center
-                        border-2
-                        transition-all
-                      `}
-                      style={{
-                        backgroundColor:
-                          ativo
-                            ? selectedColor
-                            : lightMode
-                            ? "#E4E4E7"
-                            : "#27272A",
-
-                        borderColor:
-                          ativo
-                            ? selectedColor
-                            : lightMode
-                            ? "#D4D4D8"
-                            : "#3F3F46",
-
-                        color:
-                          ativo
-                            ? "#FFFFFF"
-                            : lightMode
-                            ? "#71717A"
-                            : "#A1A1AA",
-                      }}
+                      className="
+                        mt-4
+                        bg-zinc-100
+                        rounded-2xl
+                        p-3
+                      "
                     >
 
-                      <Icon
-                        size={20}
-                      />
+                      <p className="text-xs text-zinc-500">
+                        Observação
+                      </p>
+
+                      <p className="mt-1">
+
+                        {item.observacao}
+
+                      </p>
 
                     </div>
 
-                    <p
-                      className="
-                        mt-2
-                        text-xs
-                        text-center
-                        font-medium
-                      "
-                      style={{
-                        color:
-                          ativo
-                            ? selectedColor
-                            : lightMode
-                            ? "#71717A"
-                            : "#A1A1AA",
-                      }}
-                    >
-                      {
-                        etapa.nome
-                      }
-                    </p>
-
-                  </div>
-                )
-              }
-            )}
-
-          </div>
-
-        </div>
-
-        <div className={`
-          mt-8
-          ${innerCard}
-          rounded-2xl
-          p-5
-        `}>
-
-          <h3 className={`
-            font-bold
-            text-lg
-            mb-4
-            ${textPrimary}
-          `}>
-            Itens do pedido
-          </h3>
-
-          <div className="space-y-4">
-
-            {pedido.itens?.map(
-              (
-                item,
-                index
-              ) => (
-
-                <div
-                  key={index}
-                  className={`
-                    flex
-                    justify-between
-                    items-center
-                    border-b
-                    ${borderColor}
-                    pb-3
-                  `}
-                >
-
-                  <div>
-
-                    <p className={`
-                      font-semibold
-                      ${textPrimary}
-                    `}>
-                      {
-                        item.quantidade
-                      }
-                      x{" "}
-                      {
-                        item.nome
-                      }
-                    </p>
-
-                  </div>
-
-<p
-  className="font-bold"
-  style={{
-    color: selectedColor,
-  }}
->
-  R$ {(item.preco * item.quantidade).toFixed(2)}
-</p>
+                  )}
 
                 </div>
-              )
-            )}
+
+              </div>
+
+            </div>
+
+          ))}
+
+        </div>
+
+      </div>
+
+            {/* ===========================
+            RESUMO DO PEDIDO
+      =========================== */}
+
+      <div className="mt-6">
+
+        <div className="flex items-center gap-2 mb-4">
+
+          <CreditCard size={20} />
+
+          <h2 className="text-xl font-black">
+            Resumo do pedido
+          </h2>
+
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm space-y-4">
+
+          <div className="flex justify-between">
+
+            <span className="text-zinc-600">
+              Subtotal
+            </span>
+
+            <strong>
+
+              R$ {Number(pedido.subtotal || 0).toFixed(2)}
+
+            </strong>
 
           </div>
 
-          <div className="
-            flex
-            justify-between
-            items-center
-            mt-6
-          ">
+          <div className="flex justify-between">
 
-            <p className={`
-              ${textSecondary}
-            `}>
-              Total
-            </p>
+            <span className="text-zinc-600">
+              Taxa de entrega
+            </span>
 
-            <p
-  className="
-    text-4xl
-    font-bold
-  "
-  style={{
-    color: selectedColor,
-  }}
->
-  R$ {Number(pedido.total).toFixed(2)}
-</p>
+            <strong>
 
+              R$ {Number(pedido.taxa_entrega || 0).toFixed(2)}
+
+            </strong>
+
+          </div>
+
+          <div className="flex justify-between">
+
+            <span className="text-zinc-600">
+              Taxa operacional
+            </span>
+
+            <strong>
+
+              R$ {Number(pedido.taxa_operacional || 0).toFixed(2)}
+
+            </strong>
+
+          </div>
+
+          <div className="border-t pt-4 flex justify-between">
+
+            <span className="text-lg font-bold">
+              Total pago
+            </span>
+
+            <span className="text-2xl font-black">
+
+              R$ {Number(pedido.total_pago || 0).toFixed(2)}
+
+            </span>
 
           </div>
 
         </div>
 
-<button
-  onClick={() =>
-    router.push(
-      `/${localStorage.getItem("cardapio-slug") || "jskburguer"}`
-    )
-  }
-  className="
-    mt-8
-    w-full
-    transition
-    rounded-2xl
-    py-4
-    font-bold
-    text-white
-    flex
-    items-center
-    justify-center
-    gap-2
-    hover:scale-[1.02]
-  "
-  style={{
-    backgroundColor: selectedColor,
-  }}
->
-  <Home size={20} />
+      </div>
 
-  Voltar ao cardápio
-</button>
+      {/* ===========================
+            ENTREGA
+      =========================== */}
 
-        <motion.div
-          animate={{
-            opacity: [1, 0.5, 1],
-          }}
-          transition={{
-            repeat: Infinity,
-            duration: 2,
-          }}
-          className={`
-            mt-6
-            text-center
-            text-sm
-            ${textSecondary}
-          `}
-        >
-          Atualizando em tempo real...
-        </motion.div>
+      <div className="mt-6">
 
-      </motion.div>
+        <div className="flex items-center gap-2 mb-4">
+
+          {pedido.retirada_no_local ? (
+            <Store size={20} />
+          ) : (
+            <Bike size={20} />
+          )}
+
+          <h2 className="text-xl font-black">
+
+            {pedido.retirada_no_local
+              ? "Retirada no local"
+              : "Entrega"}
+
+          </h2>
+
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm">
+
+          {!pedido.retirada_no_local && endereco ? (
+
+            <>
+
+              <div className="flex gap-3">
+
+                <MapPin
+                  className="text-red-500 mt-1"
+                  size={20}
+                />
+
+                <div>
+
+                  <p className="font-bold">
+
+                    {endereco.apelido || "Endereço"}
+
+                  </p>
+
+                  <p className="text-zinc-600 mt-2">
+
+                    {endereco.rua}, {endereco.numero}
+
+                  </p>
+
+                  <p className="text-zinc-600">
+
+                    {endereco.bairro}
+
+                  </p>
+
+                  <p className="text-zinc-600">
+
+                    {endereco.cidade} - {endereco.estado}
+
+                  </p>
+
+                </div>
+
+              </div>
+
+            </>
+
+          ) : (
+
+            <p className="text-zinc-600">
+
+              Este pedido foi marcado para retirada no local.
+
+            </p>
+
+          )}
+
+        </div>
+
+      </div>
+
+            {/* ===========================
+            PAGAMENTO
+      =========================== */}
+
+      <div className="mt-6">
+
+        <div className="flex items-center gap-2 mb-4">
+
+          <CreditCard size={20} />
+
+          <h2 className="text-xl font-black">
+            Pagamento
+          </h2>
+
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm">
+
+          <div className="flex justify-between items-center">
+
+            <span className="text-zinc-500">
+              Forma de pagamento
+            </span>
+
+            <strong>
+
+              {pedido.payment_method || "Não informado"}
+
+            </strong>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* ===========================
+            CLIENTE
+      =========================== */}
+
+      <div className="mt-6">
+
+        <div className="flex items-center gap-2 mb-4">
+
+          <ShoppingBag size={20} />
+
+          <h2 className="text-xl font-black">
+            Cliente
+          </h2>
+
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm">
+
+          <p className="font-bold">
+
+            {cliente?.nome}
+
+          </p>
+
+          <p className="text-zinc-500 mt-2">
+
+            {cliente?.telefone}
+
+          </p>
+
+          {cliente?.email && (
+
+            <p className="text-zinc-500">
+
+              {cliente.email}
+
+            </p>
+
+          )}
+
+        </div>
+
+      </div>
+
+      {/* ===========================
+            OBSERVAÇÃO
+      =========================== */}
+
+      {pedido.observacoes && (
+
+        <div className="mt-6">
+
+          <h2 className="text-xl font-black mb-4">
+            Observações
+          </h2>
+
+          <div className="bg-white rounded-3xl p-6 shadow-sm">
+
+            <p>
+
+              {pedido.observacoes}
+
+            </p>
+
+          </div>
+
+        </div>
+
+      )}
+
+            {/* ===========================
+            AÇÕES
+      =========================== */}
+
+      <div className="h-32" />
 
     </div>
-  )
+
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t">
+
+      <div className="max-w-lg mx-auto p-4 flex gap-3">
+
+        <button
+          onClick={() => router.back()}
+          className="flex-1 h-14 rounded-2xl border border-zinc-300 font-semibold"
+        >
+          Voltar
+        </button>
+
+        <button
+          className="flex-[2] h-14 rounded-2xl bg-[#6D1F2F] text-white font-bold hover:bg-[#531723] transition"
+onClick={pedirNovamente}
+        >
+          Pedir novamente
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+);
 }
+

@@ -136,6 +136,47 @@ if (aparencia) {
 
 }, [slug])
 
+
+useEffect(() => {
+  async function carregarCliente() {
+    const token = localStorage.getItem("cliente_token");
+
+    if (!token) return;
+
+    try {
+      const response = await fetch(`/api/cliente/me?token=${token}`);
+      const resultado = await response.json();
+
+      if (!resultado.success) return;
+
+      const cliente = resultado.cliente;
+      const endereco = resultado.enderecos?.[0];
+     
+
+      setNome(cliente.nome || "");
+      setWhatsapp(cliente.telefone || "");
+      setCpf(cliente.cpf || "");
+
+      if (endereco) {
+        setCep(endereco.cep || "");
+        setRua(endereco.rua || "");
+        setNumero(endereco.numero || "");
+        setComplemento(endereco.complemento || "");
+        setReferencia(endereco.referencia || "");
+        setBairro(endereco.bairro || "");
+        setCidade(endereco.cidade || "");
+        setEstado(endereco.estado || "");
+      }
+
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  carregarCliente();
+}, []);
+
+
 const {
   logo,
   corPrincipal,
@@ -188,6 +229,7 @@ const [cpf, setCpf] =
 
 const [complemento, setComplemento] = useState("");
 const [referencia, setReferencia] = useState("");
+const [enderecoManual, setEnderecoManual] = useState(false)
 
 const [freteCalculado, setFreteCalculado] =
   useState(false)
@@ -265,6 +307,39 @@ useEffect(() => {
   subtotal,
   slug,
 ]);
+
+
+
+useEffect(() => {
+  if (
+    restauranteId &&
+    nome &&
+    whatsapp &&
+    cpf &&
+    cep &&
+    rua &&
+    numero &&
+    bairro &&
+    cidade &&
+    estado &&
+    !freteCalculado &&
+    !carregandoFrete
+  ) {
+    calcularFrete();
+  }
+}, [
+  restauranteId,
+  nome,
+  whatsapp,
+  cpf,
+  cep,
+  rua,
+  numero,
+  bairro,
+  cidade,
+  estado,
+]);
+
 
 
 function formatarTelefone(valor: string) {
@@ -405,14 +480,26 @@ if (
   !whatsapp ||
   !restauranteId ||
   !rua ||
-  !numero ||
-  !bairro ||
-  !cidade
+  !numero
 ) {
-
   setCarregandoFrete(false)
 
-  alert("Preencha todos os campos.")
+  alert("Preencha todos os campos obrigatórios.")
+
+  return
+}
+
+if (
+  enderecoManual &&
+  (
+    !bairro ||
+    !cidade ||
+    !estado
+  )
+) {
+  setCarregandoFrete(false)
+
+  alert("Preencha bairro, cidade e estado.")
 
   return
 }
@@ -435,6 +522,7 @@ if (
             bairro,
             cidade,
             estado,
+            enderecoManual
           }),
         }
       )
@@ -1064,6 +1152,18 @@ if (valor.replace(/\D/g, "").length === 8) {
     "
   />
 
+
+  <button
+  type="button"
+  onClick={() => {
+    setEnderecoManual(true)
+    resetarFrete()
+  }}
+  className="mt-3 text-sm font-semibold text-[#7A1F3D]"
+>
+  Não encontrou o CEP? Informar endereço manualmente
+</button>
+
 </div>
 
 
@@ -1075,19 +1175,17 @@ if (valor.replace(/\D/g, "").length === 8) {
       Rua
     </p>
 
-    <input
-      value={rua}
-      readOnly
-className="
-  w-full
-  bg-zinc-100
-  rounded-xl
-  border
-  p-4
-  text-zinc-500
-  cursor-not-allowed
-"
-    />
+<input
+  value={rua}
+  onChange={(e)=>setRua(e.target.value)}
+  readOnly={!enderecoManual}
+  className={`w-full rounded-xl border p-4 ${
+    enderecoManual
+      ? "bg-white"
+      : "bg-zinc-100 text-zinc-500 cursor-not-allowed"
+  }`}
+/>
+
 
   </div>
 
@@ -1172,7 +1270,8 @@ className="
 
     <input
       value={bairro}
-      readOnly
+onChange={(e)=>setBairro(e.target.value)}
+readOnly={!enderecoManual}
 className="
   w-full
   bg-zinc-100
@@ -1194,7 +1293,8 @@ className="
 
     <input
       value={cidade}
-      readOnly
+ onChange={(e)=>setCidade(e.target.value)}
+readOnly={!enderecoManual}
 className="
   w-full
   bg-zinc-100
@@ -1216,7 +1316,8 @@ className="
 
     <input
       value={estado}
-      readOnly
+ onChange={(e)=>setEstado(e.target.value)}
+readOnly={!enderecoManual}
 className="
   w-full
   bg-zinc-100

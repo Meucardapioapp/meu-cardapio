@@ -42,9 +42,14 @@ export async function POST(req: NextRequest) {
       const { data: pedido, error: pedidoError } =
         await supabaseAdmin
           .from("pedidos")
-          .select(
-            "id, total, payment_method, payment_status, pushcut_pix_enviado"
-          )
+.select(`
+id,
+total,
+payment_method,
+payment_status,
+pushcut_pix_enviado,
+cliente_id
+`)
           .eq("pagarme_order_id", orderId)
           .maybeSingle();
 
@@ -56,13 +61,23 @@ export async function POST(req: NextRequest) {
       }
 
       // Atualiza status do pedido
-      const { error } = await supabaseAdmin
-        .from("pedidos")
-        .update({
-          payment_status,
-          status,
-        })
-        .eq("pagarme_order_id", orderId);
+      const { error } = 
+      
+await supabaseAdmin
+  .from("pedidos")
+.update({
+  payment_status,
+
+  status:
+    paymentStatus === "paid"
+      ? "aceito"
+      : status,
+
+  ...(paymentStatus === "paid"
+    ? { confirmado: true }
+    : {}),
+})
+  .eq("pagarme_order_id", orderId);
 
       if (error) {
         console.error(
@@ -73,6 +88,20 @@ export async function POST(req: NextRequest) {
         console.log(
           "Pedido atualizado com sucesso!"
         );
+
+        if (
+  paymentStatus === "paid" &&
+  pedido?.cliente_id
+) {
+  await supabaseAdmin
+    .from("clientes")
+    .update({
+      ultimo_pedido: new Date(),
+      ultimo_acesso: new Date(),
+    })
+    .eq("id", pedido.cliente_id);
+}
+
       }
 
       // ==========================================

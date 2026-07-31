@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 import { supabase } from "@/lib/supabase"
@@ -101,16 +101,57 @@ const [cpf, setCpf] =
   useState(0)
 
 const [cidade, setCidade] =
-  useState("Manaus")
+  useState("")
 
 const [estado, setEstado] =
-  useState("AM")
+  useState("")
 
     const [toast, setToast] = useState<{
   tipo: "sucesso" | "erro" | "aviso"
   titulo: string
   mensagem: string
 } | null>(null)
+
+useEffect(() => {
+  if (!open) return;
+
+  async function carregarCliente() {
+    const token = localStorage.getItem("cliente_token");
+
+    if (!token) return;
+
+    try {
+      const response = await fetch(
+        `/api/cliente/me?token=${token}`
+      );
+
+      const resultado = await response.json();
+
+      if (!resultado.success) return;
+
+      const cliente = resultado.cliente;
+      const endereco = resultado.enderecos?.[0];
+
+      setCliente(cliente.nome || "");
+      setTelefone(cliente.telefone || "");
+      setEmail(cliente.email || "");
+      setCpf(cliente.cpf || "");
+
+      if (endereco) {
+        setCep(endereco.cep || "");
+        setRua(endereco.rua || "");
+        setNumero(endereco.numero || "");
+        setBairro(endereco.bairro || "");
+        setCidade(endereco.cidade || "");
+        setEstado(endereco.estado || "");
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  carregarCliente();
+}, [open]);
 
   if (!open) return null
 

@@ -116,6 +116,10 @@ const [statusAssinatura, setStatusAssinatura] =
         data: { user },
       } = await supabase.auth.getUser()
 
+      console.log("USER LOGADO:", user)
+      console.log("USER ID:", user?.id)
+      
+
       if (!user) {
         setLoading(false)
         return
@@ -134,6 +138,10 @@ const {
 `)
   .eq("auth_user_id", user.id)
   .single()
+
+
+console.log("RESTAURANTE:", restaurante)
+console.log("ERRO:", restauranteError)
 
       if (
         restauranteError ||
