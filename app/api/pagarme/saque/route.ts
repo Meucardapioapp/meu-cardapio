@@ -199,3 +199,187 @@ console.log("RECIPIENT:", restaurante.pagarme_recipient_id);
     );
   }
 }
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { restauranteId, valor } = body;
+
+    // =====================================================
+    // 1. VALIDAR DADOS DE ENTRADA
+    // =====================================================
+
+    if (!restauranteId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Restaurante não informado",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!valor || typeof valor !== "number" || valor <= 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Valor inválido para saque",
+        },
+        { status: 400 }
+      );
+    }
+
+    // =====================================================
+    // 2. BUSCAR O RECEBEDOR DO RESTAURANTE
+    // =====================================================
+
+    const { data: restaurante, error: restauranteError } =
+      await supabaseAdmin
+        .from("restaurantes")
+        .select("pagarme_recipient_id")
+        .eq("id", restauranteId)
+        .single();
+
+    if (restauranteError || !restaurante?.pagarme_recipient_id) {
+      console.error(
+        "Erro ao buscar recebedor:",
+        restauranteError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Recebedor do restaurante não encontrado",
+        },
+        { status: 404 }
+      );
+    }
+
+    // =====================================================
+    // 3. CRIAR A TRANSFERÊNCIA NA PAGAR.ME
+    // =====================================================
+
+    const idempotencyKey = crypto.randomUUID();
+
+    const valorEmCentavos = Math.round(valor * 100);
+
+    console.log("🔥 CRIANDO TRANSFERÊNCIA NA PAGARME 🔥");
+    console.log("RECIPIENT:", restaurante.pagarme_recipient_id);
+    console.log("VALOR (centavos):", valorEmCentavos);
+
+    const response = await fetch(
+      "https://api.pagar.me/core/v5/transfers",
+      {
+        method: "POST",
+
+        headers: {
+          Authorization:
+            "Basic " +
+            Buffer.from(
+              process.env.PAGARME_SECRET_KEY + ":"
+            ).toString("base64"),
+
+          "Content-Type": "application/json",
+
+          "Idempotency-Key": idempotencyKey,
+
+          "User-Agent": "MeuCardapioApp",
+        },
+
+        body: JSON.stringify({
+          amount: valorEmCentavos,
+          recipient_id: restaurante.pagarme_recipient_id,
+          metadata: {
+            restaurante_id: restauranteId,
+          },
+        }),
+
+        cache: "no-store",
+      }
+    );
+
+    const pagarmeResponse = await response.json();
+
+    // =====================================================
+    // 4. SE A PAGAR.ME RETORNAR ERRO, DEVOLVER EXATAMENTE
+    // =====================================================
+
+    if (!response.ok) {
+      console.error(
+        "Erro ao criar transferência na Pagar.me:",
+        response.status,
+        JSON.stringify(pagarmeResponse, null, 2)
+      );
+
+      return NextResponse.json(pagarmeResponse, {
+        status: response.status,
+      });
+    }
+
+    console.log(
+      "TRANSFERÊNCIA CRIADA:",
+      JSON.stringify(pagarmeResponse, null, 2)
+    );
+
+    // =====================================================
+    // 5. CALCULAR TAXA E VALOR LÍQUIDO (TAXA FIXA DA PLATAFORMA)
+    // =====================================================
+
+    const valorBruto = valor;
+
+    const taxa = 3.67;
+
+    const valorLiquido = valorBruto - taxa;
+
+    // =====================================================
+    // 6. SALVAR REGISTRO NA TABELA SAQUES
+    // =====================================================
+
+    const { error: insertError } = await supabaseAdmin
+      .from("saques")
+      .insert({
+        restaurante_id: restauranteId,
+        valor: valorBruto,
+        taxa: taxa,
+        valor_liquido: valorLiquido,
+        status: pagarmeResponse.status || "pending",
+        pagarme_withdrawal_id: pagarmeResponse.id,
+        created_at: new Date().toISOString(),
+      });
+
+    if (insertError) {
+      console.error(
+        "Erro ao salvar saque no Supabase:",
+        insertError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: insertError,
+        },
+        { status: 500 }
+      );
+    }
+
+    // =====================================================
+    // 7. RETORNAR SUCESSO
+    // =====================================================
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error: any) {
+    console.error("Erro na criação de saque:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
