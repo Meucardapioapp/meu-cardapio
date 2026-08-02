@@ -77,6 +77,8 @@ const [horarios, setHorarios] =
 const [savedMessage, setSavedMessage] =
   useState(false)
 
+  const [errorMessage, setErrorMessage] = useState("")
+
 const [saving, setSaving] =
   useState(false)
 
@@ -282,6 +284,22 @@ setPedidoMinimo(
   }
 
   async function saveChanges() {
+
+const valorPedido = Number(
+  pedidoMinimo.replace(/\./g, "").replace(",", ".")
+);
+
+if (!pedidoMinimo || isNaN(valorPedido) || valorPedido <= 0) {
+setErrorMessage(
+  "Defina um pedido mínimo maior que R$ 0,00 para continuar."
+);
+
+setTimeout(() => {
+  setErrorMessage("");
+}, 3000);
+
+return;
+}
 
     if (!restauranteId) {
 
@@ -814,291 +832,31 @@ Personalize o visual e as informações do seu cardápio
 
 </div>
         {
-          savedMessage && (
 
-            <div className="
-              bg-green-500/20
-              border
-              border-green-500/40
-              text-green-400
-              rounded-2xl
-              p-4
-              font-semibold
-            ">
-              Alterações salvas com sucesso.
-            </div>
-          )
         }
 
-        
-<div
-  className={`${cardBg} ${borderColor} border rounded-3xl p-6 shadow-sm`}
->
-
-  <div className="flex items-start gap-3 mb-6">
+      {
+  errorMessage && (
 
     <div
       className="
-        w-10
-        h-10
-        rounded-full
+        mt-4
+        rounded-2xl
+        border
+        border-red-200
         bg-red-50
-        flex
-        items-center
-        justify-center
-      "
-    >
-      🍽️
-    </div>
-
-    <div>
-
-      <h2
-        className={`text-2xl font-bold ${textPrimary}`}
-      >
-        Informações do Restaurante
-      </h2>
-
-      <p
-        className={`${textSecondary}`}
-      >
-        Essas informações aparecem no topo do cardápio.
-      </p>
-
-    </div>
-
-  </div>
-
-  <div className="space-y-6 lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0 mt-6">
-
-    <div>
-      <label className="font-semibold">
-        Categoria do restaurante
-      </label>
-
-      <input
-  type="text"
-  value={categoriaRestaurante}
-  onChange={(e) =>
-    setCategoriaRestaurante(e.target.value)
-  }
-  placeholder="Ex: Pizzaria, Hamburgueria, Açaiteria..."
-  className="
-    w-full
-    mt-2
-    border
-    rounded-xl
-    p-3
-  "
-/>
-    </div>
-
-<div className="mt-4">
-
-  <label className="font-semibold">
-    Nome do Restaurante
-  </label>
-
-  <input
-    type="text"
-    value={nomeRestaurante}
-    onChange={(e) =>
-      setNomeRestaurante(
-        e.target.value
-      )
-    }
-    placeholder="Ex: Minha Pizzaria"
-    className="
-      w-full
-      mt-2
-      border
-      rounded-xl
-      p-3
-    "
-  />
-
-</div>
-
-<div className="mt-4">
-
-  <label className="font-semibold">
-    Pedido mínimo
-  </label>
-
-  <div className="relative mt-2">
-    <span
-      className="
-        absolute
-        left-4
-        top-1/2
-        -translate-y-1/2
-        text-zinc-500
+        p-4
+        text-red-700
         font-semibold
-        pointer-events-none
       "
     >
-      R$
-    </span>
-
-<input
-  type="text"
-  inputMode="decimal"
-  value={pedidoMinimo}
-  onChange={(e) => {
-    let valor = e.target.value;
-
-    // Aceita ponto ou vírgula durante a digitação
-    valor = valor.replace(/[^\d.,]/g, "");
-
-    // Impede mais de um separador decimal
-    const partes = valor.split(/[.,]/);
-
-    if (partes.length > 2) {
-      valor = partes[0] + "," + partes.slice(1).join("");
-    }
-
-    setPedidoMinimo(valor);
-  }}
-  onBlur={() => {
-    if (!pedidoMinimo) return;
-
-    const numero = Number(
-      pedidoMinimo.replace(",", ".")
-    );
-
-    if (!isNaN(numero)) {
-      setPedidoMinimo(
-        numero.toLocaleString("pt-BR", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      );
-    }
-  }}
-  onFocus={() => {
-    if (!pedidoMinimo) return;
-
-    setPedidoMinimo(
-      pedidoMinimo.replace(",", ".")
-    );
-  }}
-  placeholder="0,00"
-  className="
-    w-full
-    border
-    rounded-xl
-    py-3
-    pl-12
-    pr-4
-    outline-none
-    focus:border-[#7F1D1D]
-    transition
-  "
-/>
-
-  </div>
-
-  <p className="text-xs text-zinc-500 mt-2">
-    Valor mínimo que o cliente precisa atingir para fazer um pedido.
-  </p>
-
-</div>
-
-<div>
-
-  <label className="font-semibold">
-    Tipo de atendimento
-  </label>
-
-<div className="
-  grid
-  grid-cols-2 md:grid-cols-3 lg:grid-cols-6
-  gap-4
-  mt-4
-">
-
-  {[
-    "Delivery",
-    "Retirada",
-    "Salão",
-    "Delivery + Retirada",
-    "Delivery + Salão",
-  ].map((tipo) => (
-
-   <button
-  key={tipo}
-  type="button"
-  onClick={() =>
-    setTipoAtendimento(tipo)
-  }
-  className={`
-    p-5
-    rounded-2xl
-    border
-    font-semibold
-    transition-all
-    min-h-[120px]
-
-    ${
-      tipoAtendimento === tipo
-        ? "border-red-700 bg-[#F7F1EC] text-red-700"
-        : "border-zinc-200 bg-white"
-    }
-  `}
->
-
-  <div
-    className="
-      flex
-      flex-col
-      items-center
-      justify-center
-      gap-2
-    "
-  >
-
-   <span className="text-xl">
-
-  {
-    tipo === "Delivery"
-      ? "🛵"
-      : tipo === "Retirada"
-      ? "🛍️"
-      : tipo === "Salão"
-      ? "🍽️"
-      : tipo === "Delivery + Retirada"
-      ? "🛵🛍️"
-      : tipo === "Delivery + Salão"
-      ? "🛵🍽️"
-      : "⭐"
-  }
-
-</span>
-
- <span
-  className="
-    text-[11px]
-    text-center
-    leading-tight
-    font-medium
-  "
->
-  {tipo}
-</span> 
-
-  </div>
-
-</button> 
-
-  ))}
-
-</div>
-
+      ⚠️ {errorMessage}
     </div>
 
-  </div>
+  )
+}
 
-</div>
+
      <div
   className="
     bg-white
@@ -1291,28 +1049,6 @@ Personalize o visual e as informações do seu cardápio
 
 </button>
 
-<div className="mt-4">
-
-  <p className="text-sm font-semibold mb-2">
-    Prévia
-  </p>
-
-  <button
-    className="
-      w-full
-      rounded-xl
-      text-white
-      font-bold
-      py-3
-    "
-    style={{
-      backgroundColor: selectedColor,
-    }}
-  >
-    🛒 Exemplo de botão
-  </button>
-
-</div>
 
 </div>
 
@@ -1632,6 +1368,67 @@ Personalize o visual e as informações do seu cardápio
           </div>
         </div>
 
+       <div
+  className="
+    bg-white
+    border
+    border-[#DDD6CC]
+    rounded-3xl
+    p-6
+    mt-6
+  "
+>
+
+  <h2 className="text-2xl font-bold">
+    Pedido mínimo
+  </h2>
+
+  <p className="text-zinc-500 mt-2">
+    Valor mínimo para que o cliente consiga finalizar um pedido.
+  </p>
+
+  <div className="relative mt-6 max-w-sm">
+
+    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
+      R$
+    </span>
+
+<input
+  value={pedidoMinimo}
+onChange={(e) => setPedidoMinimo(e.target.value)}
+onBlur={() => {
+  if (!pedidoMinimo) return;
+
+  const numero = Number(
+    pedidoMinimo.replace(".", "").replace(",", ".")
+  );
+
+  if (isNaN(numero)) return;
+
+  setPedidoMinimo(
+    numero.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  );
+}}
+  placeholder="10,00"
+  className="
+    w-full
+    border
+    rounded-2xl
+    py-4
+    pl-12
+    pr-4
+    text-lg
+    font-semibold
+  "
+/>
+
+  </div>
+
+</div>
+       
         <div
   className="
     bg-white
@@ -1659,6 +1456,30 @@ Personalize o visual e as informações do seu cardápio
   >
     👁 Ver Cardápio
   </Link>
+
+{(savedMessage || errorMessage) && (
+  <div
+    className={`flex items-center gap-2 font-semibold ${
+      errorMessage ? "text-red-600" : "text-green-600"
+    }`}
+  >
+    <span className="text-xl">
+      {errorMessage ? "⚠" : "✓"}
+    </span>
+
+    <div>
+      <div>
+        {errorMessage || "Aparência salva"}
+      </div>
+
+      {!errorMessage && (
+        <div className="text-xs text-zinc-500 font-normal">
+          Alterações publicadas.
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
 <button
   onClick={saveChanges}

@@ -98,55 +98,57 @@ async function verificarDadosBancarios() {
   },
 
   {
-    nome: "Categorias" ,
-    link: "/admin/categorias" ,
-  },
-
-  {
-    nome: "Produtos",
-    link: "/admin/produtos",
-  },
-  {
     nome: "Pedidos",
     link: "/admin/pedidos",
   },
-  {
-    nome: "Aparência",
-    link: "/admin/aparencia",
-  },
 
   {
-    nome: "Horários",
-    link: "/admin/horarios",
-  },
-
-  {
-  nome: "Endereço do Restaurante",
-  link: "/admin/restaurante",
-},
-
-{
-  nome: "Taxa de Entrega",
-  link: "/admin/entrega",
-},
-
-{
-  nome: "Pagamentos",
-  link: "/admin/pagamentos",
-},
-
-{
-  nome: "Dados Bancários",
-  link: "/admin/dados-bancarios",
-},
-
-{
   nome: "Saques",
   link: "/admin/saques",
 },
 
+ {
+    nome: "1 - Aparência",
+    link: "/admin/aparencia",
+  },
+
+    {
+    nome: "2 - Horários",
+    link: "/admin/horarios",
+  },
+
   {
-    nome: "Link do Cardápio",
+    nome: "3 - Categorias" ,
+    link: "/admin/categorias" ,
+  },
+
+  {
+    nome: "4 - Produtos",
+    link: "/admin/produtos",
+  },
+
+{
+  nome: "5 - Dados Bancários",
+  link: "/admin/dados-bancarios",
+},
+
+  {
+  nome: "6 -Endereço do Restaurante",
+  link: "/admin/restaurante",
+},
+
+{
+  nome: "7 - Taxa de Entrega",
+  link: "/admin/entrega",
+},
+
+{
+  nome: "8 - Pagamentos",
+  link: "/admin/pagamentos",
+},
+
+  {
+    nome: "9 - Link do Cardápio",
     link: "/admin/link-cardapio",
   },
 
