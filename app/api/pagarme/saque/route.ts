@@ -325,11 +325,18 @@ export async function POST(req: NextRequest) {
     // 5. CALCULAR TAXA E VALOR LÍQUIDO (TAXA FIXA DA PLATAFORMA)
     // =====================================================
 
-    const valorBruto = valor;
+console.log("VALOR RECEBIDO DO FRONT:", valor);
 
-    const taxa = 3.67;
+const taxa = 3.67;
 
-    const valorLiquido = valorBruto - taxa;
+// o frontend envia o valor que o restaurante quer RECEBER
+const valorLiquido = valor;
+
+// o valor realmente descontado do saldo
+const valorBruto = valorLiquido + taxa;
+
+console.log("VALOR BRUTO:", valorBruto);
+console.log("VALOR LÍQUIDO:", valorLiquido);
 
     // =====================================================
     // 6. SALVAR REGISTRO NA TABELA SAQUES
@@ -337,15 +344,19 @@ export async function POST(req: NextRequest) {
 
     const { error: insertError } = await supabaseAdmin
       .from("saques")
-      .insert({
-        restaurante_id: restauranteId,
-        valor: valorBruto,
-        taxa: taxa,
-        valor_liquido: valorLiquido,
-        status: pagarmeResponse.status || "pending",
-        pagarme_withdrawal_id: pagarmeResponse.id,
-        created_at: new Date().toISOString(),
-      });
+.insert({
+  restaurante_id: restauranteId,
+  pagarme_recipient_id: restaurante.pagarme_recipient_id,
+
+  valor: valorBruto,
+  taxa: taxa,
+  valor_liquido: valorLiquido,
+
+  status: pagarmeResponse.status || "pending",
+  pagarme_withdrawal_id: pagarmeResponse.id,
+
+  created_at: new Date().toISOString(),
+})
 
     if (insertError) {
       console.error(
