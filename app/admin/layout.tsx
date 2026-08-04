@@ -132,25 +132,27 @@ async function verificarDadosBancarios() {
   link: "/admin/dados-bancarios",
 },
 
-  {
-  nome: "6 -Endereço do Restaurante",
-  link: "/admin/restaurante",
-},
 
 {
-  nome: "7 - Taxa de Entrega",
+  nome: "6 - Taxa de Entrega",
   link: "/admin/entrega",
 },
 
 {
-  nome: "8 - Pagamentos",
+  nome: "7 - Formas de Pagamento",
   link: "/admin/pagamentos",
 },
 
   {
-    nome: "9 - Link do Cardápio",
+    nome: "8 - Link do Cardápio",
     link: "/admin/link-cardapio",
   },
+
+    {
+    nome: "9 - Endereço para Retirada",
+    link: "/admin/restaurante",
+  },
+
 
     {
     nome: "Pixel do Meta",
@@ -166,7 +168,6 @@ async function verificarDadosBancarios() {
 // FUNÇÕES QUE EXIGEM DADOS BANCÁRIOS
 const menusBloqueados = [
   "/admin/pedidos",
-  "/admin/horarios",
   "/admin/entrega",
   "/admin/pagamentos",
   "/admin/link-cardapio",

@@ -9,7 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import ConfirmDialog from "../ui/ConfirmDialog";
+import ConfirmDialog from "../../../components/ui/ConfirmDialog";
 
 type Endereco = {
   id: string;

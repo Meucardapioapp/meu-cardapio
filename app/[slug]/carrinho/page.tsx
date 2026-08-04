@@ -277,13 +277,18 @@ if (produtos) {
 
 useEffect(() => {
   async function carregarCliente() {
-    const token = localStorage.getItem("cliente_token");
+  const slug = window.location.pathname.split("/")[1];
 
+const token = localStorage.getItem(
+  `cliente_token-${slug}`
+);
+console.log("TOKEN:", token);
     if (!token) return;
 
     try {
       const response = await fetch(`/api/cliente/me?token=${token}`);
       const resultado = await response.json();
+      console.log("RESPOSTA API:", resultado);
 
       if (!resultado.success) return;
 

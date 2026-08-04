@@ -10,6 +10,8 @@ import {
   Save,
 } from "lucide-react";
 
+import { toast } from "sonner";
+
 export default function PagamentosPage() {
   const [loading, setLoading] = useState(true);
 
@@ -58,7 +60,7 @@ setConfig({
       localStorage.getItem("restaurante_id");
 
     if (!restauranteId) {
-      alert("Restaurante não encontrado");
+      toast.error("Restaurante não encontrado");
       return;
     }
 
@@ -84,13 +86,19 @@ const { data, error } = await supabase
 console.log("RESULTADO:", data);
 console.log("ERRO:", error);
 
-  if (error) {
+if (error) {
   console.error(error);
-  alert(JSON.stringify(error, null, 2));
+
+  toast.error("Erro ao salvar as configurações", {
+    description: error.message,
+  });
+
   return;
 }  
 
-    alert("Configurações salvas");
+  toast.success("Configurações salvas com sucesso!", {
+  description: "As alterações já estão disponíveis no seu cardápio.",
+});
   }
 
   function Toggle({

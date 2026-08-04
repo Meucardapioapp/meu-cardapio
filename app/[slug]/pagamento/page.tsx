@@ -109,12 +109,11 @@ const [numero, setNumero] = useState("");
 
 const [bairro, setBairro] = useState("");
 
-const [cidade, setCidade] = useState("");
-
-const [estado, setEstado] = useState("");
 const [email, setEmail] = useState("");
-const [cep, setCep] = useState("");
+
 const [complemento, setComplemento] = useState("");
+
+const [referencia, setReferencia] = useState("");
 
 const [numeroCartao, setNumeroCartao] = useState("");
 const [nomeCartao, setNomeCartao] = useState("");
@@ -164,20 +163,10 @@ setCpf(dados.cpf || "");
 setWhatsapp(dados.whatsapp || "");
 
 setRua(dados.rua || "");
-
 setNumero(dados.numero || "");
-
 setBairro(dados.bairro || "");
-
-setCidade(dados.cidade || "");
-
-setEstado(dados.estado || "");
-
-setEmail(dados.email || "");
-
-setCep(dados.cep || "");
-
 setComplemento(dados.complemento || "");
+setReferencia(dados.referencia || "");
 
       setSubtotal(
         Number(
@@ -1002,9 +991,7 @@ numero: ehRetirada ? "" : numero,
 
 complemento: ehRetirada ? "" : complemento,
 
-referencia: localStorage.getItem(`endereco-${slug}`)
-  ? JSON.parse(localStorage.getItem(`endereco-${slug}`)!).referencia
-  : "",
+referencia,
 
 observacoes: "",
 

@@ -78,7 +78,7 @@ export default function LoginPage() {
       )
 
       window.location.href =
-        "/admin/produtos"
+        "/admin/"
 
    } catch (err) {
   console.log(err)

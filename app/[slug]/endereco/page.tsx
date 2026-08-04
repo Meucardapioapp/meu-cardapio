@@ -62,6 +62,22 @@ if (!restaurante) return
 
 setRestauranteId(restaurante.id)
 
+console.log("RESTAURANTE:", restaurante);
+
+const { data: bairros } = await supabase
+  .from("bairros_entrega")
+  .select("*")
+  .eq("restaurante_id", restaurante.id)
+  .order("bairro");
+ 
+
+console.log("RESTAURANTE ID:", restaurante.id);
+console.log("BAIRROS RETORNADOS:", bairros);
+
+if (bairros) {
+  setBairrosEntrega(bairros);
+}
+
 setCidadeRestaurante(
   restaurante.cidade || ""
 )
@@ -139,7 +155,11 @@ if (aparencia) {
 
 useEffect(() => {
   async function carregarCliente() {
-    const token = localStorage.getItem("cliente_token");
+const slug = window.location.pathname.split("/")[1];
+
+const token = localStorage.getItem(
+  `cliente_token-${slug}`
+);
 
     if (!token) return;
 
@@ -151,6 +171,8 @@ useEffect(() => {
 
       const cliente = resultado.cliente;
       const endereco = resultado.enderecos?.[0];
+      console.log("CLIENTE:", cliente);
+console.log("ENDERECO:", endereco);
      
 
       setNome(cliente.nome || "");
@@ -158,14 +180,15 @@ useEffect(() => {
       setCpf(cliente.cpf || "");
 
       if (endereco) {
-        setCep(endereco.cep || "");
-        setRua(endereco.rua || "");
-        setNumero(endereco.numero || "");
-        setComplemento(endereco.complemento || "");
-        setReferencia(endereco.referencia || "");
-        setBairro(endereco.bairro || "");
-        setCidade(endereco.cidade || "");
-        setEstado(endereco.estado || "");
+setRua(endereco.rua || "");
+setNumero(endereco.numero || "");
+setComplemento(endereco.complemento || "");
+setReferencia(endereco.referencia || "");
+const bairroCliente = endereco.bairro || "";
+
+setBairroSalvo(bairroCliente);
+setBairro(bairroCliente);
+console.log("BAIRRO DO BANCO:", endereco.bairro);
       }
 
     } catch (error) {
@@ -175,6 +198,7 @@ useEffect(() => {
 
   carregarCliente();
 }, []);
+
 
 
 const {
@@ -194,20 +218,15 @@ const [subtotal, setSubtotal] =
   const [quantidadeCarrinho, setQuantidadeCarrinho] =
   useState(0)
 
-  const [cep, setCep] =
-  useState("")
-
 const [rua, setRua] =
   useState("")
 
 const [bairro, setBairro] =
   useState("")
 
-const [cidade, setCidade] =
-  useState("")
+  const [bairrosEntrega, setBairrosEntrega] = useState<any[]>([]);
 
-const [estado, setEstado] =
-  useState("")
+const [bairroSalvo, setBairroSalvo] = useState("");
 
   const [cidadeRestaurante, setCidadeRestaurante] =
   useState("")
@@ -229,7 +248,6 @@ const [cpf, setCpf] =
 
 const [complemento, setComplemento] = useState("");
 const [referencia, setReferencia] = useState("");
-const [enderecoManual, setEnderecoManual] = useState(false)
 
 const [freteCalculado, setFreteCalculado] =
   useState(false)
@@ -240,10 +258,14 @@ const [freteCalculado, setFreteCalculado] =
   const [carregandoFrete, setCarregandoFrete] =
   useState(false)
 
+
+
+
 useEffect(() => {
   const dados = localStorage.getItem(`endereco-${slug}`);
 
   if (!dados) return;
+  
 
   const endereco = JSON.parse(dados);
 
@@ -252,14 +274,13 @@ useEffect(() => {
   setCpf(endereco.cpf || "");
  
 
-  setCep(endereco.cep || "");
-  setRua(endereco.rua || "");
-  setNumero(endereco.numero || "");
-  setComplemento(endereco.complemento || "");
-  setReferencia(endereco.referencia || "");
+setRua(endereco.rua || "");
+setNumero(endereco.numero || "");
+setComplemento(endereco.complemento || "");
+setReferencia(endereco.referencia || "");
+if (!bairro) {
   setBairro(endereco.bairro || "");
-  setCidade(endereco.cidade || "");
-  setEstado(endereco.estado || "");
+}
 
   setTaxaEntrega(endereco.taxaEntrega || 0);
 
@@ -271,22 +292,18 @@ useEffect(() => {
 useEffect(() => {
   localStorage.setItem(
     `endereco-${slug}`,
-    JSON.stringify({
-      nome,
-      whatsapp,
-      cpf,
+JSON.stringify({
+    nome,
+    whatsapp,
+    cpf,
 
+    rua,
+    numero,
+    complemento,
+    referencia,
+    bairro,
 
-      cep,
-      rua,
-      numero,
-      complemento,
-      referencia,
-      bairro,
-      cidade,
-      estado,
-
-      taxaEntrega,
+    taxaEntrega,
       subtotal,
       total: subtotal + taxaEntrega,
     })
@@ -295,14 +312,11 @@ useEffect(() => {
   nome,
   whatsapp,
   cpf,
-  cep,
   rua,
   numero,
   complemento,
   referencia,
   bairro,
-  cidade,
-  estado,
   taxaEntrega,
   subtotal,
   slug,
@@ -311,34 +325,8 @@ useEffect(() => {
 
 
 useEffect(() => {
-  if (
-    restauranteId &&
-    nome &&
-    whatsapp &&
-    cpf &&
-    cep &&
-    rua &&
-    numero &&
-    bairro &&
-    cidade &&
-    estado &&
-    !freteCalculado &&
-    !carregandoFrete
-  ) {
-    calcularFrete();
-  }
-}, [
-  restauranteId,
-  nome,
-  whatsapp,
-  cpf,
-  cep,
-  rua,
-  numero,
-  bairro,
-  cidade,
-  estado,
-]);
+// não calcula automaticamente
+}, );
 
 
 
@@ -395,79 +383,6 @@ function validarCPF(cpf: string) {
   return resto === Number(cpf[10]);
 }
 
-async function buscarCEP(cepDigitado: string) {
-
-const cepLimpo =
-  cepDigitado.replace(/\D/g, "");
-
-if (cepLimpo.length !== 8) {
-
-  setRua("");
-  setNumero("");
-  setComplemento("");
-  setReferencia("");
-  setBairro("");
-  setCidade("");
-  setEstado("");
-
-  resetarFrete();
-
-  return;
-}
-
-  try {
-
-    const response = await fetch(
-      `https://viacep.com.br/ws/${cepLimpo}/json`
-    );
-
-    const data = await response.json();
-
-    console.log(data);
-
-if (data.erro) {
-
-  setRua("");
-  setNumero("");
-  setComplemento("");
-  setReferencia("");
-  setBairro("");
-  setCidade("");
-  setEstado("");
-
-  resetarFrete();
-
-  alert("CEP não encontrado.");
-
-  return;
-
-}
-
-    setRua(data.logradouro || "");
-    setBairro(data.bairro || "");
-    setCidade(data.localidade || "");
-    setEstado(data.uf || "");
-
-    resetarFrete();
-
-} catch {
-
-  setRua("");
-  setNumero("");
-  setComplemento("");
-  setReferencia("");
-  setBairro("");
-  setCidade("");
-  setEstado("");
-
-  resetarFrete();
-
-  alert("Erro ao buscar o CEP.");
-
-}
-
-}
-
 
 
 async function calcularFrete() {
@@ -489,19 +404,10 @@ if (
   return
 }
 
-if (
-  enderecoManual &&
-  (
-    !bairro ||
-    !cidade ||
-    !estado
-  )
-) {
-  setCarregandoFrete(false)
-
-  alert("Preencha bairro, cidade e estado.")
-
-  return
+if (!bairro) {
+    setCarregandoFrete(false);
+    alert("Selecione um bairro.");
+    return;
 }
 
   try {
@@ -515,20 +421,19 @@ if (
             "Content-Type":
               "application/json",
           },
-          body: JSON.stringify({
-            restauranteId,
-            rua,
-            numero,
-            bairro,
-            cidade,
-            estado,
-            enderecoManual
-          }),
+body: JSON.stringify({
+    restauranteId,
+    bairro,
+    rua,
+    numero,
+}),
         }
       )
 
    const data = await response.json()
 
+   console.log(response.status)
+console.log(data)
 console.log("STATUS:", response.status)
 console.log("RESPOSTA:", data)
 console.log("FAIXA:", data.faixaFrete);
@@ -581,78 +486,6 @@ function resetarFrete() {
 
 }
 
-async function usarMinhaLocalizacao() {
-
-  if (!navigator.geolocation) {
-
-    alert("Seu navegador não suporta localização.");
-
-    return;
-
-  }
-
-  navigator.geolocation.getCurrentPosition(
-
-    async (position) => {
-
-      try {
-
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-
-        const response = await fetch(
-
-          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
-
-        );
-
-        const data = await response.json();
-
-setCep(data.address.postcode || "");
-
-setRua(data.address.road || "");
-
-// O cliente informa o número manualmente
-setNumero("");
-
-setBairro(
-  data.address.suburb ||
-  data.address.neighbourhood ||
-  data.address.city_district ||
-  ""
-);
-
-setCidade(
-  data.address.city ||
-  data.address.town ||
-  data.address.village ||
-  ""
-);
-
-setEstado(
-  data.address.state ||
-  ""
-);
-
-
-
-      } catch {
-
-        alert("Não foi possível localizar seu endereço.");
-
-      }
-
-    },
-
-    () => {
-
-      alert("Permita o acesso à localização.");
-
-    }
-
-  );
-
-}
 
 return (
   <>
@@ -1120,167 +953,70 @@ autoComplete="tel"
   Endereço de entrega
 </h2>
 
-
 <div>
 
   <p className="text-xs font-semibold mb-1">
-    CEP
+    Bairro
   </p>
 
-  <input
-    value={cep}
+  <select
+    value={bairro}
     onChange={(e) => {
-
-      const valor = e.target.value;
-
-      setCep(valor);
-
-      resetarFrete();
-
-if (valor.replace(/\D/g, "").length === 8) {
-  buscarCEP(valor);
-}
-
+      setBairro(e.target.value)
+      resetarFrete()
     }}
-    placeholder="00000-000"
-    className="
-      w-full
-      bg-white
-      rounded-xl
-      border
-      p-4
-    "
-  />
+    className="w-full bg-white rounded-xl border p-4"
+  >
+    <option value="">
+      Selecione um bairro
+    </option>
 
+    {bairrosEntrega.map((b:any) => (
+      <option
+        key={b.id}
+        value={b.bairro}
+      >
+        {b.bairro}
+      </option>
+    ))}
 
-  <button
-  type="button"
-  onClick={() => {
-    setEnderecoManual(true)
-    resetarFrete()
-  }}
-  className="mt-3 text-sm font-semibold text-[#7A1F3D]"
->
-  Não encontrou o CEP? Informar endereço manualmente
-</button>
+  </select>
 
 </div>
 
+<div className="mt-4">
 
-  {/* RUA */}
+  <p className="text-xs font-semibold mb-1">
+    Rua
+  </p>
 
-  <div>
+  <input
+    value={rua}
+    onChange={(e)=>setRua(e.target.value)}
+    className="w-full rounded-xl border p-4"
+  />
 
-    <p className="text-xs font-semibold mb-1">
-      Rua
-    </p>
-
-<input
-  value={rua}
-  onChange={(e)=>setRua(e.target.value)}
-  readOnly={!enderecoManual}
-  className={`w-full rounded-xl border p-4 ${
-    enderecoManual
-      ? "bg-white"
-      : "bg-zinc-100 text-zinc-500 cursor-not-allowed"
-  }`}
-/>
-
-
-  </div>
-
-  {/* NUMERO + COMPLEMENTO */}
-
-  <div
-    className="
-      grid
-      grid-cols-2
-      gap-3
-    "
-  >
-
-    <div>
-
-      <p className="text-xs font-semibold mb-1">
-        Número
-      </p>
-
-<input
-  value={numero}
-  onChange={(e) => {
-
-    setNumero(e.target.value);
-
-    resetarFrete();
-
-    if (e.target.value.trim().length > 0) {
-
-    }
-
-  }}
-        className="
-          w-full
-          bg-white
-          rounded-xl
-          border
-          p-4
-        "
-      />
-
-    </div>
-
-    <div>
-
-      <p className="text-xs font-semibold mb-1">
-        Complemento (opcional)
-      </p>
-
-<input
-  value={complemento}
-  onChange={(e) => setComplemento(e.target.value)}
-  placeholder="Apto 101"
-  className="
-    w-full
-    bg-white
-    rounded-xl
-    border
-    p-4
-  "
-/>
-
-    </div>
-
-  </div>
-
- {/* BAIRRO + CIDADE + ESTADO */}
+</div>
 
 <div
   className="
     grid
-    grid-cols-3
+    grid-cols-2
     gap-3
+    mt-4
   "
 >
 
   <div>
 
     <p className="text-xs font-semibold mb-1">
-      Bairro
+      Número
     </p>
 
     <input
-      value={bairro}
-onChange={(e)=>setBairro(e.target.value)}
-readOnly={!enderecoManual}
-className="
-  w-full
-  bg-zinc-100
-  rounded-xl
-  border
-  p-4
-  text-zinc-500
-  cursor-not-allowed
-"
+      value={numero}
+      onChange={(e)=>setNumero(e.target.value)}
+      className="w-full rounded-xl border p-4"
     />
 
   </div>
@@ -1288,75 +1024,31 @@ className="
   <div>
 
     <p className="text-xs font-semibold mb-1">
-      Cidade
+      Complemento
     </p>
 
     <input
-      value={cidade}
- onChange={(e)=>setCidade(e.target.value)}
-readOnly={!enderecoManual}
-className="
-  w-full
-  bg-zinc-100
-  rounded-xl
-  border
-  p-4
-  text-zinc-500
-  cursor-not-allowed
-"
-    />
-
-  </div>
-
-  <div>
-
-    <p className="text-xs font-semibold mb-1">
-      Estado
-    </p>
-
-    <input
-      value={estado}
- onChange={(e)=>setEstado(e.target.value)}
-readOnly={!enderecoManual}
-className="
-  w-full
-  bg-zinc-100
-  rounded-xl
-  border
-  p-4
-  text-zinc-500
-  cursor-not-allowed
-"
+      value={complemento}
+      onChange={(e)=>setComplemento(e.target.value)}
+      className="w-full rounded-xl border p-4"
     />
 
   </div>
 
 </div>
 
-  {/* REFERENCIA */}
+<div className="mt-4">
 
-  <div>
+  <p className="text-xs font-semibold mb-1">
+    Referência
+  </p>
 
-    <p className="text-xs font-semibold mb-1">
-      Referência (opcional)
-    </p>
-
-<input
-  value={referencia}
-  onChange={(e) =>
-    setReferencia(e.target.value)
-  }
-  placeholder="Ex: Próximo ao Shopping"
-  className="
-    w-full
-    bg-white
-    rounded-xl
-    border
-    p-4
-  "
-/>
-
-  </div>
+  <input
+    value={referencia}
+    onChange={(e)=>setReferencia(e.target.value)}
+    placeholder="Próximo ao..."
+    className="w-full rounded-xl border p-4"
+  />
 
 </div>
 
@@ -1369,58 +1061,33 @@ className="
     text-white
     font-bold
     mt-5
-
-    transition-all
-    duration-200
-
-    hover:scale-[1.01]
-    active:scale-[0.97]
-
-    shadow-md
-    hover:shadow-lg
   "
   style={{
-    backgroundColor:
-      corPrincipal,
+    backgroundColor: corPrincipal,
   }}
 >
-
-
-{
-carregandoFrete
-  ? "Calculando..."
-
-: freteCalculado
-  ? "✓ Entrega calculada"
-
-: "Calcular entrega"
-}
-
+  Calcular entrega
 </button>
 
-{foraDaArea && (
+{freteCalculado && (
 
   <div
     className="
       mt-5
-      rounded-2xl
+      rounded-xl
+      bg-green-50
       border
-      border-red-200
-      bg-red-50
+      border-green-200
       p-4
     "
   >
 
-    <p className="font-bold text-red-700">
-      Fora da área de entrega
+    <p className="text-green-700 font-bold">
+      Taxa de entrega
     </p>
 
-    <p className="text-sm text-red-600 mt-1">
-      Infelizmente este endereço está fora da área de atendimento deste restaurante.
-    </p>
-
-    <p className="text-sm text-red-600 mt-2">
-      Verifique o CEP ou informe outro endereço.
+    <p className="text-2xl font-black text-green-600">
+      R$ {taxaEntrega.toFixed(2)}
     </p>
 
   </div>
@@ -1491,6 +1158,7 @@ taxaEntrega.toFixed(2)
 )
 }
 
+</div>
       {/* RODAPÉ FIXO */}
 
 <div
@@ -1604,25 +1272,39 @@ if (!validarCPF(cpf)) {
 
     localStorage.setItem(
       `endereco-${slug}`,
-      JSON.stringify({
-        nome,
-        whatsapp,
-        cpf,
+JSON.stringify({
+    nome,
+    whatsapp,
+    cpf,
 
-        cep,
-        rua,
-        numero,
-        complemento,
-        referencia,
-        bairro,
-        cidade,
-        estado,
+    rua,
+    numero,
+    complemento,
+    referencia,
+    bairro,
 
-        taxaEntrega,
+    taxaEntrega,
         subtotal,
         total: subtotal + taxaEntrega,
       })
     );
+
+localStorage.setItem(
+  `endereco-${slug}`,
+  JSON.stringify({
+    nome,
+    whatsapp,
+    cpf,
+    bairro,
+    rua,
+    numero,
+    complemento,
+    referencia,
+    taxaEntrega,
+    subtotal,
+    total: subtotal + taxaEntrega,
+  })
+)
 
     setTimeout(() => {
       window.location.href = `/${slug}/pagamento`;

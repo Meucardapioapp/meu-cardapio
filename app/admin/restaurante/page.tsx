@@ -193,63 +193,9 @@ return (
 
       {/* HEADER */}
 
-      <div>
+     
 
-        <div className="inline-flex items-center gap-2 bg-[#FDECEC] text-[#7A1F3D] px-4 py-2 rounded-full font-semibold mb-4">
-          <MapPin size={16} />
-          Endereço da Loja
-        </div>
-
-        <h1 className="text-5xl font-black text-[#1F1720]">
-          Endereço do Restaurante
-        </h1>
-
-        <p className="text-zinc-500 text-lg mt-4 max-w-3xl">
-          Esta localização será utilizada para calcular taxas de entrega,
-          definir sua área de atendimento e verificar automaticamente
-          se o cliente está dentro da região atendida.
-        </p>
-
-      </div>
-
-      {/* COMO FUNCIONA */}
-
-      <div className="bg-white rounded-3xl border p-6">
-
-        <div className="flex items-start gap-4">
-
-          <div className="bg-[#7A1F3D] text-white p-3 rounded-2xl">
-            <Truck size={22} />
-          </div>
-
-          <div>
-
-            <h3 className="font-bold text-xl">
-              Como o sistema usa este endereço
-            </h3>
-
-            <div className="mt-4 space-y-2 text-zinc-600">
-
-              <p>
-                ✅ Calcula automaticamente a taxa de entrega
-              </p>
-
-              <p>
-                ✅ Verifica se o cliente está dentro da área atendida
-              </p>
-
-              <p>
-                ✅ Mostra informações corretas no cardápio online
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
+       
       {/* FORMULÁRIO */}
 
       <div className="bg-white rounded-3xl border p-8">
@@ -312,7 +258,7 @@ return (
   value={endereco}
   onChange={(e)=>setEndereco(e.target.value)}
   placeholder="Endereço"
-  className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
+  className="h-14 rounded-2xl"
 />
 
           {/* NÚMERO + BAIRRO */}
@@ -332,7 +278,7 @@ return (
   value={bairro}
   onChange={(e)=>setBairro(e.target.value)}
   placeholder="Bairro"
-  className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
+className="h-14 rounded-2xl"
 />
 
           </div>
@@ -345,14 +291,14 @@ return (
   value={cidade}
   onChange={(e)=>setCidade(e.target.value)}
   placeholder="Cidade"
-  className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
+className="h-14 rounded-2xl"
 />
 
 <Input
   value={estado}
   onChange={(e)=>setEstado(e.target.value)}
   placeholder="Estado"
-  className="h-14 rounded-2xl bg-zinc-100 text-zinc-500 cursor-not-allowed"
+className="h-14 rounded-2xl"
 />
 
           </div>

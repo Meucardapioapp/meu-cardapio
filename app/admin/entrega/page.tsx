@@ -2,70 +2,43 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
-
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { toast } from "sonner";
 import {
-  Truck,
-  Gift,
-  Coins,
   Plus,
-  Trash2,
-  Save,
   MapPin,
-  Sparkles,
   Loader2,
 } from "lucide-react"
 
-type TipoEntrega =
-  | "gratis"
-  | "fixa"
-  | "distancia"
 
-type FaixaEntrega = {
+
+type BairroEntrega = {
   id?: string
-  distancia_inicial: number
-  distancia_km: number
+  bairro: string
   valor: number
 }
 
 export default function EntregaPage() {
   const [loading, setLoading] = useState(true)
 
-  const [saving, setSaving] = useState(false)
 
-  const [tipoEntrega, setTipoEntrega] =
-    useState<TipoEntrega>("distancia")
 
-  const [raioMaximo, setRaioMaximo] =
-    useState(8)
 
-  const [taxaFixa, setTaxaFixa] =
-    useState(5)
 
-    const [valorDigitado, setValorDigitado] = useState<Record<number, string>>({});
+const [bairroEditando, setBairroEditando] =
+  useState<BairroEntrega | null>(null);
 
-const [taxaFixaDigitada, setTaxaFixaDigitada] = useState("");
+const [bairros, setBairros] = useState<BairroEntrega[]>([]);
 
-const [editandoTaxaFixa, setEditandoTaxaFixa] = useState(false);
+const [novoBairro, setNovoBairro] = useState("");
 
-  const [faixas, setFaixas] = useState<
-    FaixaEntrega[]
-  >([
-    {
-      distancia_inicial: 0,
-      distancia_km: 3,
-      valor: 0,
-    },
-    {
-      distancia_inicial: 3,
-      distancia_km: 5,
-      valor: 5,
-    },
-    {
-      distancia_inicial: 5,
-      distancia_km: 8,
-      valor: 12,
-    },
-  ])
+const [novoValor, setNovoValor] = useState("");
+
+const [bairroParaExcluir, setBairroParaExcluir] =
+  useState<BairroEntrega | null>(null);
+
+const [editandoBairro, setEditandoBairro] =
+  useState<string | null>(null);
 
   const restauranteId =
     typeof window !== "undefined"
@@ -82,57 +55,22 @@ const [editandoTaxaFixa, setEditandoTaxaFixa] = useState(false);
   try {
     if (!restauranteId) return
 
-    const { data } = await supabase
-      .from("taxas_entrega")
-      .select("*")
-      .eq(
-        "restaurante_id",
-        restauranteId
-      )
-      .single()
+   
 
-    if (!data) {
-      setLoading(false)
-      return
-    }
+const { data: bairrosData, error: bairrosError } =
+  await supabase
+    .from("bairros_entrega")
+    .select("*")
+    .eq("restaurante_id", restauranteId)
+    .order("bairro");
 
-    setTipoEntrega(
-      data.tipo as TipoEntrega
-    )
+if (bairrosError) {
+  console.error(bairrosError);
+} else if (bairrosData) {
+  setBairros(bairrosData);
+}
 
-    setRaioMaximo(
-      data.raio_maximo || 8
-    )
 
-    setTaxaFixa(
-      data.taxa_fixa || 0
-    )
-
-    const { data: faixasData } =
-      await supabase
-        .from("faixas_entrega")
-        .select("*")
-        .eq(
-          "taxas_entrega_id",
-          data.id
-        )
-        .order("distancia_km")
-
-    if (
-      faixasData &&
-      faixasData.length > 0
-    ) {
-      setFaixas(
-        faixasData.map((item) => ({
-          id: item.id,
-          distancia_inicial:
-            item.distancia_inicial || 0,
-          distancia_km:
-            item.distancia_km,
-          valor: item.valor,
-        }))
-      )
-    }
   } catch (error) {
     console.log(error)
   } finally {
@@ -140,161 +78,90 @@ const [editandoTaxaFixa, setEditandoTaxaFixa] = useState(false);
   }
 }
 
-function adicionarFaixa() {
-  const ultima =
-    faixas[faixas.length - 1]
 
-  setFaixas([
-    ...faixas,
-    {
-      distancia_inicial:
-        ultima?.distancia_km || 0,
-      distancia_km:
-        (ultima?.distancia_km || 0) +
-        1,
-      valor: 0,
-    },
-  ])
-}
+async function adicionarBairro() {
+  if (!restauranteId) return;
 
-function removerFaixa(index: number) {
-  setFaixas(
-    faixas.filter(
-      (_, i) => i !== index
-    )
-  )
-}
-
-async function salvarConfiguracoes() {
-  try {
-    console.log("RESTAURANTE ID:", restauranteId)
-    setSaving(true)
-
-    if (!restauranteId) {
-      alert(
-        "Restaurante não encontrado"
-      )
-      return
-    }
-
-    let taxaEntregaId = ""
-
-   const {
-  data: existente,
-  error: erroExistente
-} = await supabase
-  .from("taxas_entrega")
-  .select("*")
-  .eq(
-    "restaurante_id",
-    restauranteId
-  )
-  .single()
-
-console.log(
-  "BUSCA TAXA:",
-  existente
-)
-
-console.log(
-  "ERRO TAXA:",
-  erroExistente
-)
-
-    if (existente) {
-      taxaEntregaId = existente.id
-
-      await supabase
-        .from("taxas_entrega")
-        .update({
-          tipo: tipoEntrega,
-          raio_maximo: raioMaximo,
-          taxa_fixa: taxaFixa,
-        })
-        .eq("id", taxaEntregaId)
-
-      await supabase
-        .from("faixas_entrega")
-        .delete()
-        .eq(
-          "taxas_entrega_id",
-          taxaEntregaId
-        )
-    } else {
-     const {
-  data: criada,
-  error: erroCriacao
-} = await supabase
-  .from("taxas_entrega")
-  .insert({
-    restaurante_id: restauranteId,
-    tipo: tipoEntrega,
-    raio_maximo: raioMaximo,
-    taxa_fixa: taxaFixa,
-  })
-  .select()
-  .single()
-
-console.log(
-  "CRIADA:",
-  criada
-)
-
-console.log(
-  "ERRO CRIACAO:",
-  erroCriacao
-)
-
-if (!criada) {
-  throw new Error(
-    JSON.stringify(
-      erroCriacao,
-      null,
-      2
-    )
-  )
-}
-
-taxaEntregaId = criada.id
-    }
-
-    if (
-      tipoEntrega ===
-      "distancia"
-    ) {
-      await supabase
-        .from("faixas_entrega")
-        .insert(
-          faixas.map((faixa) => ({
-            taxas_entrega_id:
-              taxaEntregaId,
-            distancia_inicial:
-              faixa.distancia_inicial,
-            distancia_km:
-              faixa.distancia_km,
-            valor: faixa.valor,
-          }))
-        )
-    }
-
-    alert(
-      "Configuração salva com sucesso"
-    )
-} catch (error: any) {
-  console.error(
-    "ERRO COMPLETO:",
-    error
-  )
-
-  alert(
-    error?.message ||
-    JSON.stringify(error, null, 2)
-  )
-
-} finally {
-    setSaving(false)
+  if (!novoBairro.trim()) {
+   toast.warning("Informe o nome do bairro.");
+    return;
   }
+
+  const valor = Number(
+    novoValor.replace(",", ".")
+  );
+
+  if (isNaN(valor)) {
+    toast.warning("Informe um valor válido.");
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("bairros_entrega")
+    .insert({
+      restaurante_id: restauranteId,
+      bairro: novoBairro.trim(),
+      valor,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(error);
+    toast.error(error.message);
+    return;
+  }
+
+  setBairros((prev) =>
+    [...prev, data].sort((a, b) =>
+      a.bairro.localeCompare(b.bairro)
+    )
+  );
+
+  setNovoBairro("");
+  setNovoValor("");
 }
+
+
+async function salvarEdicao() {
+  if (!bairroEditando) return;
+
+  const valor = Number(
+    novoValor.replace(",", ".")
+  );
+
+  const { error } = await supabase
+    .from("bairros_entrega")
+    .update({
+      bairro: novoBairro,
+      valor,
+    })
+    .eq("id", bairroEditando.id);
+
+  if (error) {
+    toast.error(error.message);
+    return;
+  }
+
+  setBairros((prev) =>
+    prev.map((b) =>
+      b.id === bairroEditando.id
+        ? {
+            ...b,
+            bairro: novoBairro,
+            valor,
+          }
+        : b
+    )
+  );
+
+  setNovoBairro("");
+  setNovoValor("");
+  setBairroEditando(null);
+
+  toast.success("Bairro atualizado!");
+}
+
 
 if (loading) {
   return (
@@ -307,354 +174,270 @@ if (loading) {
 return (
   <div className="max-w-7xl mx-auto">
 
-    <div className="mb-10">
-      <span className="px-4 py-2 rounded-full bg-[#E9DDE2] text-[#7A1F3D] text-sm font-semibold">
-        🚚 Entregas
-      </span>
-
-      <h1 className="text-6xl font-black text-[#1F1720] mt-4">
-        Taxa de Entrega
-      </h1>
-
-      <p className="text-xl text-[#6B6670] mt-3">
-        Configure o raio de atendimento e as taxas cobradas por distância.
-      </p>
-    </div>
-
     <div className="bg-[#F5F2F4] rounded-[40px] p-10 shadow-xl border border-[#E6DDE1]">
 
-      <div className="grid grid-cols-3 gap-6 mb-8">
 
-        <button
-          onClick={() =>
-            setTipoEntrega("gratis")
-          }
-          className={`rounded-3xl p-8 text-left transition ${
-            tipoEntrega === "gratis"
-              ? "bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white shadow-xl"
-              : "bg-white border"
-          }`}
-        >
-          <Gift size={40} />
-          <h3 className="font-bold text-2xl mt-4">
-            Frete Grátis
-          </h3>
-          <p className="mt-2 opacity-80">
-            Não cobrar entrega.
-          </p>
-        </button>
 
-        <button
-          onClick={() =>
-            setTipoEntrega("fixa")
-          }
-          className={`rounded-3xl p-8 text-left transition ${
-            tipoEntrega === "fixa"
-              ? "bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white shadow-xl"
-              : "bg-white border"
-          }`}
-        >
-          <Coins size={40} />
-          <h3 className="font-bold text-2xl mt-4">
-            Taxa Fixa
-          </h3>
-          <p className="mt-2 opacity-80">
-            Mesmo valor para todos.
-          </p>
-        </button>
 
-        <button
-          onClick={() =>
-            setTipoEntrega("distancia")
-          }
-          className={`rounded-3xl p-8 text-left transition ${
-            tipoEntrega === "distancia"
-              ? "bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white shadow-xl"
-              : "bg-white border"
-          }`}
-        >
-          <MapPin size={40} />
-          <h3 className="font-bold text-2xl mt-4">
-            Por Distância
-          </h3>
-          <p className="mt-2 opacity-80">
-            Valor baseado no raio.
-          </p>
-        </button>
+<div className="mb-8">
+  <div className="bg-gradient-to-r from-[#7A1F3D] to-[#542129] rounded-3xl p-8 text-white">
+    <div className="flex items-center gap-4">
+      <MapPin size={42} />
+      <div>
+        <h2 className="text-3xl font-black">
+          Cobrança por Bairros
+        </h2>
 
+        <p className="opacity-90 mt-2">
+          Cadastre os bairros atendidos e defina o valor da entrega para cada um deles.
+        </p>
       </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
 
       <div className="space-y-6">
 
-        <div>
-          <label className="font-semibold text-[#1F1720]">
-            Raio Máximo de Entrega (km)
-          </label>
-
-          <input
-            type="number"
-            value={raioMaximo}
-            onChange={(e) =>
-              setRaioMaximo(
-                Number(e.target.value)
-              )
-            }
-            className="w-full mt-2 bg-white border rounded-2xl p-5"
-          />
-        </div>
-
-        {tipoEntrega === "fixa" && (
-          <div>
-            <label className="font-semibold">
-              Taxa Fixa (R$)
-            </label>
-
-<input
-  type="text"
-  inputMode="decimal"
-  placeholder="0,00"
-
-value={
-  editandoTaxaFixa
-    ? taxaFixaDigitada
-    : taxaFixa === 0
-      ? ""
-      : taxaFixa.toLocaleString("pt-BR", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-}
-
-onChange={(e) => {
-  setEditandoTaxaFixa(true);
-  setTaxaFixaDigitada(e.target.value);
-}}
 
 
-onBlur={() => {
-  setEditandoTaxaFixa(false);
 
-  if (taxaFixaDigitada.trim() === "") {
-    setTaxaFixa(0);
-    setTaxaFixaDigitada("");
-    return;
-  }
 
-  const numero = Number(
-    taxaFixaDigitada.replace(",", ".")
-  );
 
-  setTaxaFixa(
-    isNaN(numero) ? 0 : numero
-  );
 
-  setTaxaFixaDigitada("");
-}}
 
-  className="w-full mt-2 bg-white border rounded-2xl p-5"
-/>
-          </div>
-        )}
 
-        {tipoEntrega ===
-          "distancia" && (
-          <div className="bg-white rounded-3xl p-8 border">
 
-            <div className="flex items-center justify-between mb-6">
 
-              <div>
-<h2 className="text-3xl font-black">
-  Tabela de Cobrança por Distância
-</h2>
+<>
+  <div className="bg-white rounded-3xl p-8 border">
 
-  <p className="text-zinc-500 mt-2">
-  Defina quanto o cliente pagará conforme a distância da entrega.
-</p>
-</div>
+    <div className="flex items-start justify-between mb-8">
 
-              <button
-                onClick={
-                  adicionarFaixa
-                }
-                className="bg-[#7A1F3D] text-white px-6 py-3 rounded-2xl flex items-center gap-2"
-              >
-                <Plus size={18} />
-                Adicionar Faixa
-              </button>
-            </div>
+      <div>
+        <h2 className="text-3xl font-black">
+          Cobrança por Bairros
+        </h2>
 
-        <div className="space-y-4">
+        <p className="text-zinc-500 mt-2">
+          Defina os bairros atendidos e o valor da entrega.
+        </p>
+      </div>
 
-  <div className="grid grid-cols-[1fr_1fr_80px] gap-4 mb-2">
-    <div className="font-semibold text-zinc-600">
-      Entrega até
-    </div>
+<div className="flex gap-3">
 
-    <div className="font-semibold text-zinc-600">
-      Valor cobrado
-    </div>
-
-    <div />
-  </div>
-
-  {faixas.map((faixa, index) => (
-
-                  <div
-                    key={index}
-                    className="grid grid-cols-[1fr_1fr_80px] gap-4"
-                  >
-
-                    <div className="relative">
   <input
-    type="number"
-    value={faixa.distancia_km}
-    onChange={(e) => {
-      const nova = [...faixas]
+    value={novoBairro}
+    onChange={(e) =>
+      setNovoBairro(e.target.value)
+    }
+    placeholder="Nome do bairro"
+    className="border rounded-2xl px-4 py-3"
+  />
 
-      nova[index].distancia_km =
-        Number(e.target.value)
+  <input
+    value={novoValor}
+    onChange={(e) =>
+      setNovoValor(e.target.value)
+    }
+    placeholder="Valor"
+    className="border rounded-2xl px-4 py-3 w-32"
+  />
 
-      setFaixas(nova)
+  <button
+    onClick={
+  bairroEditando
+    ? salvarEdicao
+    : adicionarBairro
+}
+    className="bg-[#7A1F3D] text-white px-6 py-3 rounded-2xl flex items-center gap-2"
+  >
+<Plus size={18} />
+{bairroEditando ? "Salvar" : "Adicionar"}
+  </button>
+
+{bairroEditando && (
+  <button
+    onClick={() => {
+      setBairroEditando(null);
+      setNovoBairro("");
+      setNovoValor("");
     }}
     className="
-      w-full
-      bg-[#F5F2F4]
       border
-      border-zinc-200
+      border-zinc-300
+      px-6
+      py-3
       rounded-2xl
-      p-4
-      pr-14
-      focus:outline-none
-      focus:ring-2
-      focus:ring-[#7A1F3D]
+      hover:bg-zinc-100
+      transition
+    "
+  >
+    Cancelar
+  </button>
+)}
+
+</div>
+
+    </div>
+
+    <table className="w-full">
+
+      <thead>
+
+        <tr className="border-b">
+
+          <th className="text-left py-4">
+            Bairro
+          </th>
+
+          <th className="text-left">
+            Taxa de Entrega
+          </th>
+
+          <th className="text-center">
+            Ações
+          </th>
+
+        </tr>
+
+      </thead>
+
+<tbody>
+
+  {bairros.length === 0 ? (
+
+    <tr>
+
+      <td
+        colSpan={3}
+        className="text-center py-8 text-zinc-500"
+      >
+        Nenhum bairro cadastrado.
+      </td>
+
+    </tr>
+
+  ) : (
+
+    bairros.map((bairro) => (
+
+      <tr
+        key={bairro.id}
+        className="border-b"
+      >
+
+        <td className="py-4">
+          {bairro.bairro}
+        </td>
+
+        <td>
+{bairro.valor.toLocaleString("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+})}
+        </td>
+
+        <td className="flex justify-center gap-4 py-4">
+
+<button
+  onClick={() => {
+    setNovoBairro(bairro.bairro);
+    setNovoValor(bairro.valor.toString());
+    setBairroEditando(bairro);
+  }}
+  className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-full text-sm font-semibold"
+>
+  Editar
+</button>
+
+<button
+  onClick={() => setBairroParaExcluir(bairro)}
+  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl text-sm font-semibold transition"
+>
+  Excluir
+</button>
+
+        </td>
+
+      </tr>
+
+    ))
+
+  )}
+
+</tbody>
+
+    </table>
+
+  </div>
+
+<div className="mt-10 border-t pt-6">
+
+
+  <img
+    src="/tutorial-bairros.png"
+    alt="Tutorial de cobrança por bairros"
+    className="
+      w-full
+      rounded-3xl
+      border
+      shadow-xl
     "
   />
 
-  <span
-  className="
-    absolute
-    right-4
-    top-1/2
-    -translate-y-1/2
-    text-zinc-500
-    text-sm
-    font-semibold
-    pointer-events-none
-  "
->
-  km
-</span>
 </div>
 
-                    <div className="relative">
-  <span
-    className="
-      absolute
-      left-4
-      top-1/2
-      -translate-y-1/2
-      text-zinc-500
-      font-semibold
-      pointer-events-none
-    "
-  >
-    R$
-  </span>
 
-  <input
-  type="text"
-  inputMode="decimal"
-  placeholder="0,00"
-value={
-  valorDigitado[index] ??
-  (faixa.valor === 0
-    ? ""
-    : faixa.valor.toLocaleString("pt-BR", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }))
-}
-onChange={(e) => {
-  setValorDigitado({
-    ...valorDigitado,
-    [index]: e.target.value,
-  });
-}}
+</>
 
-onBlur={() => {
-  const texto = valorDigitado[index] ?? "";
 
-  const numero = Number(
-    texto.replace(",", ".")
-  );
-
-  const nova = [...faixas];
-
-  nova[index].valor = isNaN(numero)
-    ? 0
-    : numero;
-
-  setFaixas(nova);
-
-  setValorDigitado((prev) => {
-    const copia = { ...prev };
-    delete copia[index];
-    return copia;
-  });
-}}
-  className="
-    w-full
-    bg-[#F5F2F4]
-    border
-    border-zinc-200
-    rounded-2xl
-    p-4
-    pl-12
-    focus:outline-none
-    focus:ring-2
-    focus:ring-[#7A1F3D]
-  "
-/>
-</div>
-
-                 <button
-  onClick={() =>
-    removerFaixa(index)
-  }
-  className="bg-red-500 rounded-2xl flex items-center justify-center text-white"
->
-  <Trash2 />
-</button>
-
-</div>
-
-))}
-
-</div>
-
-</div>
-
-)}
-
-<button
-  onClick={
-    salvarConfiguracoes
-  }
-          disabled={saving}
-          className="bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white px-10 py-5 rounded-3xl font-bold flex items-center gap-3"
-        >
-          {saving ? (
-            <Loader2 className="animate-spin" />
-          ) : (
-            <Save />
-          )}
-
-          Salvar Configurações
-        </button>
 
       </div>
 
+
+
+
+
+
     </div>
+
+<ConfirmDialog
+  open={bairroParaExcluir !== null}
+  title="Excluir Bairro"
+  description={
+    bairroParaExcluir
+      ? `Tem certeza que deseja excluir o bairro "${bairroParaExcluir.bairro}"? Esta ação não poderá ser desfeita.`
+      : ""
+  }
+  confirmText="Excluir"
+  cancelText="Cancelar"
+  onCancel={() => setBairroParaExcluir(null)}
+  onConfirm={async () => {
+    if (!bairroParaExcluir) return;
+
+    const { error } = await supabase
+      .from("bairros_entrega")
+      .delete()
+      .eq("id", bairroParaExcluir.id);
+
+if (error) {
+  toast.error(error.message);
+  return;
+}
+
+    setBairros((prev) =>
+      prev.filter((b) => b.id !== bairroParaExcluir.id)
+    );
+
+    setBairroParaExcluir(null);
+  }}
+/>
 
   </div>
 )
