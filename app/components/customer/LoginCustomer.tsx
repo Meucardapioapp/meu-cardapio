@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 
 type Props = {
   open: boolean;
@@ -74,7 +75,28 @@ export default function LoginCustomer({
       />
 
       <div className="fixed inset-0 z-[99999] flex items-center justify-center p-5">
-        <div className="bg-white rounded-3xl w-full max-w-md p-6">
+        <div className="relative bg-white rounded-3xl w-full max-w-md p-6">
+
+
+<button
+  onClick={onClose}
+  className="
+    absolute
+    top-4
+    right-4
+    w-10
+    h-10
+    rounded-full
+    hover:bg-zinc-100
+    transition
+    flex
+    items-center
+    justify-center
+  "
+>
+  <X size={22} className="text-zinc-600" />
+</button>
+
 
           <h2 className="text-3xl font-black">
             Entrar

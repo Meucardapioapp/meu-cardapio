@@ -57,15 +57,18 @@ export default async function Impressao({ params }: Props) {
 
 
   return (
-    <main
-      style={{
-        width: 300,
-        margin: "0 auto",
-        padding: 16,
-        fontFamily: "monospace",
-        color: "#000",
-      }}
-    >
+<main
+  style={{
+    width: "100%",
+    maxWidth: "64mm", // deixa uma folga para impressoras térmicas
+    margin: "0 auto",
+    padding: "3mm",
+    boxSizing: "border-box",
+    fontFamily: "monospace",
+    color: "#000",
+    fontSize: 13,
+  }}
+>
       <script
         dangerouslySetInnerHTML={{
           __html: `
@@ -75,6 +78,55 @@ export default async function Impressao({ params }: Props) {
           `,
         }}
       />
+
+<style
+  dangerouslySetInnerHTML={{
+    __html: `
+*{
+  box-sizing:border-box;
+}
+
+html,
+body{
+  margin:0;
+  padding:0;
+  width:100%;
+  font-family:monospace;
+}
+
+@page{
+  size:auto;
+  margin:2mm;
+}
+
+@media print{
+
+  html,
+  body{
+    width:100%;
+    margin:0;
+    padding:0;
+  }
+
+  main{
+    width:100% !important;
+    max-width:64mm !important;
+    margin:0 auto !important;
+    padding:3mm !important;
+  }
+
+  img{
+    max-width:100%;
+    height:auto;
+  }
+
+  hr{
+    margin:6px 0;
+  }
+}
+    `,
+  }}
+/>
 
       <div
         style={{
@@ -87,7 +139,7 @@ export default async function Impressao({ params }: Props) {
             src={restaurante.logo}
             alt={restaurante.nome}
             style={{
-              width: 80,
+              width: 60,
               margin: "0 auto 10px",
               display: "block",
             }}
@@ -142,60 +194,121 @@ export default async function Impressao({ params }: Props) {
           style={{
             marginBottom: 14,
           }}
-        >
+>
+
+
+
+
 <div
   style={{
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "flex-start",
     fontWeight: "bold",
     fontSize: 16,
   }}
 >
-  <span>
+  <span
+    style={{
+      flex: 1,
+      minWidth: 0,
+      paddingRight: 6,
+      whiteSpace: "normal",
+      wordBreak: "break-word",
+      overflowWrap: "break-word",
+    }}
+  >
     {(item.quantity || 1)}x {item.nome}
   </span>
 
-  <span>
+  <span
+    style={{
+      width: 60,
+      textAlign: "right",
+      flexShrink: 0,
+    }}
+  >
     R$ {(Number(item.preco) * (item.quantity || 1)).toFixed(2)}
   </span>
 </div>
 
+
+
+
+
+
+
+
           <br />
 
 {item.obrigatoriosSelecionados?.map((o: any, i: number) => (
-  <div
-    key={i}
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-    }}
-  >
-    <span>
-      • {o.grupo}: {o.nome}
-    </span>
+<div
+  key={i}
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 6,
+    marginBottom: 2,
+  }}
+>
+  <span
+  style={{
+    flex: 1,
+    paddingRight: 6,
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    overflowWrap: "break-word",
+  }}
+>
+  • {o.grupo}: {o.nome}
+</span>
 
     {o.preco > 0 && (
-      <span>
-        R$ {Number(o.preco).toFixed(2)}
-      </span>
+<span
+  style={{
+    width: 60,
+    textAlign: "right",
+    flexShrink: 0,
+  }}
+>
+  R$ {Number(o.preco).toFixed(2)}
+</span>
     )}
   </div>
 ))}
 
 {item.adicionaisSelecionados?.map((a: any, i: number) => (
-  <div
-    key={i}
-    style={{
-      display: "flex",
-      justifyContent: "space-between",
-    }}
-  >
-    <span>+ {a.nome}</span>
+<div
+  key={i}
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 6,
+    marginBottom: 2,
+  }}
+>
+    <span
+  style={{
+    flex: 1,
+    paddingRight: 6,
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    overflowWrap: "break-word",
+  }}
+>
+  + {a.nome}
+</span>
 
-    <span>
-      R$ {Number(a.preco || 0).toFixed(2)}
-    </span>
+<span
+  style={{
+    width: 60,
+    textAlign: "right",
+    flexShrink: 0,
+  }}
+>
+  R$ {Number(a.preco || 0).toFixed(2)}
+</span>
   </div>
 ))}
 
@@ -221,9 +334,15 @@ export default async function Impressao({ params }: Props) {
 >
   <span>Valor Total</span>
 
-  <span>
-    R$ {Number(pedido.total_pago ?? pedido.total).toFixed(2)}
-  </span>
+<span
+  style={{
+    width: 60,
+    textAlign: "right",
+    flexShrink: 0,
+  }}
+>
+  R$ {Number(pedido.total_pago ?? pedido.total).toFixed(2)}
+</span>
 </div>
 
       <hr />
@@ -252,7 +371,15 @@ export default async function Impressao({ params }: Props) {
         <br />
         <br />
 
-{pedido.rua}, {pedido.numero}
+<div
+  style={{
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    overflowWrap: "break-word",
+  }}
+>
+  {pedido.rua}, {pedido.numero}
+</div>
 
 {pedido.complemento && (
   <>
