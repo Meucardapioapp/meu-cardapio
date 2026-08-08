@@ -30,8 +30,8 @@ export default function ClientesPage() {
 
   const [ativo, setAtivo] = useState(false);
 
-  const [valorDesconto, setValorDesconto] =
-    useState("20,00");
+const [valorDesconto, setValorDesconto] =
+  useState("0");
 
     const [salvando, setSalvando] =
   useState(false);
@@ -63,46 +63,73 @@ const [busca, setBusca] = useState("");
 
       setAtivo(data.ativo);
 
-      setValorDesconto(
-        Number(data.valor_desconto).toLocaleString(
-          "pt-BR",
-          {
-            minimumFractionDigits: 2,
-          }
-        )
-      );
+setValorDesconto(
+  String(data.valor_desconto ?? 0)
+);
     }
 
     setLoading(false);
   }
 
-  async function salvarConfiguracao() {
-  if (!fidelidade) return;
+async function salvarConfiguracao() {
+  const restauranteId = localStorage.getItem("restaurante_id");
+
+  if (!restauranteId) {
+    toast.error("Restaurante não encontrado.");
+    return;
+  }
 
   setSalvando(true);
 
   const valor = Number(
-    valorDesconto
-      .replace(/\./g, "")
-      .replace(",", ".")
+    valorDesconto.replace(",", ".")
   );
+
+  if (!fidelidade) {
+    const { error } = await supabase
+      .from("fidelidade")
+      .insert({
+        restaurante_id: restauranteId,
+        ativo,
+        pedidos_necessarios: 10,
+        valor_desconto: valor,
+      });
+
+    setSalvando(false);
+
+    if (error) {
+      console.error(error);
+      toast.error("Erro ao salvar.");
+      return;
+    }
+
+    toast.success("Configuração salva.");
+
+    await carregarConfiguracao();
+
+    return;
+  }
 
   const { error } = await supabase
     .from("fidelidade")
     .update({
       ativo,
       valor_desconto: valor,
+      updated_at: new Date().toISOString(),
     })
-    .eq("id", fidelidade.id);
+    .eq("restaurante_id", restauranteId);
 
   setSalvando(false);
 
   if (error) {
+    console.error(error);
     toast.error("Erro ao salvar.");
     return;
   }
 
-  toast.success("Configuração salva com sucesso.");
+  toast.success("Configuração atualizada.");
+
+  await carregarConfiguracao();
 }
 
 async function carregarClientes() {

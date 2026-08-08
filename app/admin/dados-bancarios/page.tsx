@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function DadosBancariosPage() {
   const [restauranteId, setRestauranteId] =
@@ -46,33 +47,39 @@ export default function DadosBancariosPage() {
     .replace(/(\d{4})(\d)/, "$1-$2");
 }
 
-  useEffect(() => {
-    const id =
-      localStorage.getItem(
-        "restaurante_id"
-      ) || "";
-
-    setRestauranteId(id);
-  }, []);
-
-  useEffect(() => {
-  if (!restauranteId) return;
-
+useEffect(() => {
   carregarDados();
-}, [restauranteId]);
+}, []);
+
+
 
 async function carregarDados() {
   try {
-const response = await fetch(
-  `/api/restaurante?restauranteId=${restauranteId}`
-);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const response = await fetch("/api/restaurante", {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
 
     const resultado = await response.json();
 
-    if (!resultado.success) return;
+    if (!resultado.success) {
+      console.error(resultado.error);
+      return;
+    }
 
     const restaurante = resultado.restaurante;
 
+    setRestauranteId(restaurante.id || "");
     setCpfCnpj(restaurante.cpf_cnpj || "");
     setBanco(restaurante.banco || "");
     setAgencia(restaurante.agencia || "");
@@ -89,7 +96,7 @@ const response = await fetch(
       }
     }
   } catch (error) {
-    console.log(error);
+    console.error("Erro ao carregar dados bancários:", error);
   }
 }
 

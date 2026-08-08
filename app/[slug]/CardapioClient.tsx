@@ -38,7 +38,13 @@ import type {
   CartItem
 } from "../types"
 
-export default function CardapioClient() {
+type CardapioClientProps = {
+  modoEditor?: boolean;
+};
+
+export default function CardapioClient({
+  modoEditor = false,
+}: CardapioClientProps) {
 
 const params = useParams()
 
@@ -381,15 +387,6 @@ localStorage.setItem(
   aparenciaData.cor_primaria || "#571f5b"
 )
 
-localStorage.setItem(
-  "restaurante_id",
-  restauranteData.id
-)
-
-console.log(
-  "RESTAURANTE ID SALVO:",
-  restauranteData.id
-)
 
 console.log(
   "BANNER DO BANCO:",

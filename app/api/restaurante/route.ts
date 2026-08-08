@@ -1,24 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+
+const supabaseAuth = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export async function GET(req: NextRequest) {
   try {
-    const restauranteId = req.nextUrl.searchParams.get("restauranteId");
+    const authorization = req.headers.get("authorization");
 
-    if (!restauranteId) {
+    if (!authorization?.startsWith("Bearer ")) {
       return NextResponse.json(
         {
           success: false,
-          error: "Restaurante não informado",
+          error: "Não autenticado",
         },
-        { status: 400 }
+        { status: 401 }
       );
     }
 
-    const { data: restaurante, error } = await supabaseAdmin
+    const token = authorization.slice(7).trim();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseAuth.auth.getUser(token);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Sessão inválida ou expirada",
+        },
+        { status: 401 }
+      );
+    }
+
+    const {
+      data: restaurante,
+      error: restauranteError,
+    } = await supabaseAdmin
       .from("restaurantes")
       .select(
         `
+        id,
+        nome_restaurante,
         cpf_cnpj,
         banco,
         agencia,
@@ -27,14 +55,14 @@ export async function GET(req: NextRequest) {
         pagarme_recipient_id
         `
       )
-      .eq("id", restauranteId)
+      .eq("auth_user_id", user.id)
       .single();
 
-    if (error || !restaurante) {
+    if (restauranteError || !restaurante) {
       return NextResponse.json(
         {
           success: false,
-          error: "Restaurante não encontrado",
+          error: "Restaurante não encontrado para este usuário",
         },
         { status: 404 }
       );
@@ -44,12 +72,13 @@ export async function GET(req: NextRequest) {
       success: true,
       restaurante,
     });
+  } catch (error) {
+    console.error("Erro /api/restaurante:", error);
 
-  } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: "Erro interno do servidor",
       },
       { status: 500 }
     );

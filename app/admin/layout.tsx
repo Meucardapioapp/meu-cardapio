@@ -19,6 +19,25 @@ const router = useRouter()
 
 const [menuAberto, setMenuAberto] = useState(false)
 const [dadosBancariosOk, setDadosBancariosOk] = useState<boolean | null>(null)
+const [verificandoAuth, setVerificandoAuth] = useState(true)
+
+useEffect(() => {
+  async function verificarAutenticacao() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      localStorage.removeItem("restaurante_id")
+      router.replace("/login")
+      return
+    }
+
+    setVerificandoAuth(false)
+  }
+
+  verificarAutenticacao()
+}, [router])
 
 
 useEffect(() => {
@@ -191,6 +210,10 @@ if (
 
     router.push("/admin/dados-bancarios")
   }
+}
+
+if (verificandoAuth) {
+  return null
 }
 
 return (
