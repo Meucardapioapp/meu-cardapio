@@ -257,153 +257,218 @@ console.log({
 
 async function pagarComPix() {
 
-  alert("ENTROU NA NOVA pagarComPix");
-
   console.log("CLICOU PIX")
 
   if (
-  !cliente ||
-  !telefone ||
-  !email ||
-  !cpf ||
-  !cep ||
-  !bairro ||
-  !rua ||
-  !numero
-) {
-  alert("Preencha todos os campos")
-  return
-}
-
-console.log("DADOS PIX")
-console.log({
-  cliente,
-  telefone,
-  cep,
-  bairro,
-  rua,
-  numero,
-})
-
-  console.log(
-  "RESTAURANTE ID PIX:",
-  restauranteId
-)
-
-console.log(
-  "TIPO:",
-  typeof restauranteId
-)
+    !cliente ||
+    !telefone ||
+    !email ||
+    !cpf ||
+    !cep ||
+    !bairro ||
+    !rua ||
+    !numero
+  ) {
+    alert("Preencha todos os campos")
+    return
+  }
 
   try {
 
     setLoading(true)
 
-    const pedido = {
-      cliente,
-      telefone,
-      endereco: `${rua}, ${numero}`,
-      bairro,
-      rua,
-      numero,
-      observacoes,
-      itens: cart,
-      total: total + frete,
-      status: "pendente",
-      payment_status: "pending",
-      payment_method: "pix",
-      restaurante_id: restauranteId,
+    console.log("CRIANDO PEDIDO PIX PELO BACKEND")
+
+    const responseCriarPedido = await fetch(
+      "/api/cliente/criar",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          restauranteId,
+
+          nome: cliente,
+          telefone,
+          cpf,
+
+          tipoPedido: "delivery",
+
+          endereco: {
+            cep,
+            cidade,
+            estado,
+          },
+
+          bairro,
+          rua,
+          numero,
+
+          complemento: "",
+          referencia: "",
+          observacoes,
+
+          itens: cart,
+
+          subtotal: total,
+          taxaEntrega: frete,
+          taxaOperacional: 0,
+
+          total: total + frete,
+          totalPago: total + frete,
+
+          payment_method: "pix",
+        }),
+      }
+    )
+
+    const resultadoCriarPedido =
+      await responseCriarPedido.json()
+
+    console.log(
+      "RESULTADO CRIAR PEDIDO:",
+      resultadoCriarPedido
+    )
+
+    if (!resultadoCriarPedido.success) {
+      throw new Error(
+        resultadoCriarPedido.error ||
+        "Erro ao criar pedido"
+      )
     }
 
-    const {
-  data,
-  error,
-} = await supabase
-  .from("pedidos")
-  .insert([pedido])
-  .select()
-  .single()
+    const data =
+      resultadoCriarPedido.pedido
 
-console.log(
-  "PEDIDO CRIADO:",
-  data
-)
+    const clienteCriado =
+      resultadoCriarPedido.cliente
 
-localStorage.setItem(
-  "pedidoAtual",
-  String(data.id)
-)
+    console.log(
+      "PEDIDO CRIADO:",
+      data
+    )
 
-   if (error) {
+    console.log(
+      "CLIENTE CORRETO:",
+      clienteCriado
+    )
 
-  console.log(
-    "ERRO SUPABASE:",
-    error
-  )
+    /*
+     * Salva o token do MESMO cliente
+     * que acabou de fazer o pedido.
+     */
+    if (clienteCriado?.token_acesso) {
 
-  alert(
-    JSON.stringify(error)
-  )
+      localStorage.setItem(
+        "cliente_token",
+        clienteCriado.token_acesso
+      )
 
-  return
-} 
+      console.log(
+        "TOKEN DO CLIENTE SALVO:",
+        clienteCriado.token_acesso
+      )
+    }
+
+    localStorage.setItem(
+      "pedidoAtual",
+      String(data.id)
+    )
 
     const response =
       await fetch(
         "/api/checkout",
         {
           method: "POST",
+
           headers: {
             "Content-Type":
               "application/json",
           },
-      body: JSON.stringify({
-  total: total + frete,
-  pedidoId: data.id,
-  restauranteId,
 
-  customer: {
-    name: cliente,
-    email,
-    document: cpf,
-    phone: telefone,
-  },
+          body: JSON.stringify({
 
-  items: cart.map((item: any) => ({
-    name: item.nome,
-    quantity: item.quantidade,
-    amount: Math.round(item.preco * 100),
-  })),
-}),
+            total:
+              total + frete,
+
+            pedidoId:
+              data.id,
+
+            restauranteId,
+
+            customer: {
+              name: cliente,
+              email,
+              document: cpf,
+              phone: telefone,
+            },
+
+            items: cart.map(
+              (item: any) => ({
+                name: item.nome,
+                quantity: item.quantidade,
+                amount:
+                  Math.round(
+                    item.preco * 100
+                  ),
+              })
+            ),
+          }),
         }
       )
 
-   
-const resultado = await response.json()
+    const resultado =
+      await response.json()
 
-console.log("RESULTADO:", resultado);
+    console.log(
+      "RESULTADO CHECKOUT:",
+      resultado
+    )
 
-console.log("SUCCESS:", resultado.success);
+    if (!resultado.success) {
+      throw new Error(
+        resultado.error ||
+        "Erro ao gerar Pix"
+      )
+    }
 
-console.log("QRCODE:", resultado.qrCode);
+    console.log(
+      "QRCODE:",
+      resultado.qrCode
+    )
 
-await supabase
-  .from("pedidos")
-  .update({
-    pagarme_order_id: resultado.pagarmeOrderId,
-  })
-  .eq("id", data.id);
+    await supabase
+      .from("pedidos")
+      .update({
+        pagarme_order_id:
+          resultado.pagarmeOrderId,
+      })
+      .eq("id", data.id)
 
-console.log("VAI REDIRECIONAR");
+    console.log(
+      "VAI REDIRECIONAR PARA PIX"
+    )
 
-window.location.href =
-  `/${slug}/pix?id=${data.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
-  
-return;
+    window.location.href =
+      `/${slug}/pix?id=${data.id}&qr=${encodeURIComponent(
+        resultado.qrCode
+      )}`
+
+    return
 
   } catch (error) {
 
-    console.log(error)
+    console.error(
+      "ERRO AO PAGAR COM PIX:",
+      error
+    )
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Não foi possível gerar o Pix."
+    )
 
   } finally {
 

@@ -15,6 +15,8 @@ import {
   Clock3,
   Wallet,
   Star,
+  Gift,
+  Ticket,
 } from "lucide-react";
 
 import { useParams } from "next/navigation"
@@ -64,9 +66,13 @@ useEffect(() => {
   )
 }, [slug])
 
+
+
 useEffect(() => {
   async function carregarCliente() {
-    const token = localStorage.getItem("cliente_token");
+    const token =
+  localStorage.getItem(`cliente_token-${slug}`) ||
+  localStorage.getItem("cliente_token");
 
     if (!token) {
       setCarregandoCliente(false);
@@ -97,6 +103,8 @@ useEffect(() => {
 
   carregarCliente();
 }, []);
+
+
 
   const [produtos, setProdutos] =
     useState<ProdutoFormatado[]>([])
@@ -166,6 +174,9 @@ const [aparencia, setAparencia] =
 
 const [carregandoCliente, setCarregandoCliente] =
   useState(true);
+
+  const [fidelidade, setFidelidade] =
+  useState<any>(null);
 
 /* APARÊNCIA */
 
@@ -303,6 +314,23 @@ useEffect(() => {
       setRestaurante(
         restauranteData
       )
+
+      const { data: fidelidadeData, error: fidelidadeError } =
+  await supabase
+    .from("fidelidade")
+    .select("*")
+    .eq("restaurante_id", restauranteData.id)
+    .eq("ativo", true)
+    .maybeSingle();
+
+if (fidelidadeError) {
+  console.error(
+    "ERRO FIDELIDADE:",
+    fidelidadeError
+  );
+}
+
+setFidelidade(fidelidadeData);
 
 const {
   data: categoriasData
@@ -1235,6 +1263,117 @@ className="mx-auto text-zinc-500 mb-2"
   </div>
 
 <div className="mx-4 -mt-1 border-t border-zinc-100" />
+
+{fidelidade?.ativo && (
+  <div className="mx-4 mt-5 mb-4 rounded-2xl border border-[#E9E1DC] bg-[#FFF9F6] px-5 py-5">
+
+    <div className="flex items-center gap-3">
+
+      <div
+        className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+        style={{
+          backgroundColor: `${corPrincipal}15`,
+        }}
+      >
+        <Gift
+          size={25}
+          style={{
+            color: corPrincipal,
+          }}
+        />
+      </div>
+
+      <p className="text-[16px] leading-6 text-zinc-800">
+        Junte{" "}
+        <strong>
+          {fidelidade.pedidos_necessarios} pedidos no Pix
+        </strong>{" "}
+        e ganhe{" "}
+        <strong style={{ color: corPrincipal }}>
+          {Number(
+            fidelidade.valor_desconto
+          ).toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+          })}
+        </strong>{" "}
+        de desconto!
+      </p>
+
+    </div>
+
+    <div className="mt-5 flex items-center gap-1">
+
+      {Array.from({
+        length: Number(
+          fidelidade.pedidos_necessarios || 10
+        ),
+      }).map((_, index) => {
+
+        const selos =
+           Number(cliente?.selos_pix || 0);
+
+        const preenchido =
+          index < selos;
+
+        return (
+          <div
+            key={index}
+            className="flex-1 text-center"
+          >
+<Ticket
+  size={28}
+  strokeWidth={1.8}
+  style={{
+    color: preenchido
+      ? corPrincipal
+      : "#D6B46A",
+    fill: preenchido
+      ? corPrincipal
+      : "transparent",
+  }}
+/>
+          </div>
+        );
+      })}
+
+    </div>
+
+    <p className="mt-5 text-center text-[14px] text-zinc-500">
+
+      {Number(cliente?.selos_pix || 0) >=
+      Number(fidelidade.pedidos_necessarios || 10) ? (
+
+        <strong
+          style={{
+            color: corPrincipal,
+          }}
+        >
+          Você liberou seu desconto!
+        </strong>
+
+      ) : (
+
+        <>
+          Faltam{" "}
+          <strong>
+            {Math.max(
+              Number(
+                fidelidade.pedidos_necessarios || 10
+              ) -
+                Number(cliente?.selos_pix || 0),
+              0
+            )}
+          </strong>{" "}
+          pedidos no Pix para você liberar seu desconto.
+        </>
+
+      )}
+
+    </p>
+
+  </div>
+)}
 
 <div
 className={`

@@ -17,6 +17,10 @@ export async function GET(req: NextRequest) {
     .eq("token_acesso", token)
     .single();
 
+    console.log("TOKEN API:", token);
+console.log("CLIENTE API:", cliente);
+console.log("ERRO API:", error);
+
   if (error || !cliente) {
     return NextResponse.json(
       { success: false, error: "Cliente não encontrado" },
