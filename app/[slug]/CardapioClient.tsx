@@ -1264,26 +1264,15 @@ className="mx-auto text-zinc-500 mb-2"
 
 <div className="mx-4 -mt-1 border-t border-zinc-100" />
 
+
+
+
 {fidelidade?.ativo && (
-  <div className="mx-4 mt-5 mb-4 rounded-2xl border border-[#E9E1DC] bg-[#FFF9F6] px-5 py-5">
+  <div className="mx-3 mt-3 mb-3 rounded-2xl border border-[#E8E1DA] bg-[#FFFDF9] px-3 py-3">
 
-    <div className="flex items-center gap-3">
-
-      <div
-        className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-        style={{
-          backgroundColor: `${corPrincipal}15`,
-        }}
-      >
-        <Gift
-          size={25}
-          style={{
-            color: corPrincipal,
-          }}
-        />
-      </div>
-
-      <p className="text-[16px] leading-6 text-zinc-800">
+    {/* TÍTULO */}
+    <div className="flex items-center justify-center">
+      <p className="text-center text-[13px] leading-5 text-zinc-800">
         Junte{" "}
         <strong>
           {fidelidade.pedidos_necessarios} pedidos no Pix
@@ -1299,51 +1288,49 @@ className="mx-auto text-zinc-500 mb-2"
         </strong>{" "}
         de desconto!
       </p>
-
     </div>
 
-    <div className="mt-5 flex items-center gap-1">
-
+    {/* SELOS */}
+    <div className="mt-3 flex items-center gap-0.5">
       {Array.from({
         length: Number(
           fidelidade.pedidos_necessarios || 10
         ),
       }).map((_, index) => {
+        const selos = Number(
+          cliente?.selos_pix || 0
+        );
 
-        const selos =
-           Number(cliente?.selos_pix || 0);
-
-        const preenchido =
-          index < selos;
+        const preenchido = index < selos;
 
         return (
           <div
             key={index}
-            className="flex-1 text-center"
+            className="flex-1 flex justify-center"
           >
-<Ticket
-  size={28}
-  strokeWidth={1.8}
-  style={{
-    color: preenchido
-      ? corPrincipal
-      : "#D6B46A",
-    fill: preenchido
-      ? corPrincipal
-      : "transparent",
-  }}
-/>
+            <Ticket
+              size={20}
+              strokeWidth={1.8}
+              style={{
+                color: preenchido
+                  ? corPrincipal
+                  : "#D6B46A",
+                fill: preenchido
+                  ? corPrincipal
+                  : "transparent",
+              }}
+            />
           </div>
         );
       })}
-
     </div>
 
-    <p className="mt-5 text-center text-[14px] text-zinc-500">
-
+    {/* MENSAGEM */}
+    <p className="mt-3 text-center text-[12px] leading-4 text-zinc-500">
       {Number(cliente?.selos_pix || 0) >=
-      Number(fidelidade.pedidos_necessarios || 10) ? (
-
+      Number(
+        fidelidade.pedidos_necessarios || 10
+      ) ? (
         <strong
           style={{
             color: corPrincipal,
@@ -1351,9 +1338,7 @@ className="mx-auto text-zinc-500 mb-2"
         >
           Você liberou seu desconto!
         </strong>
-
       ) : (
-
         <>
           Faltam{" "}
           <strong>
@@ -1361,19 +1346,31 @@ className="mx-auto text-zinc-500 mb-2"
               Number(
                 fidelidade.pedidos_necessarios || 10
               ) -
-                Number(cliente?.selos_pix || 0),
+                Number(
+                  cliente?.selos_pix || 0
+                ),
               0
             )}
           </strong>{" "}
           pedidos no Pix para você liberar seu desconto.
         </>
-
       )}
-
     </p>
 
   </div>
 )}
+
+
+
+
+
+
+
+
+
+
+
+
 
 <div
 className={`
