@@ -66,7 +66,7 @@ export default function PagamentoPage() {
   const slug = params.slug as string;
   const [carregandoPagamento, setCarregandoPagamento] = useState(false);
   const [lojaAberta, setLojaAberta] = useState(true);
-
+const [restauranteId, setRestauranteId] = useState<string | null>(null);
 
 const {
   logo,
@@ -181,13 +181,14 @@ setTaxaEntrega(
 );
     }
 
-    const { data: restaurante } = await supabase
+const { data: restaurante } = await supabase
   .from("restaurantes")
   .select("id")
   .eq("slug", slug)
   .single();
 
 if (restaurante) {
+  setRestauranteId(restaurante.id);
 
   const { data: aparencia } = await supabase
     .from("aparencia")
@@ -909,9 +910,15 @@ onClick={async () => {
 
   if (carregandoPagamento) return;
 
-  setCarregandoPagamento(true);
+setCarregandoPagamento(true);
 
- const dadosRetirada = JSON.parse(
+if (!restauranteId) {
+  alert("Não foi possível identificar o restaurante. Atualize a página e tente novamente.");
+  setCarregandoPagamento(false);
+  return;
+}
+
+const dadosRetirada = JSON.parse(
   localStorage.getItem("dadosRetirada") || "{}"
 );
 
@@ -959,8 +966,7 @@ const pedidoResponse = await fetch(
     
     body: JSON.stringify({
 
-      restauranteId:
-        localStorage.getItem("restaurante_id"),
+restauranteId: restauranteId,
 
  nome: ehRetirada
   ? dadosRetirada.nome
@@ -1068,8 +1074,8 @@ if (formaPagamento === "pix") {
 
 body: JSON.stringify({
   total: totalPagamento,
-  restauranteId: localStorage.getItem("restaurante_id"),
-  pedidoId: pedido.id,
+ restauranteId: restauranteId,
+pedidoId: pedido.id,
 
   nome: ehRetirada
     ? dadosRetirada.nome
