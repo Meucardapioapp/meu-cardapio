@@ -42,14 +42,13 @@ export async function POST(req: NextRequest) {
       const { data: pedido, error: pedidoError } =
         await supabaseAdmin
           .from("pedidos")
-.select(`
-id,
+.select(`id,
 total,
 payment_method,
 payment_status,
 pushcut_pix_enviado,
-cliente_id
-`)
+cliente_id,
+restaurante_id`)
           .eq("pagarme_order_id", orderId)
           .maybeSingle();
 
@@ -60,49 +59,116 @@ cliente_id
         );
       }
 
-      // Atualiza status do pedido
-      const { error } = 
-      
-await supabaseAdmin
-  .from("pedidos")
-.update({
-  payment_status,
+// Atualiza status do pedido
+const { data: pedidoAtualizado, error } =
+  await supabaseAdmin
+    .from("pedidos")
+    .update({
+      payment_status,
 
-  status:
-    paymentStatus === "paid"
-      ? "aceito"
-      : status,
+      status:
+        paymentStatus === "paid"
+          ? "aceito"
+          : status,
 
-  ...(paymentStatus === "paid"
-    ? { confirmado: true }
-    : {}),
-})
-  .eq("pagarme_order_id", orderId);
+      ...(paymentStatus === "paid"
+        ? { confirmado: true }
+        : {}),
+    })
+    .eq("pagarme_order_id", orderId)
+    .neq("payment_status", "approved")
+    .select("id")
+    .maybeSingle();
 
-      if (error) {
+if (error) {
+  console.error(
+    "Erro ao atualizar pedido:",
+    error
+  );
+} else {
+  console.log(
+    "Pedido atualizado com sucesso!"
+  );
+
+  if (
+    paymentStatus === "paid" &&
+    pedido?.cliente_id
+  ) {
+    await supabaseAdmin
+      .from("clientes")
+      .update({
+        ultimo_pedido: new Date(),
+        ultimo_acesso: new Date(),
+      })
+      .eq("id", pedido.cliente_id);
+  }
+
+  // ==========================================
+  // FIDELIDADE - 1 SELO PARA PIX PAGO
+  // ==========================================
+
+  if (
+    paymentStatus === "paid" &&
+    pedidoAtualizado &&
+    pedido?.cliente_id &&
+    String(pedido.payment_method ?? "").toLowerCase() === "pix"
+  ) {
+    const {
+      data: fidelidade,
+      error: fidelidadeError,
+    } = await supabaseAdmin
+      .from("cliente_fidelidade")
+      .select(`
+        id,
+        selos,
+        desconto_disponivel
+      `)
+      .eq("cliente_id", pedido.cliente_id)
+      .eq("restaurante_id", pedido.restaurante_id)
+      .maybeSingle();
+
+    if (fidelidadeError) {
+      console.error(
+        "Erro ao buscar fidelidade:",
+        fidelidadeError
+      );
+    } else if (fidelidade) {
+      const selosAtuais =
+        Number(fidelidade.selos ?? 0);
+
+      const novosSelos =
+        selosAtuais + 1;
+
+      const { error: atualizarFidelidadeError } =
+        await supabaseAdmin
+          .from("cliente_fidelidade")
+          .update({
+            selos: novosSelos,
+            desconto_disponivel:
+              novosSelos >= 10
+                ? true
+                : fidelidade.desconto_disponivel,
+            updated_at: new Date(),
+          })
+          .eq("id", fidelidade.id);
+
+      if (atualizarFidelidadeError) {
         console.error(
-          "Erro ao atualizar pedido:",
-          error
+          "Erro ao atualizar fidelidade:",
+          atualizarFidelidadeError
         );
       } else {
         console.log(
-          "Pedido atualizado com sucesso!"
+          `FIDELIDADE: +1 selo. Total atual: ${novosSelos}`
         );
-
-        if (
-  paymentStatus === "paid" &&
-  pedido?.cliente_id
-) {
-  await supabaseAdmin
-    .from("clientes")
-    .update({
-      ultimo_pedido: new Date(),
-      ultimo_acesso: new Date(),
-    })
-    .eq("id", pedido.cliente_id);
-}
-
       }
+    } else {
+      console.log(
+        "FIDELIDADE: cliente ainda não possui registro em cliente_fidelidade."
+      );
+    }
+  }
+}
 
       // ==========================================
       // PUSHCUT - PIX PAGO
