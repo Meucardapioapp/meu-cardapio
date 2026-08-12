@@ -47,6 +47,9 @@ export default function PedidosPage() {
 const [pedidoSelecionado, setPedidoSelecionado] =
   useState<Pedido | null>(null)
 
+  const [confirmarExclusao, setConfirmarExclusao] = useState(false)
+const [excluindoPedido, setExcluindoPedido] = useState(false)
+
   async function buscarPedidos() {
 
     console.log("========== BUSCANDO PEDIDOS ==========");
@@ -99,6 +102,50 @@ function fecharPedido() {
 
   setPedidoSelecionado(null)
 
+}
+
+async function excluirPedido() {
+  if (!pedidoSelecionado) return
+
+  try {
+    setExcluindoPedido(true)
+
+    const response = await fetch("/api/pedido/excluir", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+body: JSON.stringify({
+  pedidoId: pedidoSelecionado.id,
+  restauranteId: pedidoSelecionado.restaurante_id,
+}),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      alert(data.error || "Não foi possível excluir o pedido.")
+      return
+    }
+
+    // Remove o pedido da lista imediatamente
+    setPedidos((old) =>
+      old.filter((pedido) => pedido.id !== pedidoSelecionado.id)
+    )
+
+    // Fecha a confirmação
+    setConfirmarExclusao(false)
+
+    // Fecha o painel de detalhes
+    fecharPedido()
+
+  } catch (error) {
+    console.error("Erro ao excluir pedido:", error)
+
+    alert("Ocorreu um erro ao excluir o pedido.")
+  } finally {
+    setExcluindoPedido(false)
+  }
 }
 
   async function atualizarStatus(
@@ -1496,21 +1543,108 @@ ${nomeRestaurante
       : "Pedido finalizado"
     }
 
-  </button>
+</button>
 
 </div>
 
+<div className="mt-6">
+  <button
+    onClick={() => setConfirmarExclusao(true)}
+    className="w-full rounded-3xl border border-red-200 bg-red-50 p-5 text-left transition hover:bg-red-100"
+  >
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="font-bold text-red-600">
+          Excluir pedido
+        </p>
+
+        <p className="text-sm text-red-400 mt-1">
+          Essa ação não pode ser desfeita.
+        </p>
+      </div>
+
+      <span className="text-red-500 text-xl">
+        ›
+      </span>
     </div>
+  </button>
+</div>
+
+
+
+
 
   </div>
 
 </div>
 
+</div>
+
+
 )}
 
+</div>
+
+{confirmarExclusao && pedidoSelecionado && (
+  <div
+    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-6"
+    onClick={() => {
+      if (!excluindoPedido) {
+        setConfirmarExclusao(false)
+      }
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl"
+    >
+      <div className="flex justify-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600 text-2xl font-bold">
+          !
+        </div>
       </div>
 
-    </main>
+      <h2 className="mt-5 text-center text-2xl font-black text-zinc-900">
+        Excluir pedido
+      </h2>
+
+      <p className="mt-3 text-center text-zinc-600">
+        Tem certeza que deseja excluir o pedido{" "}
+        <strong>
+          #{pedidoSelecionado.numero_pedido ?? pedidoSelecionado.id}
+        </strong>
+        ?
+      </p>
+
+      <p className="mt-2 text-center text-sm text-zinc-400">
+        Essa ação não pode ser desfeita.
+      </p>
+
+      <div className="mt-7 grid grid-cols-2 gap-3">
+        <button
+          onClick={() => setConfirmarExclusao(false)}
+          disabled={excluindoPedido}
+          className="h-12 rounded-2xl border border-zinc-200 bg-white font-semibold text-zinc-700 hover:bg-zinc-50 transition disabled:opacity-50"
+        >
+          Cancelar
+        </button>
+
+        <button
+          onClick={excluirPedido}
+          disabled={excluindoPedido}
+          className="h-12 rounded-2xl bg-red-600 font-bold text-white hover:bg-red-700 transition disabled:opacity-50"
+        >
+          {excluindoPedido ? "Excluindo..." : "Excluir"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+</main>
+
+
+
 
   )
 }

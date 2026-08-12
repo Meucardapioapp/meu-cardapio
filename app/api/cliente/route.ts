@@ -31,20 +31,46 @@ export async function GET(req: NextRequest) {
       .eq("cliente_id", cliente.id)
       .order("principal", { ascending: false });
 
+    // ==========================================
+    // FIDELIDADE DO CLIENTE
+    // ==========================================
+
+    const { data: fidelidade, error: fidelidadeError } =
+      await supabaseAdmin
+        .from("cliente_fidelidade")
+        .select(`
+          id,
+          cliente_id,
+          restaurante_id,
+          selos,
+          desconto_disponivel,
+          ultimo_resgate,
+          created_at,
+          updated_at
+        `)
+        .eq("cliente_id", cliente.id)
+        .maybeSingle();
+
+    if (fidelidadeError) {
+      console.error(
+        "Erro ao buscar fidelidade:",
+        fidelidadeError
+      );
+    }
+
     return NextResponse.json({
       success: true,
       cliente,
       enderecos,
+      fidelidade: fidelidade ?? null,
     });
 
   } catch (e) {
-
     console.error(e);
 
     return NextResponse.json(
       { success: false },
       { status: 500 }
     );
-
   }
 }

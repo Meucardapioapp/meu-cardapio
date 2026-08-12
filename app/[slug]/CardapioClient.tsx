@@ -86,14 +86,22 @@ useEffect(() => {
 
       const resultado = await response.json();
 
-      if (resultado.success) {
-        setCliente(resultado.cliente);
+if (resultado.success) {
+  setCliente({
+    ...resultado.cliente,
+    selos_pix: resultado.fidelidade?.selos ?? 0,
+  });
 
-        console.log(
-          "CLIENTE LOGADO:",
-          resultado.cliente
-        );
-      }
+  console.log(
+    "CLIENTE LOGADO:",
+    resultado.cliente
+  );
+
+  console.log(
+    "FIDELIDADE CLIENTE:",
+    resultado.fidelidade
+  );
+}
     } catch (e) {
       console.error(e);
     }
