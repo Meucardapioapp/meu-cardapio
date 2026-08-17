@@ -100,6 +100,15 @@ const [cpf, setCpf] =
     const [frete, setFrete] =
   useState(0)
 
+  const [usarDescontoFidelidade, setUsarDescontoFidelidade] =
+  useState(false)
+
+const [descontoFidelidade, setDescontoFidelidade] =
+  useState(0)
+
+const [temDescontoFidelidade, setTemDescontoFidelidade] =
+  useState(false)
+
 const [cidade, setCidade] =
   useState("")
 
@@ -130,6 +139,26 @@ useEffect(() => {
       if (!resultado.success) return;
 
       const cliente = resultado.cliente;
+
+const fidelidade = resultado.fidelidade;
+
+const selos = Number(fidelidade?.selos || 0);
+const pedidosNecessarios = Number(
+  fidelidade?.pedidos_necessarios || 10
+);
+const valorDesconto = Number(
+  fidelidade?.valor_desconto || 0
+);
+
+setDescontoFidelidade(valorDesconto);
+
+setTemDescontoFidelidade(
+  selos >= pedidosNecessarios &&
+  valorDesconto > 0
+);
+
+
+
       const endereco = resultado.enderecos?.[0];
 
       setCliente(cliente.nome || "");
@@ -153,7 +182,15 @@ useEffect(() => {
   carregarCliente();
 }, [open]);
 
-  if (!open) return null
+const descontoAplicado =
+  usarDescontoFidelidade && temDescontoFidelidade
+    ? Math.min(descontoFidelidade, total + frete)
+    : 0;
+
+const totalFinal =
+  total + frete - descontoAplicado;
+
+if (!open) return null
 
   async function buscarCep(
   valorCep: string
@@ -311,14 +348,19 @@ async function pagarComPix() {
 
           itens: cart,
 
-          subtotal: total,
-          taxaEntrega: frete,
-          taxaOperacional: 0,
+subtotal: total,
+taxaEntrega: frete,
+taxaOperacional: 0,
 
-          total: total + frete,
-          totalPago: total + frete,
+descontoFidelidade: descontoAplicado,
 
-          payment_method: "pix",
+total: totalFinal,
+totalPago: totalFinal,
+
+usarDescontoFidelidade,
+
+payment_method: "pix",
+
         }),
       }
     )
@@ -390,7 +432,7 @@ async function pagarComPix() {
           body: JSON.stringify({
 
             total:
-              total + frete,
+             totalFinal,
 
             pedidoId:
               data.id,
@@ -1134,34 +1176,105 @@ setTimeout(() => {
 
            <div>
 
-  <p className={textSecondary}>
-    Subtotal
-  </p>
+ 
+<p className={textSecondary}>
+  Subtotal
+</p>
 
-  <p className={textPrimary}>
-    R$ {total.toFixed(2)}
-  </p>
+<p className={textPrimary}>
+  R$ {total.toFixed(2)}
+</p>
 
-  <p className={`mt-2 ${textSecondary}`}>
-    Frete
-  </p>
-
-  <p className={textPrimary}>
-    R$ {frete.toFixed(2)}
-  </p>
-
-  <h3
-    className="
-      text-4xl
-      font-black
-      mt-2
-    "
-    style={{
-      color: selectedColor,
-    }}
+{/* DESCONTO DE FIDELIDADE */}
+{temDescontoFidelidade && (
+  <button
+    type="button"
+    onClick={() =>
+      setUsarDescontoFidelidade(
+        !usarDescontoFidelidade
+      )
+    }
+    className={`
+      mt-3
+      w-full
+      rounded-xl
+      border
+      p-3
+      text-left
+      transition
+      ${
+        usarDescontoFidelidade
+          ? "border-green-500 bg-green-500/10"
+          : "border-zinc-300 bg-white"
+      }
+    `}
   >
-    R$ {(total + frete).toFixed(2)}
-  </h3>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="font-bold">
+          Desconto de fidelidade
+        </p>
+
+        <p className="text-sm text-zinc-500">
+          R$ {descontoFidelidade.toFixed(2)} de desconto
+        </p>
+      </div>
+
+      <div
+        className={`
+          h-5
+          w-5
+          rounded-full
+          border-2
+          flex
+          items-center
+          justify-center
+          ${
+            usarDescontoFidelidade
+              ? "border-green-500 bg-green-500"
+              : "border-zinc-300"
+          }
+        `}
+      >
+        {usarDescontoFidelidade && (
+          <span className="text-white text-xs">
+            ✓
+          </span>
+        )}
+      </div>
+    </div>
+  </button>
+)}
+
+{usarDescontoFidelidade && (
+  <p className="mt-2 text-sm font-semibold text-green-600">
+    Desconto aplicado: -R${" "}
+    {descontoAplicado.toFixed(2)}
+  </p>
+)}
+
+<p className={`mt-2 ${textSecondary}`}>
+  Frete
+</p>
+
+<p className={textPrimary}>
+  R$ {frete.toFixed(2)}
+</p>
+
+<h3
+  className="
+    text-4xl
+    font-black
+    mt-2
+  "
+  style={{
+    color: selectedColor,
+  }}
+>
+  R$ {totalFinal.toFixed(2)}
+</h3>
+
+
 
 </div>
 

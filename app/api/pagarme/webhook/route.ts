@@ -103,68 +103,105 @@ if (error) {
       .eq("id", pedido.cliente_id);
   }
 
-  // ==========================================
-  // FIDELIDADE - 1 SELO PARA PIX PAGO
-  // ==========================================
+// ==========================================
+// FIDELIDADE - 1 SELO PARA PIX PAGO
+// ==========================================
 
-  if (
-    paymentStatus === "paid" &&
-    pedidoAtualizado &&
-    pedido?.cliente_id &&
-    String(pedido.payment_method ?? "").toLowerCase() === "pix"
-  ) {
-    const {
-      data: fidelidade,
-      error: fidelidadeError,
-    } = await supabaseAdmin
-      .from("cliente_fidelidade")
-      .select(`
-        id,
-        selos,
-        desconto_disponivel
-      `)
-      .eq("cliente_id", pedido.cliente_id)
-      .eq("restaurante_id", pedido.restaurante_id)
-      .maybeSingle();
+if (
+  paymentStatus === "paid" &&
+  pedidoAtualizado &&
+  pedido?.cliente_id &&
+  String(pedido.payment_method ?? "").toLowerCase() === "pix"
+) {
+  const clienteId = pedido.cliente_id;
+  const restauranteId = pedido.restaurante_id;
 
-    if (fidelidadeError) {
+  console.log("========== FIDELIDADE ==========");
+  console.log("CLIENTE:", clienteId);
+  console.log("RESTAURANTE:", restauranteId);
+
+  // Procura o registro de fidelidade
+  const {
+    data: fidelidade,
+    error: buscarFidelidadeError,
+  } = await supabaseAdmin
+    .from("cliente_fidelidade")
+    .select("*")
+    .eq("cliente_id", clienteId)
+    .eq("restaurante_id", restauranteId)
+    .maybeSingle();
+
+  if (buscarFidelidadeError) {
+    console.error(
+      "Erro ao buscar fidelidade:",
+      buscarFidelidadeError
+    );
+  } else if (fidelidade) {
+    // ==========================================
+    // CLIENTE JÁ POSSUI FIDELIDADE
+    // ==========================================
+
+    const selosAtuais = Number(
+      fidelidade.selos ?? 0
+    );
+
+    const novosSelos = selosAtuais + 1;
+
+    const { error: atualizarFidelidadeError } =
+      await supabaseAdmin
+        .from("cliente_fidelidade")
+        .update({
+          selos: novosSelos,
+          desconto_disponivel:
+            novosSelos >= 10
+              ? true
+              : fidelidade.desconto_disponivel,
+          updated_at: new Date(),
+        })
+        .eq("id", fidelidade.id);
+
+    if (atualizarFidelidadeError) {
       console.error(
-        "Erro ao buscar fidelidade:",
-        fidelidadeError
+        "Erro ao atualizar fidelidade:",
+        atualizarFidelidadeError
       );
-    } else if (fidelidade) {
-      const selosAtuais =
-        Number(fidelidade.selos ?? 0);
-
-      const novosSelos =
-        selosAtuais + 1;
-
-      const { error: atualizarFidelidadeError } =
-        await supabaseAdmin
-          .from("cliente_fidelidade")
-          .update({
-            selos: novosSelos,
-            desconto_disponivel:
-              novosSelos >= 10
-                ? true
-                : fidelidade.desconto_disponivel,
-            updated_at: new Date(),
-          })
-          .eq("id", fidelidade.id);
-
-      if (atualizarFidelidadeError) {
-        console.error(
-          "Erro ao atualizar fidelidade:",
-          atualizarFidelidadeError
-        );
-      } else {
-        console.log(
-          `FIDELIDADE: +1 selo. Total atual: ${novosSelos}`
-        );
-      }
     } else {
       console.log(
-        "FIDELIDADE: cliente ainda não possui registro em cliente_fidelidade."
+        `FIDELIDADE: +1 selo. Total atual: ${novosSelos}`
+      );
+    }
+  } else {
+    // ==========================================
+    // PRIMEIRO PIX DO CLIENTE
+    // CRIA A FIDELIDADE COM 1 SELO
+    // ==========================================
+
+    const { data: novaFidelidade, error: criarFidelidadeError } =
+      await supabaseAdmin
+        .from("cliente_fidelidade")
+        .insert({
+          cliente_id: clienteId,
+          restaurante_id: restauranteId,
+          selos: 1,
+          desconto_disponivel: false,
+          updated_at: new Date(),
+        })
+        .select("*")
+        .single();
+
+    if (criarFidelidadeError) {
+      console.error(
+        "Erro ao criar fidelidade:",
+        criarFidelidadeError
+      );
+    } else {
+      console.log(
+        "FIDELIDADE: primeiro PIX do cliente."
+      );
+
+      console.log(
+        "FIDELIDADE CRIADA:",
+        novaFidelidade
       );
     }
   }
@@ -350,6 +387,8 @@ if (error) {
         }
       }
     }
+
+  }
 
     return NextResponse.json(
       {

@@ -145,9 +145,12 @@ async function carregarClientes() {
     .order("nome");
 
   if (error) {
-    console.error(error);
+    console.error("Erro ao carregar clientes:", error);
+    toast.error("Erro ao carregar clientes.");
     return;
   }
+
+  console.log("CLIENTES CARREGADOS:", data);
 
   setClientes(data || []);
 }
