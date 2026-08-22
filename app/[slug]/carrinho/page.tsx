@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { ShoppingCart } from "lucide-react";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { ArrowLeft } from "lucide-react";
+import ProductModal from "../../components/ProductModal";
 
 export default function CarrinhoPage() {
   const params = useParams();
@@ -111,6 +112,9 @@ const [totalItens, setTotalItens] =
 
 const [sugestoes, setSugestoes] =
   useState<any[]>([]);
+
+const [produtoSelecionado, setProdutoSelecionado] =
+  useState<any | null>(null);
 
   const [carregando, setCarregando] = useState(false);
 
@@ -375,56 +379,43 @@ console.log("TOKEN:", token);
     salvarCarrinho(novoCarrinho);
   }
 
-  function adicionarSugestao(
-  produto: any
-) {
-
-  const itemExistente =
-    cart.find(
-      (item) =>
-        item.id === produto.id
-    );
-
-  if (itemExistente) {
-
-    const novoCarrinho =
-      cart.map((item) =>
-        item.id === produto.id
-          ? {
-              ...item,
-              quantity:
-                item.quantity + 1,
-            }
-          : item
-      );
-
-    salvarCarrinho(
-      novoCarrinho
-    );
-
-    return;
-  }
-
-  const novoItem = {
-    ...produto,
-    quantity: 1,
-    uniqueId:
-      crypto.randomUUID(),
-  };
-
-  salvarCarrinho([
-    ...cart,
-    novoItem,
-  ]);
+  function adicionarSugestao(produto: any) {
+  setProdutoSelecionado(produto);
 }
 
-  const total = cart.reduce(
-    (acc, item) =>
+
+const total = cart.reduce(
+  (acc, item) => {
+    const precoBase = Number(
+      item.precoBase ?? item.preco ?? 0
+    );
+
+    const totalAdicionais =
+      (item.adicionaisSelecionados || []).reduce(
+        (total: number, adicional: any) =>
+          total + Number(adicional.preco || 0),
+        0
+      );
+
+    const totalObrigatorios =
+      (item.obrigatoriosSelecionados || []).reduce(
+        (total: number, opcao: any) =>
+          total + Number(opcao.preco || 0),
+        0
+      );
+
+    const precoFinal =
+      precoBase +
+      totalAdicionais +
+      totalObrigatorios;
+
+    return (
       acc +
-      Number(item.preco) *
-        Number(item.quantity),
-    0
-  );
+      precoFinal * Number(item.quantity)
+    );
+  },
+  0
+);
 
   console.log({
   total,
@@ -708,18 +699,28 @@ return (
   {item.descricao}
 </p>
 
-              <p
-                className="
-                  mt-2
-                  font-black
-                  text-xl
-                "
-              >
-                R${" "}
-                {Number(
-                  item.preco
-                ).toFixed(2)}
-              </p>
+<p
+  className="
+    mt-2
+    font-black
+    text-xl
+  "
+>
+  R${" "}
+  {(
+    Number(item.precoBase ?? item.preco ?? 0) +
+    (item.adicionaisSelecionados || []).reduce(
+      (total: number, adicional: any) =>
+        total + Number(adicional.preco || 0),
+      0
+    ) +
+    (item.obrigatoriosSelecionados || []).reduce(
+      (total: number, opcao: any) =>
+        total + Number(opcao.preco || 0),
+      0
+    )
+  ).toFixed(2)}
+</p>
 
               <div
                 className="
@@ -1308,6 +1309,60 @@ if (!telefoneValido) {
 </div>
 
       </div>
+      <ProductModal
+      open={!!produtoSelecionado}
+      product={produtoSelecionado}
+      corPrincipal={corPrincipal}
+      onClose={() => setProdutoSelecionado(null)}
+      onAdd={(
+        produto,
+        observation,
+        adicionaisSelecionados,
+        obrigatoriosSelecionados
+      ) => {
+        const precoBase = Number(produto.preco || 0);
+
+        const totalAdicionais =
+          (adicionaisSelecionados || []).reduce(
+            (total, adicional) =>
+              total + Number(adicional.preco || 0),
+            0
+          );
+
+        const totalObrigatorios =
+          (obrigatoriosSelecionados || []).reduce(
+            (total, opcao) =>
+              total + Number(opcao.preco || 0),
+            0
+          );
+
+        const precoFinal =
+          precoBase +
+          totalAdicionais +
+          totalObrigatorios;
+
+        const novoItem = {
+          ...produto,
+          uniqueId: crypto.randomUUID(),
+          quantity: 1,
+          observacao: observation,
+          precoBase,
+          preco: precoFinal,
+          adicionaisSelecionados:
+            adicionaisSelecionados || [],
+          obrigatoriosSelecionados:
+            obrigatoriosSelecionados || [],
+        };
+
+        salvarCarrinho([
+          ...cart,
+          novoItem,
+        ]);
+
+        setProdutoSelecionado(null);
+      }}
+    />
+
     </main>
   </>
   );

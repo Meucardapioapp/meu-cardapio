@@ -587,14 +587,16 @@ hover:border-zinc-300
 }}
 />
 
-<div>
+<div className="min-w-0">
+  <p className="font-semibold">
+    {opcao.nome}
+  </p>
 
-<p className="font-semibold">
-
-{opcao.nome}
-
-</p>
-
+  {opcao.descricao && (
+    <p className="mt-1 text-xs text-zinc-500 leading-4">
+      {opcao.descricao}
+    </p>
+  )}
 </div>
 
             </div>

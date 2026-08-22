@@ -56,6 +56,8 @@ export interface CartItem extends ProdutoFormatado {
 
   quantity: number
 
+  precoBase?: number
+
   observacao?: string
 
   adicionaisSelecionados?: Adicional[]
