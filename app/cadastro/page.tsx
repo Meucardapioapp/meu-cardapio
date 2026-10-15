@@ -31,6 +31,18 @@ function formatarTelefone(valor: string) {
   return `(${numero.slice(0, 2)}) ${numero.slice(2, 7)}-${numero.slice(7)}`;
 }
 
+// Estados do Brasil (lista fixa: o cadastro não depende de nenhum site externo).
+const ESTADOS_BR = [
+  ["AC", "Acre"], ["AL", "Alagoas"], ["AP", "Amapá"], ["AM", "Amazonas"], ["BA", "Bahia"],
+  ["CE", "Ceará"], ["DF", "Distrito Federal"], ["ES", "Espírito Santo"], ["GO", "Goiás"],
+  ["MA", "Maranhão"], ["MT", "Mato Grosso"], ["MS", "Mato Grosso do Sul"], ["MG", "Minas Gerais"],
+  ["PA", "Pará"], ["PB", "Paraíba"], ["PR", "Paraná"], ["PE", "Pernambuco"], ["PI", "Piauí"],
+  ["RJ", "Rio de Janeiro"], ["RN", "Rio Grande do Norte"], ["RS", "Rio Grande do Sul"],
+  ["RO", "Rondônia"], ["RR", "Roraima"], ["SC", "Santa Catarina"], ["SP", "São Paulo"],
+  ["SE", "Sergipe"], ["TO", "Tocantins"],
+].map(([sigla, nome]) => ({ id: sigla, sigla, nome }));
+
+
 export default function CadastroPage() {
   const router = useRouter()
 
@@ -52,8 +64,6 @@ export default function CadastroPage() {
   const [senha, setSenha] = useState("")
   const [confirmarSenha, setConfirmarSenha] = useState("")
   const [buscaCidade, setBuscaCidade] = useState("");
-const [cidades, setCidades] = useState<any[]>([]);
-const [mostrarLista, setMostrarLista] = useState(false);
 const [estado, setEstado] = useState("");
 const [uf, setUf] = useState("");
 const [estados, setEstados] = useState<any[]>([]);
@@ -64,52 +74,20 @@ useEffect(() => {
 
 }, []);
 
-async function carregarEstados() {
+function carregarEstados() {
 
-  const response = await fetch(
-    "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
-  );
-
-  const data = await response.json();
-
-  setEstados(data);
+  setEstados(ESTADOS_BR);
 
 }
 
-async function buscarCidade(valor: string) {
+function buscarCidade(valor: string) {
 
-  setBuscaCidade(valor);
+  // Cidade digitada à mão pelo dono do restaurante (sem consultar o IBGE).
+  const texto = valor.replace(/\s+/g, " ").slice(0, 60);
 
-  if (!uf) {
+  setBuscaCidade(texto);
 
-    alert("Escolha primeiro um estado.");
-
-    return;
-
-  }
-
-  if (valor.length < 2) {
-
-    setMostrarLista(false);
-    setCidades([]);
-
-    return;
-
-  }
-
-const resposta = await fetch(
-
-`/api/cidades?uf=${uf}&search=${encodeURIComponent(valor)}`
-
-);
-
-  const dados = await resposta.json();
-
-  console.log(dados);
-
-  setCidades(dados);
-
-  setMostrarLista(true);
+  setCidade(texto.trim());
 
 }
 
@@ -402,10 +380,6 @@ const resposta = await fetch(
 
     setEstado(estadoSelecionado?.nome || "");
 
-    setCidade("");
-
-    setBuscaCidade("");
-
   }}
 
   className="w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4"
@@ -441,36 +415,15 @@ value={estado.sigla}
 <div className="relative">
   <input
     type="text"
-    placeholder="Cidade"
+    placeholder="Sua cidade"
+    autoComplete="address-level2"
+    maxLength={60}
     value={buscaCidade}
     onChange={(e) => buscarCidade(e.target.value)}
     className="w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
   />
 
-  {mostrarLista && cidades.length > 0 && (
-    <div className="absolute z-50 mt-2 w-full rounded-2xl border bg-white shadow-xl max-h-64 overflow-auto">
-      {cidades.map((cidadeItem: any) => (
-        <button
-          type="button"
-          key={cidadeItem.id}
-onClick={() => {
-
-  setCidade(cidadeItem.nome);
-
-  setBuscaCidade(
-    `${cidadeItem.nome} - ${uf}`
-  );
-
-  setMostrarLista(false);
-
-}}
-          className="block w-full px-4 py-3 text-left hover:bg-zinc-100"
-        >
-   {cidadeItem.nome} - {uf}
-        </button>
-      ))}
-    </div>
-  )}
+  
 </div>
 
 <select
