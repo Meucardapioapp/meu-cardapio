@@ -1,44 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { NextResponse } from "next/server";
 
-export async function POST(req: NextRequest) {
-  try {
-    const {
-      pedidoId,
-      payment_status,
-      payment_method,
-      status,
-    } = await req.json();
-
-    const { data, error } = await supabaseAdmin
-      .from("pedidos")
-      .update({
-        payment_status,
-        payment_method,
-        status,
-      })
-      .eq("id", pedidoId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json({
-      success: true,
-      pedido: data,
-    });
-
-  } catch (error: any) {
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
-    );
-
-  }
+// Rota desativada por segurança (removida na atualização de 12/10/2026).
+// Pode apagar esta pasta.
+function desativada() {
+  return NextResponse.json({ error: "Rota desativada." }, { status: 410 });
 }
+
+export const GET = desativada;
+export const POST = desativada;
+export const PUT = desativada;
+export const PATCH = desativada;
+export const DELETE = desativada;

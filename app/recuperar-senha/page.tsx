@@ -1,13 +1,15 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useRef, useState } from "react"
+import Turnstile, { type TurnstileRef } from "@/app/components/Turnstile"
 import { supabase } from "@/lib/supabase"
 import Toast from "@/app/components/ui/toast"
 
 export default function RecuperarSenhaPage() {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
+  const turnstile = useRef<TurnstileRef>(null)
   const [enviado, setEnviado] = useState(false)
 
   const [toast, setToast] = useState<{
@@ -57,6 +59,8 @@ export default function RecuperarSenhaPage() {
     try {
       setLoading(true)
 
+      const captchaToken = await turnstile.current?.obterToken()
+
       const { error } =
         await supabase.auth.resetPasswordForEmail(
           email,
@@ -64,6 +68,7 @@ export default function RecuperarSenhaPage() {
             redirectTo:
               window.location.origin +
               "/redefinir-senha",
+            captchaToken,
           }
         )
 
@@ -256,6 +261,8 @@ export default function RecuperarSenhaPage() {
               }
               className="mt-10 w-full rounded-3xl border border-[#E7E5E4] bg-[#F8F6F4] px-7 py-6 text-black outline-none transition-all duration-300 focus:border-[#6D1F2F] focus:bg-white"
             />
+
+            <Turnstile ref={turnstile} />
 
             <button
               onClick={enviarLink}

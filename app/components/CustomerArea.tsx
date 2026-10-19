@@ -54,9 +54,7 @@ if (!token) {
 }
 
       try {
-        const response = await fetch(
-          `/api/cliente/me?token=${token}`
-        );
+        const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
 
         const resultado = await response.json();
 
@@ -76,6 +74,31 @@ if (!token) {
       carregarCliente();
     }
  }, [open, pathname]);
+
+  async function apagarMeusDados() {
+    const slug = window.location.pathname.split("/")[1];
+    const token = localStorage.getItem(`cliente_token-${slug}`) || "";
+    const resposta = window.prompt(
+      "Isso apaga seu cadastro, endereços e selos de fidelidade deste restaurante. Os pedidos ficam sem seu nome e telefone. Para confirmar, digite APAGAR:"
+    );
+    if (resposta?.trim().toUpperCase() !== "APAGAR") return;
+    const r = await fetch("/api/cliente/excluir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-cliente-token": token },
+      body: JSON.stringify({ confirmar: "APAGAR" }),
+    });
+    const d = await r.json().catch(() => null);
+    if (!d?.success) {
+      window.alert(d?.error || "Não foi possível apagar agora.");
+      return;
+    }
+    localStorage.removeItem(`cliente_token-${slug}`);
+    try {
+      for (const k of Object.keys(localStorage)) if (k.includes(slug) && /endereco|cliente|dados/i.test(k)) localStorage.removeItem(k);
+    } catch {}
+    setDados(null);
+    window.alert("Pronto: seus dados foram apagados.");
+  }
 
   function sair() {
     const slug = window.location.pathname.split("/")[1];
@@ -696,7 +719,7 @@ a cada quantidade de pedidos.
 <button
   onClick={() => {
 
-    router.push(`/pedido/${pedido.id}`);
+    router.push(`/pedido/${pedido.id}?c=${pedido.codigo_acesso ?? ""}`);
 
   }}
   className="
@@ -874,6 +897,16 @@ a cada quantidade de pedidos.
     Sair da conta
   </button>
 
+  <button
+    onClick={apagarMeusDados}
+    className="mt-4 w-full text-center text-xs font-semibold text-zinc-400 underline hover:text-red-500"
+  >
+    Apagar meus dados deste cardápio
+  </button>
+  <p className="mt-2 text-center text-[11px] text-zinc-400">
+    <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">Política de Privacidade</a>
+  </p>
+
 </div>
 
 </>
@@ -902,7 +935,7 @@ const token = localStorage.getItem(
 
     if (!token) return;
 
-    const response = await fetch(`/api/cliente/me?token=${token}`);
+    const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
     const resultado = await response.json();
 
     if (resultado.success) {
@@ -928,9 +961,7 @@ const token = localStorage.getItem(
 
     if (!token) return;
 
-    const response = await fetch(
-      `/api/cliente/me?token=${token}`
-    );
+    const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
 
     const resultado = await response.json();
 

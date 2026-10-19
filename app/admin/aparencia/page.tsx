@@ -1,1511 +1,901 @@
-"use client"
+"use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
-  useEffect,
-  useRef,
-  useState,
-} from "react"
+  Bike,
+  Camera,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
+  ExternalLink,
+  ImagePlus,
+  Loader2,
+  Palette,
+  Pencil,
+  Plus,
+  ShoppingBag,
+  Star,
+  Tags,
+  Trash2,
+  Type,
+  Wallet,
+  X,
+} from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
-import Link from "next/link"
+/* ============================================================
+   Tipos e constantes
+   ============================================================ */
 
-import { supabase } from "@/lib/supabase"
-import { Button } from "@/components/ui/button"
+type Painel = "banner" | "logo" | "nome" | "cor" | "horarios" | "pedido" | "categorias";
 
-const colors = [
-  "#556B2F",
-  "#7F1D1D",
-  "#D4AF37",
-  "#1E3A8A",
-  "#6B21A8",
-  "#18181B",
-]
+const DIAS = [
+  { id: "seg", nome: "Segunda" },
+  { id: "ter", nome: "Terça" },
+  { id: "qua", nome: "Quarta" },
+  { id: "qui", nome: "Quinta" },
+  { id: "sex", nome: "Sexta" },
+  { id: "sab", nome: "Sábado" },
+  { id: "dom", nome: "Domingo" },
+] as const;
 
-const bgPage = "bg-[#F4F1EA]"
+type DiaId = (typeof DIAS)[number]["id"];
+type Horarios = Record<DiaId, { aberto: boolean; inicio: string; fim: string }>;
 
-const cardBg = "bg-white"
+const CORES = [
+  { cor: "#6D1F2F", nome: "Vinho" },
+  { cor: "#B91C1C", nome: "Vermelho" },
+  { cor: "#EA580C", nome: "Laranja" },
+  { cor: "#CA8A04", nome: "Mostarda" },
+  { cor: "#15803D", nome: "Verde" },
+  { cor: "#0F766E", nome: "Petróleo" },
+  { cor: "#1D4ED8", nome: "Azul" },
+  { cor: "#6B21A8", nome: "Roxo" },
+  { cor: "#BE185D", nome: "Rosa" },
+  { cor: "#18181B", nome: "Preto" },
+];
 
-const borderColor = "border-[#DDD6CC]"
+const ATALHOS: { id: Painel; nome: string; icone: typeof Camera }[] = [
+  { id: "banner", nome: "Banner", icone: ImagePlus },
+  { id: "logo", nome: "Logo", icone: Camera },
+  { id: "nome", nome: "Nome", icone: Type },
+  { id: "cor", nome: "Cor", icone: Palette },
+  { id: "horarios", nome: "Horários", icone: Clock3 },
+  { id: "pedido", nome: "Pedido mínimo", icone: Wallet },
+  { id: "categorias", nome: "Categorias", icone: Tags },
+];
 
-const textPrimary = "text-zinc-900"
+const horariosVazios = (): Horarios =>
+  Object.fromEntries(DIAS.map((d) => [d.id, { aberto: false, inicio: "18:00", fim: "23:00" }])) as Horarios;
 
-const textSecondary = "text-zinc-600"
+function mascaraDinheiro(valor: string) {
+  const digitos = valor.replace(/\D/g, "").replace(/^0+/, "").slice(0, 7);
+  if (!digitos) return "";
+  const c = digitos.padStart(3, "0");
+  return `${c.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${c.slice(-2)}`;
+}
+
+const paraNumero = (v: string) => Number(String(v || "0").replace(/\./g, "").replace(",", ".")) || 0;
+const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function statusAgora(h: Horarios) {
+  const dias: DiaId[] = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
+  const agora = new Date();
+  const hoje = h[dias[agora.getDay()]];
+  if (!hoje.aberto) return { aberto: false, texto: "Fechado hoje" };
+
+  const minutos = agora.getHours() * 60 + agora.getMinutes();
+  const [hi, mi] = hoje.inicio.split(":").map(Number);
+  const [hf, mf] = hoje.fim.split(":").map(Number);
+  const ini = hi * 60 + mi;
+  const fim = hf * 60 + mf;
+  const aberto = fim > ini ? minutos >= ini && minutos <= fim : minutos >= ini || minutos <= fim;
+
+  return aberto
+    ? { aberto: true, texto: `Fecha às ${hoje.fim}` }
+    : { aberto: false, texto: `Abre às ${hoje.inicio}` };
+}
+
+/* ============================================================
+   Página
+   ============================================================ */
 
 export default function AparenciaPage() {
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [alterado, setAlterado] = useState(false);
+  const [painel, setPainel] = useState<Painel | null>(null);
 
-  const [selectedColor, setSelectedColor] =
-    useState("#556B2F")
+  const [restauranteId, setRestauranteId] = useState("");
+  const [slug, setSlug] = useState("");
+  const [aparenciaId, setAparenciaId] = useState<string | null>(null);
 
-    const [categoriaRestaurante, setCategoriaRestaurante] =
-  useState("")
+  const [nome, setNome] = useState("");
+  const [cor, setCor] = useState("#6D1F2F");
+  const [banner, setBanner] = useState("");
+  const [logo, setLogo] = useState("");
+  const [pedidoMinimo, setPedidoMinimo] = useState("");
+  const [horarios, setHorarios] = useState<Horarios>(horariosVazios);
+  const [enviando, setEnviando] = useState<"banner" | "logo" | null>(null);
 
-  const [nomeRestaurante,
-  setNomeRestaurante] =
-  useState("")
+  const [categorias, setCategorias] = useState<{ id: string; nome: string; ordem: number }[]>([]);
+  const [produtos, setProdutos] = useState<{ nome: string; preco: number; imagem: string | null; categoria: string | null }[]>([]);
+  const [taxaMinima, setTaxaMinima] = useState<number | null>(null);
 
-const [pedidoMinimo,
-  setPedidoMinimo] =
-  useState("")
+  const inputBanner = useRef<HTMLInputElement>(null);
+  const inputLogo = useRef<HTMLInputElement>(null);
 
-const [tipoAtendimento, setTipoAtendimento] =
-  useState("Delivery")
+  function marcar<T>(setter: (v: T) => void) {
+    return (v: T) => {
+      setter(v);
+      setAlterado(true);
+    };
+  }
 
-
-  const [logoPreview, setLogoPreview] =
-    useState<string | null>(null)
-
-  const [bannerPreview, setBannerPreview] =
-  useState<string | null>(null)
-
-const [horarios, setHorarios] =
-  useState({
-    seg_inicio: "",
-    seg_fim: "",
-    ter_inicio: "",
-    ter_fim: "",
-    qua_inicio: "",
-    qua_fim: "",
-    qui_inicio: "",
-    qui_fim: "",
-    sex_inicio: "",
-    sex_fim: "",
-    sab_inicio: "",
-    sab_fim: "",
-    dom_inicio: "",
-    dom_fim: "",
-  })
-
-const [savedMessage, setSavedMessage] =
-  useState(false)
-
-  const [errorMessage, setErrorMessage] = useState("")
-
-const [saving, setSaving] =
-  useState(false)
-
-  const [loading, setLoading] =
-  useState(true)
-
-const [restauranteId, setRestauranteId] =
-  useState<string | null>(null)
-
-const [premium, setPremium] =
-  useState(false)
-
-const [statusAssinatura, setStatusAssinatura] =
-  useState("")
-
-  const [slug, setSlug] =
-  useState("")
-
-  const logoInputRef =
-    useRef<HTMLInputElement>(null)
-
-  const bannerInputRef =
-    useRef<HTMLInputElement>(null)
-
-    const colorInputRef =
-  useRef<HTMLInputElement>(null)
+  /* ---------- carregar ---------- */
 
   useEffect(() => {
-    carregarAparencia()
-  }, [])
-
-  async function carregarAparencia() {
-
-    try {
-
+    async function carregar() {
+      // Sessão local (sem ida ao servidor de login): a tela abre mais rápido.
       const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      console.log("USER LOGADO:", user)
-      console.log("USER ID:", user?.id)
-      
-
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-const {
-  data: restaurante,
-  error: restauranteError,
-} = await supabase
-  .from("restaurantes")
-.select(`
-  id,
-  slug,
-  premium,
-  assinatura_status
-`)
-  .eq("auth_user_id", user.id)
-  .single()
-
-
-console.log("RESTAURANTE:", restaurante)
-console.log("ERRO:", restauranteError)
-
-      if (
-        restauranteError ||
-        !restaurante
-      ) {
-
-        console.log(restauranteError)
-
-        setLoading(false)
-
-        return
-      }
-
-setRestauranteId(
-  restaurante.id
-)
-
-setSlug(
-  restaurante.slug || ""
-)
-
-setPremium(
-  restaurante.premium
-)
-
-setStatusAssinatura(
-  restaurante.assinatura_status
-)
-
-console.log(
-  "Premium:",
-  restaurante.premium
-)
-
-console.log(
-  "Status:",
-  restaurante.assinatura_status
-)
-
-
-      /*
-        BUSCA APENAS O MAIS RECENTE
-      */
-
-      const {
-        data: aparencia,
-        error: aparenciaError,
-      } = await supabase
-        .from("aparencia")
-        .select("*")
-        .eq(
-          "restaurante_id",
-          restaurante.id
-        )
-        .order(
-          "created_at",
-          { ascending: false }
-        )
-        .limit(1)
-        .maybeSingle()
-
-      if (
-        aparenciaError &&
-        aparenciaError.code !== "PGRST116"
-      ) {
-
-        console.log(
-          aparenciaError
-        )
-      }
-
-      if (aparencia) {
-
-        setCategoriaRestaurante(
-  aparencia.categoria_restaurante || ""
-)
-
-setTipoAtendimento(
-  aparencia.tipo_atendimento || "Delivery"
-)
-
-setNomeRestaurante(
-  aparencia.nome_restaurante || ""
-)
-
-setPedidoMinimo(
-  aparencia.pedido_minimo?.toString() || ""
-)
-
-        setSelectedColor(
-          aparencia.cor_primaria ||
-            "#556B2F"
-        )
-
-        
-
-        setLogoPreview(
-          aparencia.logo_url ||
-            null
-        )
-
-        setBannerPreview(
-          aparencia.banner_url ||
-            null
-        )
-        setHorarios({
-  seg_inicio: aparencia.horario_seg_inicio || "",
-  seg_fim: aparencia.horario_seg_fim || "",
-
-  ter_inicio: aparencia.horario_ter_inicio || "",
-  ter_fim: aparencia.horario_ter_fim || "",
-
-  qua_inicio: aparencia.horario_qua_inicio || "",
-  qua_fim: aparencia.horario_qua_fim || "",
-
-  qui_inicio: aparencia.horario_qui_inicio || "",
-  qui_fim: aparencia.horario_qui_fim || "",
-
-  sex_inicio: aparencia.horario_sex_inicio || "",
-  sex_fim: aparencia.horario_sex_fim || "",
-
-  sab_inicio: aparencia.horario_sab_inicio || "",
-  sab_fim: aparencia.horario_sab_fim || "",
-
-  dom_inicio: aparencia.horario_dom_inicio || "",
-  dom_fim: aparencia.horario_dom_fim || "",
-})
-      }
-
-    } catch (error) {
-
-      console.log(error)
-
-    } finally {
-
-      setLoading(false)
-    }
-  }
-
-  async function saveChanges() {
-
-const valorPedido = Number(
-  pedidoMinimo.replace(/\./g, "").replace(",", ".")
-);
-
-if (!pedidoMinimo || isNaN(valorPedido) || valorPedido <= 0) {
-setErrorMessage(
-  "Defina um pedido mínimo maior que R$ 0,00 para continuar."
-);
-
-setTimeout(() => {
-  setErrorMessage("");
-}, 3000);
-
-return;
-}
-
-    if (!restauranteId) {
-
-      setSaving(true)
-
-      alert(
-        "Restaurante não encontrado"
-      )
-
-      return
-    }
-
-    try {
-
-      /*
-        PROCURA REGISTRO EXISTENTE
-      */
-
-      const {
-        data: aparenciaExistente,
-        error: buscaError,
-      } = await supabase
-        .from("aparencia")
-        .select("id")
-        .eq(
-          "restaurante_id",
-          restauranteId
-        )
-        .order(
-          "created_at",
-          { ascending: false }
-        )
-        .limit(1)
-        .maybeSingle()
-
-      if (buscaError) {
-
-        console.log(
-          buscaError
-        )
-
-        alert(
-          "Erro ao buscar aparência"
-        )
-
-        return
-      }
-
-      /*
-        UPDATE
-      */
-
-      if (aparenciaExistente) {
-
-        console.log(
-  "HORARIOS SALVANDO:",
-  horarios
-)
-
-console.log(
-  "HORARIOS SALVANDO:",
-  horarios
-)
-
-console.log("ENVIANDO PARA SUPABASE:", {
-  horario_seg_inicio: horarios.seg_inicio,
-  horario_seg_fim: horarios.seg_fim,
-})
-
-const {
-  error: updateError,
-} = await supabase
-  .from("aparencia")
-  .update({
-
-  categoria_restaurante:
-    categoriaRestaurante,
-
-  tipo_atendimento:
-    tipoAtendimento,
-
-    nome_restaurante:
-  nomeRestaurante,
-
-pedido_minimo: Number(
-  pedidoMinimo.replace(",", ".")
-),
-
-  cor_primaria:
-    selectedColor,
-
-  logo_url:
-    logoPreview,
-
-  banner_url:
-    bannerPreview,
-
-    horario_seg_inicio:
-      horarios.seg_inicio,
-
-    horario_seg_fim:
-      horarios.seg_fim,
-
-    horario_ter_inicio:
-      horarios.ter_inicio,
-
-    horario_ter_fim:
-      horarios.ter_fim,
-
-    horario_qua_inicio:
-      horarios.qua_inicio,
-
-    horario_qua_fim:
-      horarios.qua_fim,
-
-    horario_qui_inicio:
-      horarios.qui_inicio,
-
-    horario_qui_fim:
-      horarios.qui_fim,
-
-    horario_sex_inicio:
-      horarios.sex_inicio,
-
-    horario_sex_fim:
-      horarios.sex_fim,
-
-    horario_sab_inicio:
-      horarios.sab_inicio,
-
-    horario_sab_fim:
-      horarios.sab_fim,
-
-    horario_dom_inicio:
-      horarios.dom_inicio,
-
-    horario_dom_fim:
-      horarios.dom_fim,
-
-  })
-          .eq(
-            "id",
-            aparenciaExistente.id
-          )
-
-      if (updateError) {
-
-  console.log(updateError)
-
-  alert(
-    "Erro ao atualizar aparência"
-  )
-
-  return
-}
-
-console.log("UPDATE OK")
-
-
-
-} else {
-
-/*
-  INSERT
-*/
-
-        const {
-          error: insertError,
-        } = await supabase
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) return;
+
+      const { data: rest } = await supabase
+        .from("restaurantes")
+        .select("id, slug, nome_restaurante")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
+      if (!rest) return;
+
+      setRestauranteId(String(rest.id));
+      setSlug(rest.slug || "");
+
+      const [{ data: ap }, { data: cats }, { data: prods }, { data: bairros }] = await Promise.all([
+        supabase
           .from("aparencia")
-         .insert({
+          .select("*")
+          .eq("restaurante_id", rest.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase.from("categorias").select("id, nome, ordem").eq("restaurante_id", rest.id).order("ordem", { ascending: true }),
+        supabase
+          .from("produtos")
+          .select("nome, preco, imagem, categoria")
+          .eq("restaurante_id", rest.id)
+          .eq("ativo", true)
+          .limit(30),
+        supabase.from("bairros_entrega").select("valor").eq("restaurante_id", rest.id),
+      ]);
 
-  restaurante_id:
-    restauranteId,
+      setNome(ap?.nome_restaurante || rest.nome_restaurante || "");
+      setCor(ap?.cor_primaria || "#6D1F2F");
+      setBanner(ap?.banner_url || "");
+      setLogo(ap?.logo_url || "");
+      setPedidoMinimo(ap?.pedido_minimo ? mascaraDinheiro(Number(ap.pedido_minimo).toFixed(2).replace(".", "")) : "");
+      setAparenciaId(ap?.id ?? null);
 
-    nome_restaurante:
-  nomeRestaurante,
-
-
-  categoria_restaurante:
-    categoriaRestaurante,
-
-  tipo_atendimento:
-    tipoAtendimento,
-
-pedido_minimo: Number(
-  pedidoMinimo.replace(",", ".")
-),
-
-  cor_primaria:
-    selectedColor,
-
-  logo_url:
-    logoPreview,
-
-  banner_url:
-    bannerPreview,
-
-  horario_seg_inicio:
-    horarios.seg_inicio,
-
-  horario_seg_fim:
-    horarios.seg_fim,
-
-  horario_ter_inicio:
-    horarios.ter_inicio,
-
-  horario_ter_fim:
-    horarios.ter_fim,
-
-  horario_qua_inicio:
-    horarios.qua_inicio,
-
-  horario_qua_fim:
-    horarios.qua_fim,
-
-  horario_qui_inicio:
-    horarios.qui_inicio,
-
-  horario_qui_fim:
-    horarios.qui_fim,
-
-  horario_sex_inicio:
-    horarios.sex_inicio,
-
-  horario_sex_fim:
-    horarios.sex_fim,
-
-  horario_sab_inicio:
-    horarios.sab_inicio,
-
-  horario_sab_fim:
-    horarios.sab_fim,
-
-  horario_dom_inicio:
-    horarios.dom_inicio,
-
-  horario_dom_fim:
-    horarios.dom_fim,
-})
-
-        if (insertError) {
-
-          console.log(
-            insertError
-          )
-
-          alert(
-            "Erro ao criar aparência"
-          )
-
-          return
+      if (ap) {
+        const h = horariosVazios();
+        for (const d of DIAS) {
+          const inicio = ap[`horario_${d.id}_inicio`];
+          const fim = ap[`horario_${d.id}_fim`];
+          h[d.id] = inicio && fim ? { aberto: true, inicio, fim } : { aberto: false, inicio: "18:00", fim: "23:00" };
         }
-
+        setHorarios(h);
       }
 
-      /*
-        LIMPA CACHE
-      */
+      setCategorias((cats ?? []).map((c, i) => ({ id: String(c.id), nome: c.nome, ordem: c.ordem ?? i })));
+      setProdutos(prods ?? []);
+      const valores = (bairros ?? []).map((b) => Number(b.valor)).filter((v) => !Number.isNaN(v));
+      setTaxaMinima(valores.length ? Math.min(...valores) : null);
+      setCarregando(false);
+    }
 
-      localStorage.removeItem(
-  "aparencia-cache"
-)
+    carregar();
+  }, []);
 
-localStorage.setItem(
-  "cardapio-primary-color",
-  selectedColor
-)
+  /* ---------- avisar antes de sair sem salvar ---------- */
 
-setSavedMessage(true)
+  useEffect(() => {
+    const aviso = (e: BeforeUnloadEvent) => {
+      if (alterado) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", aviso);
+    return () => window.removeEventListener("beforeunload", aviso);
+  }, [alterado]);
 
-setSaving(false)
+  /* ---------- imagens ---------- */
 
-setTimeout(() => {
-  setSavedMessage(false)
-}, 3000)
+  async function enviarImagem(tipo: "banner" | "logo", arquivo: File | undefined) {
+    if (!arquivo) return;
+    if (!arquivo.type.startsWith("image/")) return toast.error("Escolha uma imagem (JPG, PNG ou WEBP).");
+    if (arquivo.size > 5 * 1024 * 1024) return toast.error("A imagem pode ter no máximo 5 MB.");
 
-    } catch (error) {
+    setEnviando(tipo);
 
-      console.log(error)
+    try {
+      const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const bucket = tipo === "banner" ? "banners" : "logos";
+      // Cada restaurante só pode gravar na própria pasta (regra do Storage).
+      const caminho = `${restauranteId}/${tipo}-${crypto.randomUUID()}.${extensao}`;
 
-      alert(
-        "Erro inesperado"
-      )
+      const { error } = await supabase.storage.from(bucket).upload(caminho, arquivo, {
+        contentType: arquivo.type,
+        cacheControl: "3600",
+      });
+      if (error) throw error;
+
+      const url = supabase.storage.from(bucket).getPublicUrl(caminho).data.publicUrl;
+      if (tipo === "banner") marcar(setBanner)(url);
+      else marcar(setLogo)(url);
+      toast.success(tipo === "banner" ? "Banner trocado. Clique em Salvar para publicar." : "Logo trocada. Clique em Salvar para publicar.");
+    } catch {
+      toast.error("Não foi possível enviar a imagem.");
+    } finally {
+      setEnviando(null);
     }
   }
 
-  async function handleBannerUpload(
-  e: React.ChangeEvent<HTMLInputElement>
-) {
+  /* ---------- categorias (salvam na hora) ---------- */
 
-  const file =
-    e.target.files?.[0]
+  async function criarCategoria(nomeNovo: string) {
+    const limpo = nomeNovo.trim().slice(0, 40);
+    if (!limpo) return;
+    if (categorias.some((c) => c.nome.toLowerCase() === limpo.toLowerCase())) {
+      return toast.error("Já existe uma categoria com esse nome.");
+    }
 
-  if (!file) return
+    const { data, error } = await supabase
+      .from("categorias")
+      .insert({ nome: limpo, restaurante_id: restauranteId, ordem: categorias.length })
+      .select("id, nome, ordem")
+      .single();
 
-  try {
+    if (error) return toast.error("Não foi possível criar a categoria.");
+    setCategorias((c) => [...c, { id: String(data.id), nome: data.nome, ordem: data.ordem ?? c.length }]);
+  }
 
-    setLoading(true)
+  async function renomearCategoria(id: string, nomeNovo: string) {
+    const atual = categorias.find((c) => c.id === id);
+    const limpo = nomeNovo.trim().slice(0, 40);
+    if (!atual || !limpo || limpo === atual.nome) return;
 
-    const fileExt =
-      file.name.split(".").pop()
+    const { error } = await supabase.from("categorias").update({ nome: limpo }).eq("id", id);
+    if (error) return toast.error("Não foi possível renomear.");
 
-    const fileName =
-      `${Date.now()}.${fileExt}`
+    // Os produtos guardam o nome da categoria: atualiza junto.
+    await supabase
+      .from("produtos")
+      .update({ categoria: limpo })
+      .eq("restaurante_id", restauranteId)
+      .eq("categoria", atual.nome);
 
-    const filePath =
-      `banner-${fileName}`
+    setCategorias((c) => c.map((x) => (x.id === id ? { ...x, nome: limpo } : x)));
+    setProdutos((p) => p.map((x) => (x.categoria === atual.nome ? { ...x, categoria: limpo } : x)));
+    toast.success("Categoria renomeada.");
+  }
 
-    const { error } =
-      await supabase.storage
+  async function moverCategoria(id: string, direcao: -1 | 1) {
+    const lista = [...categorias];
+    const i = lista.findIndex((c) => c.id === id);
+    const j = i + direcao;
+    if (j < 0 || j >= lista.length) return;
+    [lista[i], lista[j]] = [lista[j], lista[i]];
+    const reordenada = lista.map((c, ordem) => ({ ...c, ordem }));
+    setCategorias(reordenada);
 
-        .from("banners")
+    await Promise.all(
+      reordenada.map((c) => supabase.from("categorias").update({ ordem: c.ordem }).eq("id", c.id))
+    );
+  }
 
-        .upload(
-          filePath,
-          file,
-          {
-            upsert: true,
-          }
-        )
+  async function excluirCategoria(id: string) {
+    const atual = categorias.find((c) => c.id === id);
+    if (!atual) return;
+
+    const usados = produtos.filter((p) => p.categoria === atual.nome).length;
+    if (usados > 0) {
+      return toast.error(`"${atual.nome}" tem ${usados} produto(s). Mude esses produtos de categoria antes de excluir.`);
+    }
+
+    const { error } = await supabase.from("categorias").delete().eq("id", id);
+    if (error) return toast.error("Não foi possível excluir.");
+    setCategorias((c) => c.filter((x) => x.id !== id));
+  }
+
+  /* ---------- salvar ---------- */
+
+  async function salvar() {
+    for (const d of DIAS) {
+      const h = horarios[d.id];
+      if (h.aberto && (!h.inicio || !h.fim)) {
+        setPainel("horarios");
+        return toast.error(`Preencha o horário de ${d.nome}.`);
+      }
+    }
+
+    if (!nome.trim()) {
+      setPainel("nome");
+      return toast.error("Informe o nome do restaurante.");
+    }
+
+    setSalvando(true);
+
+    const dados: Record<string, unknown> = {
+      nome_restaurante: nome.trim().slice(0, 80),
+      cor_primaria: /^#[0-9a-fA-F]{6}$/.test(cor) ? cor : "#6D1F2F",
+      banner_url: banner || null,
+      logo_url: logo || null,
+      pedido_minimo: paraNumero(pedidoMinimo),
+    };
+
+    for (const d of DIAS) {
+      const h = horarios[d.id];
+      dados[`horario_${d.id}_inicio`] = h.aberto ? h.inicio : null;
+      dados[`horario_${d.id}_fim`] = h.aberto ? h.fim : null;
+    }
+
+    const { data, error } = aparenciaId
+      ? await supabase.from("aparencia").update(dados).eq("id", aparenciaId).select("id").single()
+      : await supabase
+          .from("aparencia")
+          .insert({ ...dados, restaurante_id: restauranteId })
+          .select("id")
+          .single();
+
+    setSalvando(false);
 
     if (error) {
-
-      console.log(error)
-
-      return
+      toast.error("Não foi possível salvar. Tente de novo.");
+      return;
     }
 
-    const { data } =
-      supabase.storage
-
-        .from("banners")
-
-        .getPublicUrl(
-          filePath
-        )
-
-    setBannerPreview(
-      data.publicUrl
-    )
-
-  } catch (error) {
-
-    console.log(error)
-
-  } finally {
-
-    setLoading(false)
+    setAparenciaId(data.id);
+    setAlterado(false);
+    localStorage.setItem("cor-principal", String(dados.cor_primaria));
+    toast.success("Pronto! Seu cardápio já está com a nova aparência.");
   }
-}
 
-  async function handleLogoUpload(
-  event: React.ChangeEvent<HTMLInputElement>
-) {
+  /* ---------- dados da prévia ---------- */
 
-  const file =
-    event.target.files?.[0]
+  const status = useMemo(() => statusAgora(horarios), [horarios]);
+  const categoriaAtiva = categorias[0]?.nome;
+  const produtosPrevia = useMemo(() => {
+    const daCategoria = produtos.filter((p) => p.categoria === categoriaAtiva);
+    const lista = daCategoria.length ? daCategoria : produtos;
+    return lista.slice(0, 4);
+  }, [produtos, categoriaAtiva]);
 
-  if (!file) return
-
-  try {
-
-    setLoading(true)
-
-    const fileExt =
-      file.name.split(".").pop()
-
-    const fileName =
-      `logo-${Date.now()}.${fileExt}`
-
-    const { error } =
-      await supabase.storage
-
-        .from("logos")
-
-        .upload(
-          fileName,
-          file,
-          {
-            cacheControl: "3600",
-            upsert: true,
-          }
-        )
-
-    if (error) {
-
-      console.log(
-        "Erro upload:",
-        error
-      )
-
-      return
-    }
-
-    const { data } =
-      supabase.storage
-
-        .from("logos")
-
-        .getPublicUrl(
-          fileName
-        )
-
-    if (
-      data?.publicUrl
-    ) {
-
-      setLogoPreview(
-        data.publicUrl
-      )
-    }
-
-  } catch (error) {
-
-    console.log(error)
-
-  } finally {
-
-    setLoading(false)
-  }
-}
-
- function removeLogo() {
-
-  setLogoPreview(null)
-
-  if (logoInputRef.current) {
-
-    logoInputRef.current.value = ""
-  }
-}
-
- function removeBanner() {
-
-  setBannerPreview(null)
-
-  if (bannerInputRef.current) {
-
-    bannerInputRef.current.value = ""
-  }
-}
-
-if (loading) {
-  return (
-    <main className={`${bgPage} min-h-screen p-6 md:p-10`}>
-      <div className="max-w-7xl mx-auto space-y-8">
-
-        <div className="space-y-3">
-          <div className="w-14 h-14 rounded-full bg-zinc-200 animate-pulse" />
-          <div className="w-52 h-10 bg-zinc-200 rounded-xl animate-pulse" />
-          <div className="w-96 max-w-full h-5 bg-zinc-200 rounded-lg animate-pulse" />
-        </div>
-
-        <div className="bg-white border border-[#DDD6CC] rounded-3xl p-6 shadow-sm">
-          <div className="space-y-5 animate-pulse">
-            <div className="w-72 max-w-full h-8 bg-zinc-200 rounded-lg" />
-            <div className="w-full h-12 bg-zinc-100 rounded-xl" />
-            <div className="w-full h-12 bg-zinc-100 rounded-xl" />
-            <div className="w-full h-12 bg-zinc-100 rounded-xl" />
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#DDD6CC] rounded-3xl p-6 shadow-sm">
-          <div className="space-y-5 animate-pulse">
-            <div className="w-64 h-8 bg-zinc-200 rounded-lg" />
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="h-28 bg-zinc-100 rounded-2xl" />
-              <div className="h-28 bg-zinc-100 rounded-2xl" />
-              <div className="h-28 bg-zinc-100 rounded-2xl" />
-            </div>
-          </div>
-        </div>
-
+  if (carregando) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="animate-spin text-[#6D1F2F]" />
       </div>
-    </main>
-  )
-}
+    );
+  }
 
   return (
-
-    <main
-      className={`${bgPage} min-h-screen p-6 md:p-10 transition-all`}
-    >
-
-      <div className="max-w-7xl mx-auto space-y-8">
-
-        <div className="
-          flex
-          flex-col
-          gap-4
-          md:flex-row
-          md:items-center
-          md:justify-between
-        ">
-
-          <div>
-
-            <div
-  className="
-    w-14
-    h-14
-    rounded-full
-    bg-[#7F1D1D]
-    flex
-    items-center
-    justify-center
-    text-white
-    mb-4
-  "
->
-  🎨
-</div>
-
-            <h1
-              className={`text-4xl font-black ${textPrimary}`}
-            >
-              Aparência
-            </h1>
-
-            <p
-              className={`${textSecondary} mt-2`}
-            >
-Personalize o visual e as informações do seu cardápio
-            </p>
-
-          </div>
-
-
-</div>
-        {
-
-        }
-
-      {
-  errorMessage && (
-
-    <div
-      className="
-        mt-4
-        rounded-2xl
-        border
-        border-red-200
-        bg-red-50
-        p-4
-        text-red-700
-        font-semibold
-      "
-    >
-      ⚠️ {errorMessage}
-    </div>
-
-  )
-}
-
-
-     <div
-  className="
-    bg-white
-    border
-    border-[#DDD6CC]
-    rounded-3xl
-    p-6
-    mt-6
-  "
->
-
-  <h2 className="text-2xl font-bold">
-    Cor principal do cardápio
-  </h2>
-
-  <p className="text-zinc-500 mt-2">
-    Escolha a identidade da sua marca
-  </p>
-
-
-  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
-
-    <button
-      onClick={() =>
-        setSelectedColor("#7F1D1D")
-      }
-      className={`
-        border
-        rounded-2xl
-        p-5
-        flex
-        items-center
-        gap-4
-
-        ${
-          selectedColor === "#7F1D1D"
-            ? "border-red-700"
-            : "border-zinc-200"
-        }
-      `}
-    >
-
-      <div
-        className="w-10 h-10 rounded-full"
-        style={{
-          backgroundColor: "#7F1D1D"
-        }}
-      />
-
-      <div>
-
-        <div className="font-bold">
-          Vinho
+    <div className="max-w-6xl mx-auto pb-28">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-zinc-900">Editar Cardápio</h1>
+          <p className="text-sm text-zinc-500 mt-1">
+            Toque em qualquer parte com o lápis azul para editar. O cardápio muda na hora.
+          </p>
         </div>
-
-        <div className="text-sm text-zinc-500">
-          Elegante e marcante
-        </div>
-
+        {slug && (
+          <a href={`/${slug}`} target="_blank" rel="noreferrer" className="text-sm font-semibold text-[#6D1F2F] inline-flex items-center gap-1">
+            Ver cardápio publicado <ExternalLink size={14} />
+          </a>
+        )}
       </div>
 
-    </button>
-
-    <button
-      onClick={() =>
-        setSelectedColor("#18181B")
-      }
-      className={`
-        border
-        rounded-2xl
-        p-5
-        flex
-        items-center
-        gap-4
-
-        ${
-          selectedColor === "#18181B"
-            ? "border-red-700"
-            : "border-zinc-200"
-        }
-      `}
-    >
-
-      <div
-        className="w-10 h-10 rounded-full"
-        style={{
-          backgroundColor: "#18181B"
-        }}
-      />
-
-      <div>
-
-        <div className="font-bold">
-          Preto
+      {/* Atalhos */}
+      <div className="mt-4 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-2 w-max">
+          {ATALHOS.map(({ id, nome: n, icone: Icone }) => (
+            <button
+              key={id}
+              onClick={() => setPainel(id)}
+              className={`h-10 px-3 rounded-full text-sm font-semibold flex items-center gap-1.5 border ${
+                painel === id ? "bg-zinc-900 text-white border-zinc-900" : "bg-white text-zinc-700 border-zinc-200"
+              }`}
+            >
+              <Icone size={15} /> {n}
+            </button>
+          ))}
         </div>
-
-        <div className="text-sm text-zinc-500">
-          Moderno e sofisticado
-        </div>
-
       </div>
 
-    </button>
-     
-<button
-  type="button"
-  onClick={() => colorInputRef.current?.click()}
-  className={`
-    border
-    rounded-2xl
-    p-5
-    flex
-    items-center
-    gap-4
-    text-left
-    transition-all
-    hover:bg-zinc-50
-
-    ${
-      selectedColor !== "#7F1D1D" &&
-      selectedColor !== "#18181B"
-        ? "border-red-700"
-        : "border-zinc-200"
-    }
-  `}
->
-
-  <div
-    className="
-      w-10
-      h-10
-      rounded-full
-      flex-shrink-0
-      relative
-      overflow-hidden
-      border
-      border-zinc-200
-    "
-    style={{
-      background:
-        "conic-gradient(#ef4444, #f59e0b, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444)",
-    }}
-  >
-    <div
-      className="
-        absolute
-        inset-[9px]
-        rounded-full
-        border-2
-        border-white
-      "
-      style={{
-        backgroundColor:
-          selectedColor !== "#7F1D1D" &&
-          selectedColor !== "#18181B"
-            ? selectedColor
-            : "white",
-      }}
-    />
-  </div>
-
-  <div>
-    <div className="font-bold">
-      Personalizada
-    </div>
-
-    <div className="text-sm text-zinc-500">
-      Escolha qualquer cor
-    </div>
-  </div>
-
-  <input
-    ref={colorInputRef}
-    type="color"
-    value={selectedColor}
-    onChange={(e) =>
-      setSelectedColor(e.target.value)
-    }
-    onClick={(e) =>
-      e.stopPropagation()
-    }
-    className="
-      absolute
-      opacity-0
-      pointer-events-none
-      w-0
-      h-0
-    "
-  />
-
-</button>
-
-
-</div>
-
-</div>
-
-<div
-  className="
-    grid
-    md:grid-cols-2
-    gap-6
-    mt-6
-  "
->
-
-          <div
-            className={`${cardBg} ${borderColor} border rounded-3xl p-6`}
-          >
-
-            <div className="
-              flex
-              items-center
-              justify-between
-            ">
-
-              <div>
-
-                <h2
-                  className={`text-3xl font-black ${textPrimary}`}
-                >
-                  Logo
-                </h2>
-
-                <p
-                  className={`${textSecondary} mt-2`}
-                >
-                  Logo principal do restaurante
-                </p>
-
+      <div className="mt-4 grid gap-6 lg:grid-cols-[400px_1fr] items-start">
+        {/* ===================== MOLDE DO CARDÁPIO ===================== */}
+        <div className="mx-auto w-full max-w-[400px]">
+          <div className="rounded-[2.2rem] border-[10px] border-zinc-900 bg-white shadow-2xl overflow-hidden">
+            {/* Banner */}
+            <Editavel ativo={painel} aoClicar={setPainel} alvo="banner" rotulo="banner" className="block w-full">
+              <div
+                className="relative h-40 w-full"
+                style={{
+                  background: banner
+                    ? `url(${banner}) center/cover no-repeat`
+                    : `linear-gradient(135deg, ${cor} 0%, ${cor}CC 55%, #111827 100%)`,
+                }}
+              >
+                <div className="absolute inset-0 bg-black/45" />
+                {!banner && (
+                  <span className="absolute inset-0 flex items-center justify-center text-white/90 text-sm font-semibold gap-2">
+                    <ImagePlus size={18} /> Toque para colocar uma foto de capa
+                  </span>
+                )}
+                {enviando === "banner" && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/40">
+                    <Loader2 className="animate-spin text-white" />
+                  </span>
+                )}
               </div>
+            </Editavel>
 
-              {
-                logoPreview && (
-
-                  <button
-                    onClick={
-                      removeLogo
-                    }
-                    className="
-                      bg-red-500
-                      text-white
-                      px-4
-                      py-2
-                      rounded-xl
-                      text-sm
-                      font-bold
-                    "
-                  >
-                    Remover
-                  </button>
-                )
-              }
+            {/* Logo */}
+            <div className="relative h-0">
+              <div className="absolute left-1/2 -translate-x-1/2 -top-12 z-20">
+                <Editavel ativo={painel} aoClicar={setPainel} alvo="logo" rotulo="logo" className="rounded-full">
+                  <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-xl overflow-hidden flex items-center justify-center">
+                    {enviando === "logo" ? (
+                      <Loader2 className="animate-spin text-zinc-400" />
+                    ) : logo ? (
+                      <img src={logo} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[11px] text-zinc-400 font-semibold text-center px-2">Sua logo</span>
+                    )}
+                  </div>
+                </Editavel>
+              </div>
             </div>
 
-            <div className="mt-6 flex gap-4">
+            <div className="pt-14 px-4 text-center">
+              <Editavel ativo={painel} aoClicar={setPainel} alvo="nome" rotulo="nome" className="inline-block px-2">
+                <p className="text-lg font-black text-zinc-900">{nome || "Nome do restaurante"}</p>
+              </Editavel>
+            </div>
 
-  <div
-    onClick={() =>
-      logoInputRef.current?.click()
-    }
-    className="
-      w-24
-      h-24
-      rounded-full
-      border
-      border-zinc-200
-      overflow-hidden
-      cursor-pointer
-      flex
-      items-center
-      justify-center
-      bg-white
-    "
-  >
+            {/* Informações */}
+            <div className="mt-3 grid grid-cols-[repeat(4,minmax(0,1fr))] divide-x divide-zinc-200 px-2 pb-4 text-center">
+              <div className="px-1">
+                <Bike size={18} className="mx-auto text-zinc-500" />
+                <p className="text-[10px] font-semibold mt-1">Delivery</p>
+                <p className="text-[10px] text-zinc-500">{taxaMinima != null ? `a partir de ${reais(taxaMinima)}` : "—"}</p>
+              </div>
+              <Editavel ativo={painel} aoClicar={setPainel} alvo="horarios" rotulo="horários" className="px-1">
+                <Clock3 size={18} className="mx-auto text-zinc-500" />
+                <p className={`text-[10px] font-semibold mt-1 ${status.aberto ? "text-green-600" : "text-red-600"}`}>
+                  {status.aberto ? "Aberto agora" : "Fechado"}
+                </p>
+                <p className="text-[10px] text-zinc-500">{status.texto}</p>
+              </Editavel>
+              <Editavel ativo={painel} aoClicar={setPainel} alvo="pedido" rotulo="pedido mínimo" className="px-1">
+                <Wallet size={18} className="mx-auto text-zinc-500" />
+                <p className="text-[10px] font-semibold mt-1">Pedido mínimo</p>
+                <p className="text-[10px] text-zinc-500">{paraNumero(pedidoMinimo) ? reais(paraNumero(pedidoMinimo)) : "Sem mínimo"}</p>
+              </Editavel>
+              <div className="px-1">
+                <Star size={18} className="mx-auto text-zinc-500" />
+                <p className="text-[10px] font-semibold mt-1">Avaliação</p>
+                <p className="text-[10px] text-zinc-500">4,9</p>
+              </div>
+            </div>
 
-    {logoPreview ? (
+            {/* Categorias */}
+            <div className="border-t px-3 py-3">
+              <Editavel ativo={painel} aoClicar={setPainel} alvo="categorias" rotulo="categorias" className="block w-full">
+                <div className="flex gap-2 overflow-hidden">
+                  {(categorias.length ? categorias : [{ id: "x", nome: "Sua categoria", ordem: 0 }]).slice(0, 4).map((c, i) => (
+                    <span
+                      key={c.id}
+                      className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-bold"
+                      style={i === 0 ? { backgroundColor: cor, color: "white" } : { border: "1px solid #e4e4e7", color: "#3f3f46" }}
+                    >
+                      {c.nome.toUpperCase()}
+                    </span>
+                  ))}
+                </div>
+              </Editavel>
+            </div>
 
-      <img
-        src={logoPreview}
-        alt="Logo"
-        className="
-          w-full
-          h-full
-          object-cover
-        "
-      />
+            {/* Produtos de exemplo */}
+            <div className="px-3 pb-3">
+              <p className="text-sm font-black text-zinc-900">{(categoriaAtiva || "Sua categoria").toUpperCase()}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {(produtosPrevia.length
+                  ? produtosPrevia
+                  : [
+                      { nome: "Seu produto", preco: 29.9, imagem: null, categoria: null },
+                      { nome: "Outro produto", preco: 19.9, imagem: null, categoria: null },
+                    ]
+                ).map((p, i) => (
+                  <div key={i} className="rounded-xl border overflow-hidden">
+                    <div className="aspect-[4/3] bg-zinc-100">
+                      {p.imagem && <img src={p.imagem} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="p-2">
+                      <p className="text-[11px] font-semibold truncate">{p.nome}</p>
+                      <p className="text-[12px] font-black" style={{ color: cor }}>{reais(Number(p.preco))}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-    ) : (
+            {/* Barra do carrinho */}
+            <Editavel ativo={painel} aoClicar={setPainel} alvo="cor" rotulo="cor principal" className="block w-full">
+              <div className="flex items-center justify-between px-4 py-3 text-white" style={{ backgroundColor: cor }}>
+                <span className="text-xs font-semibold flex items-center gap-2">
+                  <ShoppingBag size={16} /> 1 item no carrinho
+                </span>
+                <span className="rounded-full bg-green-500 px-3 py-1 text-[11px] font-bold">Ver carrinho</span>
+              </div>
+            </Editavel>
+          </div>
+        </div>
 
-      <span className="text-zinc-400">
-        Logo
+        {/* ===================== PAINEL DE EDIÇÃO ===================== */}
+        <div className="lg:sticky lg:top-6">
+          {!painel && (
+            <div className="hidden lg:block rounded-2xl border-2 border-dashed border-zinc-300 p-8 text-center text-zinc-500">
+              <Pencil className="mx-auto mb-2" />
+              Clique em uma parte do cardápio (ou nos botões acima) para editar.
+            </div>
+          )}
+
+          {painel && (
+            <>
+              <div className="lg:hidden fixed inset-0 z-[70] bg-black/40" onClick={() => setPainel(null)} />
+              <div className="fixed lg:static inset-x-0 bottom-0 z-[75] max-h-[75vh] overflow-y-auto rounded-t-3xl lg:rounded-2xl bg-white border p-5 shadow-2xl lg:shadow-none pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-lg font-black">{ATALHOS.find((a) => a.id === painel)?.nome}</p>
+                  <button onClick={() => setPainel(null)} aria-label="Fechar" className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center">
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {painel === "banner" && (
+                  <PainelImagem
+                    descricao="Foto de capa no topo do cardápio. Use uma foto horizontal bonita dos seus pratos (1200×500 fica ótimo)."
+                    temImagem={Boolean(banner)}
+                    enviando={enviando === "banner"}
+                    aoEscolher={() => inputBanner.current?.click()}
+                    aoRemover={() => marcar(setBanner)("")}
+                  />
+                )}
+
+                {painel === "logo" && (
+                  <PainelImagem
+                    descricao="Aparece no círculo do cardápio e na aba do navegador. Imagem quadrada funciona melhor."
+                    temImagem={Boolean(logo)}
+                    enviando={enviando === "logo"}
+                    aoEscolher={() => inputLogo.current?.click()}
+                    aoRemover={() => marcar(setLogo)("")}
+                  />
+                )}
+
+                {painel === "nome" && (
+                  <label className="block">
+                    <span className="text-sm text-zinc-600">Como seu restaurante aparece para os clientes</span>
+                    <input
+                      autoFocus
+                      value={nome}
+                      onChange={(e) => marcar(setNome)(e.target.value.slice(0, 80))}
+                      className="mt-2 w-full h-12 rounded-xl border px-3 text-base"
+                    />
+                  </label>
+                )}
+
+                {painel === "cor" && (
+                  <div>
+                    <p className="text-sm text-zinc-600">Usada nos botões, preços e categorias.</p>
+                    <div className="mt-3 grid grid-cols-5 gap-3">
+                      {CORES.map((c) => (
+                        <button
+                          key={c.cor}
+                          onClick={() => marcar(setCor)(c.cor)}
+                          className="flex flex-col items-center gap-1"
+                          aria-label={c.nome}
+                        >
+                          <span
+                            className="w-11 h-11 rounded-full flex items-center justify-center ring-offset-2"
+                            style={{ backgroundColor: c.cor, boxShadow: cor === c.cor ? `0 0 0 3px white, 0 0 0 5px ${c.cor}` : undefined }}
+                          >
+                            {cor === c.cor && <Check size={18} color="white" />}
+                          </span>
+                          <span className="text-[11px] text-zinc-600">{c.nome}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <label className="mt-4 flex items-center gap-3 text-sm">
+                      Outra cor:
+                      <input type="color" value={cor} onChange={(e) => marcar(setCor)(e.target.value)} className="w-12 h-10 rounded" />
+                    </label>
+                  </div>
+                )}
+
+                {painel === "pedido" && (
+                  <label className="block">
+                    <span className="text-sm text-zinc-600">Valor mínimo em produtos para aceitar o pedido. Deixe vazio para não ter mínimo.</span>
+                    <div className="relative mt-2">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">R$</span>
+                      <input
+                        autoFocus
+                        value={pedidoMinimo}
+                        onChange={(e) => marcar(setPedidoMinimo)(mascaraDinheiro(e.target.value))}
+                        inputMode="numeric"
+                        placeholder="0,00"
+                        className="w-full h-12 rounded-xl border pl-10 pr-3 text-base"
+                      />
+                    </div>
+                  </label>
+                )}
+
+                {painel === "horarios" && (
+                  <div>
+                    <p className="text-sm text-zinc-600">Fora desses horários o cardápio mostra “Fechado” e não aceita pedidos.</p>
+                    <div className="mt-3 divide-y">
+                      {DIAS.map((d) => {
+                        const h = horarios[d.id];
+                        const mudar = (campo: Partial<Horarios[DiaId]>) =>
+                          marcar(setHorarios)({ ...horarios, [d.id]: { ...h, ...campo } });
+                        return (
+                          <div key={d.id} className="py-2.5 flex flex-wrap items-center gap-2">
+                            <span className="w-20 font-semibold text-sm">{d.nome}</span>
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={h.aberto}
+                              onClick={() => mudar({ aberto: !h.aberto })}
+                              className={`relative w-11 h-6 rounded-full transition ${h.aberto ? "bg-green-500" : "bg-zinc-300"}`}
+                            >
+                              <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${h.aberto ? "left-[22px]" : "left-0.5"}`} />
+                            </button>
+                            {h.aberto ? (
+                              <span className="flex items-center gap-1.5 text-sm ml-auto">
+                                <input type="time" value={h.inicio} onChange={(e) => mudar({ inicio: e.target.value })} className="h-10 rounded-lg border px-2 text-base" />
+                                até
+                                <input type="time" value={h.fim} onChange={(e) => mudar({ fim: e.target.value })} className="h-10 rounded-lg border px-2 text-base" />
+                              </span>
+                            ) : (
+                              <span className="ml-auto text-sm text-zinc-400">Fechado</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const seg = horarios.seg;
+                        const novos = { ...horarios };
+                        for (const d of DIAS) novos[d.id] = { ...seg };
+                        marcar(setHorarios)(novos);
+                        toast.success("Horário de segunda copiado para todos os dias.");
+                      }}
+                      className="mt-3 text-sm font-semibold text-[#6D1F2F]"
+                    >
+                      Copiar o horário de segunda para todos os dias
+                    </button>
+                  </div>
+                )}
+
+                {painel === "categorias" && (
+                  <PainelCategorias
+                    categorias={categorias}
+                    produtos={produtos}
+                    aoCriar={criarCategoria}
+                    aoRenomear={renomearCategoria}
+                    aoMover={moverCategoria}
+                    aoExcluir={excluirCategoria}
+                  />
+                )}
+
+                <button
+                  onClick={() => setPainel(null)}
+                  className="lg:hidden mt-5 w-full h-12 rounded-xl bg-zinc-900 text-white font-semibold"
+                >
+                  Ver como ficou
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <input ref={inputBanner} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => enviarImagem("banner", e.target.files?.[0])} />
+      <input ref={inputLogo} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => enviarImagem("logo", e.target.files?.[0])} />
+
+      {/* Barra de salvar */}
+      <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-72 z-[55] bg-white/95 backdrop-blur border-t p-3 lg:pr-48">
+        <div className="max-w-6xl mx-auto flex items-center gap-3">
+          <p className="hidden sm:block text-sm text-zinc-500 flex-1">
+            {alterado ? "Você tem alterações que ainda não foram publicadas." : "Tudo salvo. Categorias são salvas na hora."}
+          </p>
+          <button
+            onClick={salvar}
+            disabled={salvando || !alterado}
+            className="flex-1 sm:flex-none sm:px-8 h-12 rounded-xl bg-[#6D1F2F] text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {salvando ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+            {salvando ? "Salvando…" : alterado ? "Salvar e publicar" : "Salvo"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Área clicável do molde, com o lápis azul. */
+function Editavel({
+  alvo,
+  ativo,
+  aoClicar,
+  className = "",
+  children,
+  rotulo,
+}: {
+  alvo: Painel;
+  ativo: Painel | null;
+  aoClicar: (alvo: Painel) => void;
+  className?: string;
+  children: React.ReactNode;
+  rotulo: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => aoClicar(alvo)}
+      aria-label={`Editar ${rotulo}`}
+      className={`group relative text-left outline-none ${className} ${
+        ativo === alvo ? "ring-2 ring-offset-2 ring-sky-500 rounded-xl" : ""
+      }`}
+    >
+      {children}
+      <span className="pointer-events-none absolute -top-2 -right-2 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 text-white shadow ring-2 ring-white">
+        <Pencil size={12} />
       </span>
-
-    )}
-
-  </div>
-
-  <div className="flex-1 space-y-3">
-
-    <button
-      type="button"
-      onClick={() =>
-        logoInputRef.current?.click()
-      }
-      className="
-        w-full
-        border
-        rounded-xl
-        py-3
-        font-semibold
-      "
-    >
-      Alterar logo
     </button>
+  );
+}
 
-    {logoPreview && (
+/* ============================================================
+   Painéis auxiliares
+   ============================================================ */
 
-      <button
-        type="button"
-        onClick={removeLogo}
-        className="
-          w-full
-          border
-          border-red-300
-          text-red-600
-          rounded-xl
-          py-3
-          font-semibold
-        "
-      >
-        Remover
-      </button>
+function PainelImagem({
+  descricao,
+  temImagem,
+  enviando,
+  aoEscolher,
+  aoRemover,
+}: {
+  descricao: string;
+  temImagem: boolean;
+  enviando: boolean;
+  aoEscolher: () => void;
+  aoRemover: () => void;
+}) {
+  return (
+    <div>
+      <p className="text-sm text-zinc-600">{descricao}</p>
+      <div className="mt-4 flex gap-2">
+        <button
+          onClick={aoEscolher}
+          disabled={enviando}
+          className="flex-1 h-12 rounded-xl bg-[#6D1F2F] text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+        >
+          {enviando ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+          {temImagem ? "Trocar imagem" : "Escolher imagem"}
+        </button>
+        {temImagem && (
+          <button onClick={aoRemover} className="h-12 px-4 rounded-xl border border-red-200 text-red-600 font-semibold">
+            Remover
+          </button>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-zinc-400">JPG, PNG ou WEBP até 5 MB.</p>
+    </div>
+  );
+}
 
-    )}
+function PainelCategorias({
+  categorias,
+  produtos,
+  aoCriar,
+  aoRenomear,
+  aoMover,
+  aoExcluir,
+}: {
+  categorias: { id: string; nome: string }[];
+  produtos: { categoria: string | null }[];
+  aoCriar: (nome: string) => Promise<unknown>;
+  aoRenomear: (id: string, nome: string) => Promise<unknown>;
+  aoMover: (id: string, direcao: -1 | 1) => Promise<unknown>;
+  aoExcluir: (id: string) => Promise<unknown>;
+}) {
+  const [nova, setNova] = useState("");
+  const [editando, setEditando] = useState<string | null>(null);
+  const [texto, setTexto] = useState("");
 
-    <p className="text-sm text-zinc-500">
-      Formatos: PNG, JPG ou WEBP.
-      <br />
-      Tamanho recomendado: 512x512px
-    </p>
+  return (
+    <div>
+      <p className="text-sm text-zinc-600">Organize os grupos do seu cardápio. Use as setas para mudar a ordem.</p>
 
-  </div>
-
-</div>    
-
-            <input
-              type="file"
-              accept="image/*"
-              ref={logoInputRef}
-              className="hidden"
-              onChange={
-                handleLogoUpload
-              }
-            />
-
-          </div>
-
-          <div
-            className={`${cardBg} ${borderColor} border rounded-3xl p-6`}
-          >
-
-            <div className="
-              flex
-              items-center
-              justify-between
-            ">
-
-              <div>
-
-                <h2
-                  className={`text-3xl font-black ${textPrimary}`}
-                >
-                  Banner
-                </h2>
-
-                <p
-                  className={`${textSecondary} mt-2`}
-                >
-                  Banner do topo do cardápio
-                </p>
-
+      <div className="mt-3 space-y-2">
+        {categorias.map((c, i) => {
+          const qtd = produtos.filter((p) => p.categoria === c.nome).length;
+          return (
+            <div key={c.id} className="flex items-center gap-2 rounded-xl border p-2">
+              <div className="flex flex-col">
+                <button onClick={() => aoMover(c.id, -1)} disabled={i === 0} aria-label="Subir" className="h-6 w-7 flex items-center justify-center disabled:opacity-30">
+                  <ChevronUp size={16} />
+                </button>
+                <button onClick={() => aoMover(c.id, 1)} disabled={i === categorias.length - 1} aria-label="Descer" className="h-6 w-7 flex items-center justify-center disabled:opacity-30">
+                  <ChevronDown size={16} />
+                </button>
               </div>
 
-              {
-                bannerPreview && (
+              {editando === c.id ? (
+                <input
+                  autoFocus
+                  value={texto}
+                  onChange={(e) => setTexto(e.target.value)}
+                  onBlur={async () => {
+                    await aoRenomear(c.id, texto);
+                    setEditando(null);
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                  className="flex-1 min-w-0 h-10 rounded-lg border px-2 text-base"
+                />
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditando(c.id);
+                    setTexto(c.nome);
+                  }}
+                  className="flex-1 min-w-0 text-left"
+                >
+                  <span className="block font-semibold truncate">{c.nome}</span>
+                  <span className="block text-xs text-zinc-500">{qtd} produto(s) · toque para renomear</span>
+                </button>
+              )}
 
-                  <button
-                    onClick={
-                      removeBanner
-                    }
-                    className="
-                      bg-red-500
-                      text-white
-                      px-4
-                      py-2
-                      rounded-xl
-                      text-sm
-                      font-bold
-                    "
-                  >
-                    Remover
-                  </button>
-                )
-              }
+              <button onClick={() => aoExcluir(c.id)} aria-label={`Excluir ${c.nome}`} className="h-9 w-9 rounded-lg text-red-600 hover:bg-red-50 flex items-center justify-center">
+                <Trash2 size={16} />
+              </button>
             </div>
+          );
+        })}
+      </div>
 
-            <div className="mt-6 space-y-4">
-
-  <div
-    onClick={() =>
-      bannerInputRef.current?.click()
-    }
-    className="
-      h-32
-      rounded-2xl
-      overflow-hidden
-      border
-      border-zinc-200
-      cursor-pointer
-      bg-zinc-50
-    "
-  >
-
-    {bannerPreview ? (
-
-      <img
-        src={bannerPreview}
-        alt="Banner"
-        className="
-          w-full
-          h-full
-          object-cover
-        "
-      />
-
-    ) : (
-
-      <div
-        className="
-          h-full
-          flex
-          items-center
-          justify-center
-          text-zinc-400
-        "
+      <form
+        className="mt-3 flex gap-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          await aoCriar(nova);
+          setNova("");
+        }}
       >
-        Banner
-      </div>
-
-    )}
-
-  </div>
-
-  <button
-    type="button"
-    onClick={() =>
-      bannerInputRef.current?.click()
-    }
-    className="
-      w-full
-      border
-      rounded-xl
-      py-3
-      font-semibold
-    "
-  >
-    Alterar banner
-  </button>
-
-  {bannerPreview && (
-
-    <button
-      type="button"
-      onClick={removeBanner}
-      className="
-        w-full
-        border
-        border-red-300
-        text-red-600
-        rounded-xl
-        py-3
-        font-semibold
-      "
-    >
-      Remover
-    </button>
-
-  )}
-
-  <p className="text-sm text-zinc-500">
-    Formatos: PNG, JPG ou WEBP.
-    <br />
-    Tamanho recomendado: 1920x600px
-  </p>
-
-</div>
-
-                       <input
-              type="file"
-              accept="image/*"
-              ref={bannerInputRef}
-              className="hidden"
-              onChange={
-                handleBannerUpload
-              }
-            />
-
-          </div>
-        </div>
-
-       <div
-  className="
-    bg-white
-    border
-    border-[#DDD6CC]
-    rounded-3xl
-    p-6
-    mt-6
-  "
->
-
-  <h2 className="text-2xl font-bold">
-    Pedido mínimo
-  </h2>
-
-  <p className="text-zinc-500 mt-2">
-    Valor mínimo para que o cliente consiga finalizar um pedido.
-  </p>
-
-  <div className="relative mt-6 max-w-sm">
-
-    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
-      R$
-    </span>
-
-<input
-  value={pedidoMinimo}
-onChange={(e) => setPedidoMinimo(e.target.value)}
-onBlur={() => {
-  if (!pedidoMinimo) return;
-
-  const numero = Number(
-    pedidoMinimo.replace(".", "").replace(",", ".")
-  );
-
-  if (isNaN(numero)) return;
-
-  setPedidoMinimo(
-    numero.toLocaleString("pt-BR", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  );
-}}
-  placeholder="10,00"
-  className="
-    w-full
-    border
-    rounded-2xl
-    py-4
-    pl-12
-    pr-4
-    text-lg
-    font-semibold
-  "
-/>
-
-  </div>
-
-</div>
-       
-        <div
-  className="
-    bg-white
-    border
-    border-[#DDD6CC]
-    rounded-3xl
-    p-6
-    flex
-    gap-4
-    mt-6
-  "
->
-
-  <Link
-    href={`/${slug}`}
-    target="_blank"
-    className="
-      flex-1
-      border
-      rounded-2xl
-      p-4
-      text-center
-      font-semibold
-    "
-  >
-    👁 Ver Cardápio
-  </Link>
-
-{(savedMessage || errorMessage) && (
-  <div
-    className={`flex items-center gap-2 font-semibold ${
-      errorMessage ? "text-red-600" : "text-green-600"
-    }`}
-  >
-    <span className="text-xl">
-      {errorMessage ? "⚠" : "✓"}
-    </span>
-
-    <div>
-      <div>
-        {errorMessage || "Aparência salva"}
-      </div>
-
-      {!errorMessage && (
-        <div className="text-xs text-zinc-500 font-normal">
-          Alterações publicadas.
-        </div>
-      )}
+        <input
+          value={nova}
+          onChange={(e) => setNova(e.target.value)}
+          placeholder="Nova categoria (ex.: Bebidas)"
+          className="flex-1 min-w-0 h-11 rounded-xl border px-3 text-base"
+        />
+        <button className="h-11 px-4 rounded-xl bg-[#6D1F2F] text-white font-semibold flex items-center gap-1">
+          <Plus size={16} /> Criar
+        </button>
+      </form>
     </div>
-  </div>
-)}
-
-<button
-  onClick={saveChanges}
-  disabled={saving}
-    className="
-      flex-1
-      rounded-2xl
-      text-white
-      font-bold
-    "
-    style={{
-      backgroundColor:
-        selectedColor,
-      padding: "16px",
-    }}
-  >
-    {saving
-  ? "Salvando..."
-  : savedMessage
-  ? "✓ Alterações salvas"
-  : "Salvar Alterações"}
-  </button>
-
-</div>
-
-      </div>
-    </main>
-  )
+  );
 }

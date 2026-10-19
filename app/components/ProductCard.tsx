@@ -114,6 +114,12 @@ const temPromocao =
           {product.nome}
         </h3>
 
+        {product.rotuloPromocao && (
+          <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+            {product.rotuloPromocao}
+          </span>
+        )}
+
 {temDescricao && (
 
     <p
@@ -267,7 +273,7 @@ const temPromocao =
           "
         >
           {product.imagem ? (
-            <img
+            <img loading="lazy" decoding="async"
               src={product.imagem}
               alt={product.nome}
               className="

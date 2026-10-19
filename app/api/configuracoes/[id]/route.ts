@@ -1,26 +1,13 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export async function GET(
-  request: Request,
-  context: {
-    params: Promise<{ id: string }>;
-  }
-) {
-  const { id } = await context.params;
-
-  const { data, error } = await supabaseAdmin
-    .from("restaurantes")
-    .select("nome_responsavel, nome_restaurante, email, whatsapp")
-    .eq("id", id)
-    .single();
-
-  if (error) {
-    return NextResponse.json(
-      { error: error.message },
-      { status: 404 }
-    );
-  }
-
-  return NextResponse.json(data);
+// Rota desativada por segurança (removida na atualização de 12/10/2026).
+// Pode apagar esta pasta.
+function desativada() {
+  return NextResponse.json({ error: "Rota desativada." }, { status: 410 });
 }
+
+export const GET = desativada;
+export const POST = desativada;
+export const PUT = desativada;
+export const PATCH = desativada;
+export const DELETE = desativada;

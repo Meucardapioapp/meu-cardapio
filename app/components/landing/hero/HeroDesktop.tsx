@@ -9,7 +9,7 @@ export default function HeroDesktop() {
     "Receba pagamentos com Pix online e receba em até 1 dia util na sua conta.",
     "Seu próprio link para divulgar no WhatsApp, Instagram e Google.",
     "Configure tudo em menos de 5 minutos.",
-    "Sem mensalidade e sem burocracia.",
+    "15 dias grátis, sem cartão. Depois R$ 79,90/mês, tudo incluído.",
   ];
 
   return (
@@ -28,7 +28,7 @@ export default function HeroDesktop() {
               cardápio profissional
             </span>
             <br />
-            sem mensalidade
+            sem taxa por pedido
           </h1>
 
           <p className="mt-8 text-2xl leading-10 text-zinc-600">

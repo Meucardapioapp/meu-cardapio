@@ -1,7 +1,9 @@
 import { ReactNode } from "react";
-import Script from "next/script";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { restaurantePodeReceberPedidos } from "@/lib/server/assinatura";
+import CardapioIndisponivel from "../components/CardapioIndisponivel";
+import PixelComConsentimento from "../components/PixelComConsentimento";
 
 import {
   RestaurantProvider,
@@ -27,7 +29,7 @@ export default async function Layout({
   const { data: restaurante } =
     await supabaseAdmin
       .from("restaurantes")
-      .select("id, meta_pixel_id")
+      .select("id, meta_pixel_id, nome_restaurante, whatsapp")
       .eq("slug", slug)
       .single();
 
@@ -43,7 +45,8 @@ export default async function Layout({
           "restaurante_id",
           restaurante.id
         )
-        .single();
+        .limit(1)
+        .maybeSingle();
 
     if (aparencia) {
       logo = aparencia.logo_url || "";
@@ -54,8 +57,21 @@ export default async function Layout({
     }
   }
 
-  const pixelId =
-    restaurante?.meta_pixel_id || "";
+  // Plano vencido (ou teste grátis acabou): cardápio fica fora do ar
+  // até o pagamento ser confirmado.
+  if (restaurante && !(await restaurantePodeReceberPedidos(String(restaurante.id)))) {
+    return (
+      <CardapioIndisponivel
+        nome={restaurante.nome_restaurante || ""}
+        logo={logo}
+        cor={corPrincipal}
+        whatsapp={String(restaurante.whatsapp || "")}
+      />
+    );
+  }
+
+  // Só números: impede que um valor malicioso vire código no cardápio.
+  const pixelId = String(restaurante?.meta_pixel_id || "").replace(/\D/g, "").slice(0, 20);
 
   return (
     <RestaurantProvider
@@ -66,50 +82,8 @@ export default async function Layout({
           META PIXEL DO RESTAURANTE
           ===================================================== */}
 
-      {pixelId && (
-        <>
-          <Script
-            id={`meta-pixel-${pixelId}`}
-            strategy="afterInteractive"
-            dangerouslySetInnerHTML={{
-              __html: `
-                !function(f,b,e,v,n,t,s)
-                {
-                  if(f.fbq)return;
-                  n=f.fbq=function(){
-                    n.callMethod?
-                    n.callMethod.apply(n,arguments):
-                    n.queue.push(arguments)
-                  };
-
-                  if(!f._fbq)f._fbq=n;
-
-                  n.push=n;
-                  n.loaded=!0;
-                  n.version='2.0';
-                  n.queue=[];
-
-                  t=b.createElement(e);
-                  t.async=!0;
-                  t.src=v;
-
-                  s=b.getElementsByTagName(e)[0];
-                  s.parentNode.insertBefore(t,s)
-                }
-                (
-                  window,
-                  document,
-                  'script',
-                  'https://connect.facebook.net/en_US/fbevents.js'
-                );
-
-                fbq('init', '${pixelId}');
-                fbq('track', 'PageView');
-              `,
-            }}
-          />
-        </>
-      )}
+      {/* Pixel do Meta: só carrega depois que o cliente aceita os cookies de marketing. */}
+      {pixelId && <PixelComConsentimento pixelId={pixelId} />}
 
       {children}
     </RestaurantProvider>

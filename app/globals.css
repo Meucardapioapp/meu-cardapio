@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import "./shadcn-tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -306,4 +306,108 @@
     margin: 0;
   }
 
+}
+/* ============================================================
+   PAINEL NO CELULAR
+   As telas do painel foram desenhadas para computador. Estas regras
+   ajustam espaçamentos, títulos, grades e tabelas em telas pequenas
+   sem mudar nada no computador.
+   ============================================================ */
+@media (max-width: 640px) {
+  .painel .p-8,
+  .painel .p-10,
+  .painel .p-12 {
+    padding: 1rem;
+  }
+
+  .painel .px-8,
+  .painel .px-10,
+  .painel .px-12 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .painel .text-6xl,
+  .painel .text-5xl {
+    font-size: 1.75rem;
+    line-height: 2.1rem;
+  }
+
+  .painel .text-4xl {
+    font-size: 1.5rem;
+    line-height: 1.9rem;
+  }
+
+  .painel .grid-cols-4,
+  .painel .grid-cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .painel .gap-6,
+  .painel .gap-8 {
+    gap: 0.75rem;
+  }
+
+  .painel .rounded-3xl {
+    border-radius: 1.25rem;
+  }
+
+  /* Tabelas rolam para o lado em vez de estourar a tela */
+  .painel table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* Cabeçalhos com título + botões quebram linha em vez de espremer */
+  .painel .flex.items-center.justify-between,
+  .painel .flex.justify-between.items-center {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+  }
+
+  /* Larguras fixas largas viram 100% */
+  .painel .w-\[390px\] {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Evita o zoom automático do iPhone ao tocar em campos */
+  .painel input,
+  .painel select,
+  .painel textarea {
+    font-size: 16px;
+  }
+
+  /* Botões altos e fáceis de tocar */
+  .painel button,
+  .painel a {
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 640px) {
+  .painel th,
+  .painel td {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
+/* Itens de grade não podem ficar mais largos que a tela */
+.painel .grid > * {
+  min-width: 0;
+}
+
+/* Guia do painel: item do menu piscando até o dono clicar */
+@keyframes guia-piscar {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.0); background-color: rgba(251, 191, 36, 0.10); }
+  50% { box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.45); background-color: rgba(251, 191, 36, 0.35); }
+}
+.guia-piscar {
+  animation: guia-piscar 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .guia-piscar { animation: none; background-color: rgba(251, 191, 36, 0.35); }
 }

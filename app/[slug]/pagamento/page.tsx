@@ -1,1216 +1,752 @@
 "use client";
 
-declare global {
-  interface Window {
-    Pagarme: any;
-  }
-}
-import { supabase } from "@/lib/supabase";
-import creditCardType from "credit-card-type";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { useRestaurant } from "@/contexts/RestaurantContext";
+import { formatarCPF, validarCPF } from "@/lib/validacoes";
 import {
   ShoppingCart,
   ArrowLeft,
   ShieldCheck,
   CreditCard,
-  Circle,
-  Banknote
+  Banknote,
+  Check,
+  Gift,
+  AlertTriangle,
+  TicketPercent,
+  X,
 } from "lucide-react";
+import { normalizarCodigoCupom, type ProgramaFidelidade } from "@/lib/fidelidade";
+import { FaPix } from "react-icons/fa6";
+import { lerRestaurantePublico } from "@/lib/restaurantePublico";
+import { agoraLocal, lojaAbertaAgora } from "@/lib/horario";
 
-import {
-  FaPix,
-  FaApplePay,
-  FaGooglePay
-} from "react-icons/fa6";
+type Metodo = "pix" | "pix_chave" | "cartao_entrega" | "dinheiro";
 
-import GooglePayButton from "@google-pay/button-react";
+const METODO_API: Record<Metodo, string> = {
+  pix: "pix",
+  pix_chave: "pix_chave",
+  cartao_entrega: "card_delivery",
+  dinheiro: "cash",
+};
 
-function validarCPF(cpf: string) {
-
-  cpf = cpf.replace(/\D/g, "");
-
-  if (cpf.length !== 11) return false;
-
-  if (/^(\d)\1+$/.test(cpf)) return false;
-
-  let soma = 0;
-
-  for (let i = 0; i < 9; i++) {
-    soma += Number(cpf[i]) * (10 - i);
+function lerJSON<T>(chave: string, padrao: T): T {
+  try {
+    const valor = localStorage.getItem(chave);
+    return valor ? (JSON.parse(valor) as T) : padrao;
+  } catch {
+    return padrao;
   }
-
-  let resto = (soma * 10) % 11;
-
-  if (resto === 10) resto = 0;
-
-  if (resto !== Number(cpf[9])) return false;
-
-  soma = 0;
-
-  for (let i = 0; i < 10; i++) {
-    soma += Number(cpf[i]) * (11 - i);
-  }
-
-  resto = (soma * 10) % 11;
-
-  if (resto === 10) resto = 0;
-
-  return resto === Number(cpf[10]);
 }
 
+const reais = (v: number) =>
+  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function Opcao({
+  id,
+  titulo,
+  descricao,
+  icone,
+  ativo,
+  cor,
+  onEscolher,
+}: {
+  id: Metodo;
+  titulo: string;
+  descricao: string;
+  icone: React.ReactNode;
+  ativo: boolean;
+  cor: string;
+  onEscolher: (id: Metodo) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onEscolher(id)}
+      className="w-full bg-white rounded-2xl border-2 p-4 flex items-center justify-between gap-3 text-left transition active:scale-[0.99]"
+      style={{ borderColor: ativo ? cor : "#E5E7EB" }}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-11 h-11 rounded-xl bg-zinc-50 flex items-center justify-center shrink-0">
+          {icone}
+        </div>
+        <div className="min-w-0">
+          <p className="font-semibold text-zinc-900">{titulo}</p>
+          <p className="text-xs text-zinc-500">{descricao}</p>
+        </div>
+      </div>
+
+      <span
+        className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0"
+        style={{
+          borderColor: ativo ? cor : "#D4D4D8",
+          backgroundColor: ativo ? cor : "white",
+        }}
+      >
+        {ativo && <Check size={14} color="white" strokeWidth={3} />}
+      </span>
+    </button>
+  );
+}
 
 export default function PagamentoPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const [carregandoPagamento, setCarregandoPagamento] = useState(false);
+  const { logo, corPrincipal } = useRestaurant();
+
+  const [carregando, setCarregando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  const [restauranteId, setRestauranteId] = useState<string | null>(null);
+  const [whatsappRestaurante, setWhatsappRestaurante] = useState("");
   const [lojaAberta, setLojaAberta] = useState(true);
-const [restauranteId, setRestauranteId] = useState<string | null>(null);
+  const [pedidosAtivos, setPedidosAtivos] = useState(true);
 
-const {
-  logo,
-  corPrincipal,
-} = useRestaurant();
+  const [aceitaPix, setAceitaPix] = useState(false);
+  const [aceitaPixChave, setAceitaPixChave] = useState(false);
+  const [aceitaDinheiro, setAceitaDinheiro] = useState(false);
+  const [aceitaCartaoEntrega, setAceitaCartaoEntrega] = useState(false);
+  const [metodo, setMetodo] = useState<Metodo | null>(null);
 
-console.log("SLUG:", slug);
-console.log("LOGO:", logo);
+  const [retirada, setRetirada] = useState(false);
+  const [mesa, setMesa] = useState("");
+  const [dados, setDados] = useState<any>({});
+  const [carrinho, setCarrinho] = useState<any[]>([]);
+  const [taxaEntrega, setTaxaEntrega] = useState(0);
 
-  const [subtotal, setSubtotal] =
-    useState(0);
+  const [cpf, setCpf] = useState("");
+  const [precisaTroco, setPrecisaTroco] = useState(false);
+  const [trocoPara, setTrocoPara] = useState("");
 
-  const [taxaEntrega, setTaxaEntrega] =
-    useState(0);
+  const [clienteToken, setClienteToken] = useState("");
+  const [programa, setPrograma] = useState<ProgramaFidelidade | null>(null);
+  const [premioDisponivel, setPremioDisponivel] = useState(false);
+  const [usarPremio, setUsarPremio] = useState(false);
 
-    const [quantidadeItens, setQuantidadeItens] =
-  useState(0);
-
-  const taxaOperacional = 0.99;
-
-  const [formaPagamento, setFormaPagamento] =
-    useState("pix");
-
-    const [aceitaDinheiro, setAceitaDinheiro] =
-  useState(false);
-
-const [aceitaCartaoEntrega, setAceitaCartaoEntrega] =
-  useState(false);
-
-    const [nome, setNome] = useState("");
-
-const [cpf, setCpf] = useState("");
-const [cpfValido, setCpfValido] = useState(true);
-
-const [whatsapp, setWhatsapp] = useState("");
-
-const [rua, setRua] = useState("");
-
-const [numero, setNumero] = useState("");
-
-const [bairro, setBairro] = useState("");
-
-const [email, setEmail] = useState("");
-
-const [complemento, setComplemento] = useState("");
-
-const [referencia, setReferencia] = useState("");
-
-const [numeroCartao, setNumeroCartao] = useState("");
-const [nomeCartao, setNomeCartao] = useState("");
-const [validade, setValidade] = useState("");
-const [cvv, setCvv] = useState("");
-const [bandeira, setBandeira] = useState("");
-
-const [googlePayToken, setGooglePayToken] = useState<any>(null);
-
-const [googlePayPronto, setGooglePayPronto] = useState(false);
-
-const bandeiras: Record<string, string> = {
-  visa: "/bandeiras/visa.svg/visa.png",
-  mastercard: "/bandeiras/mastercard.svg/mastercard.png",
-  elo: "/bandeiras/elo.svg/elo.png",
-  hipercard: "/bandeiras/hipercard.svg/hipercard.png",
-  amex: "/bandeiras/amex.svg/amex.png",
-};
-
-const PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_PAGARME_PUBLIC_KEY!;
-  console.log("PUBLIC KEY:", PUBLIC_KEY);
+  const [cupomTexto, setCupomTexto] = useState("");
+  const [cupom, setCupom] = useState<{ codigo: string; desconto: number } | null>(null);
+  const [cupomErro, setCupomErro] = useState("");
+  const [validandoCupom, setValidandoCupom] = useState(false);
+  const [mostrarCupom, setMostrarCupom] = useState(false);
 
   useEffect(() => {
+    async function carregar() {
+      const tipoSalvo = localStorage.getItem("tipoPedido");
+      let mesaAtual = "";
+      try { mesaAtual = sessionStorage.getItem(`mesa-${slug}`) || ""; } catch {}
+      const ehMesa = tipoSalvo === "mesa" && Boolean(mesaAtual);
+      setMesa(ehMesa ? mesaAtual : "");
+      const ehRetirada = tipoSalvo === "retirada" || ehMesa;
+      const endereco = lerJSON<any>(`endereco-${slug}`, {});
+      const dadosRetirada = lerJSON<any>("dadosRetirada", {});
+      const itens = lerJSON<any[]>(`cart-${slug}`, []);
 
-  async function carregarConfiguracaoPagamento() {
-
-
-const ehRetirada =
-  localStorage.getItem("tipoPedido") === "retirada";
-
-
-    const endereco =
-      localStorage.getItem(
-        `endereco-${slug}`
+      setRetirada(ehRetirada);
+      setCarrinho(itens);
+      setTaxaEntrega(ehRetirada ? 0 : Number(endereco.taxaEntrega || 0));
+      setDados(
+        ehRetirada
+          ? { nome: dadosRetirada.nome, telefone: dadosRetirada.telefone, cpf: dadosRetirada.cpf }
+          : { ...endereco, telefone: endereco.whatsapp }
       );
+      setCpf(formatarCPF((ehRetirada ? dadosRetirada.cpf : endereco.cpf) || ""));
 
-    if (endereco) {
-      const dados =
-        JSON.parse(endereco);
+      const token =
+        localStorage.getItem(`cliente_token-${slug}`) ||
+        localStorage.getItem("cliente_token") ||
+        "";
+      setClienteToken(token);
 
-const ehRetirada =
-  localStorage.getItem("tipoPedido") === "retirada";
+      const { data: restaurante } = await lerRestaurantePublico((tabela) => supabase.from(tabela).select("id, whatsapp").eq("slug", slug).single());
 
-        setNome(dados.nome || "");
-setCpf(dados.cpf || "");
-setWhatsapp(dados.whatsapp || "");
+      if (!restaurante) {
+        setErro("Restaurante não encontrado.");
+        setCarregando(false);
+        return;
+      }
 
-setRua(dados.rua || "");
-setNumero(dados.numero || "");
-setBairro(dados.bairro || "");
-setComplemento(dados.complemento || "");
-setReferencia(dados.referencia || "");
+      setRestauranteId(String(restaurante.id));
+      setWhatsappRestaurante(String(restaurante.whatsapp || "").replace(/\D/g, ""));
 
-      setSubtotal(
-        Number(
-          dados.subtotal || 0
+      const [{ data: aparencias }, configResposta, fidelidade] = await Promise.all([
+        supabase.from("aparencia").select("*").eq("restaurante_id", restaurante.id).limit(1),
+        fetch(`/api/configuracoes-pagamento?restauranteId=${restaurante.id}`).then((r) => r.json()),
+        fetch(
+          `/api/fidelidade?restauranteId=${encodeURIComponent(String(restaurante.id))}`,
+          { headers: { "x-cliente-token": token } }
         )
-      );
+          .then((r) => r.json())
+          .catch(() => null),
+      ]);
 
-setTaxaEntrega(
-  ehRetirada
-    ? 0
-    : Number(dados.taxaEntrega || 0)
-);
+      const aparencia = aparencias?.[0];
+
+      // Horário (inclusive o que passa da meia-noite).
+      setLojaAberta(lojaAbertaAgora(aparencia, agoraLocal()));
+
+      const pix = Boolean(configResposta?.pix_online);
+      const dinheiro = Boolean(configResposta?.dinheiro);
+      const cartao = Boolean(configResposta?.cartao_entrega);
+
+      const pixChave = Boolean(configResposta?.pix_chave);
+      setAceitaPix(pix);
+      setAceitaPixChave(pixChave);
+      setAceitaDinheiro(dinheiro);
+      setAceitaCartaoEntrega(cartao);
+      setPedidosAtivos(configResposta?.pedidos_ativos !== false);
+      setMetodo(pix ? "pix" : pixChave ? "pix_chave" : cartao ? "cartao_entrega" : dinheiro ? "dinheiro" : null);
+
+      if (fidelidade?.programa) {
+        setPrograma(fidelidade.programa);
+        setPremioDisponivel(Boolean(fidelidade.cliente?.premioDisponivel));
+      }
+
+      setCarregando(false);
     }
 
-const { data: restaurante } = await supabase
-  .from("restaurantes")
-  .select("id")
-  .eq("slug", slug)
-  .single();
+    carregar();
+  }, [slug]);
 
-if (restaurante) {
-  setRestauranteId(restaurante.id);
-
-  const { data: aparencia } = await supabase
-    .from("aparencia")
-    .select("*")
-    .eq("restaurante_id", restaurante.id)
-    .single();
-
-  if (aparencia) {
-
-    const agora = new Date();
-
-    const dias = [
-      "dom",
-      "seg",
-      "ter",
-      "qua",
-      "qui",
-      "sex",
-      "sab",
-    ];
-
-    const dia = dias[agora.getDay()];
-
-    const inicio =
-      aparencia[`horario_${dia}_inicio`];
-
-    const fim =
-      aparencia[`horario_${dia}_fim`];
-
-    if (inicio && fim) {
-
-      const [hi, mi] =
-        inicio.split(":").map(Number);
-
-      const [hf, mf] =
-        fim.split(":").map(Number);
-
-      const agoraMin =
-        agora.getHours() * 60 +
-        agora.getMinutes();
-
-      const inicioMin =
-        hi * 60 + mi;
-
-      const fimMin =
-        hf * 60 + mf;
-
-      setLojaAberta(
-        agoraMin >= inicioMin &&
-        agoraMin <= fimMin
-      );
-
-    } else {
-
-      setLojaAberta(false);
-
-    }
-
-  }
-
-}
-
-const { data: restauranteConfig } = await supabase
-  .from("restaurantes")
-  .select("id")
-  .eq("slug", slug)
-  .single();
-
-if (restauranteConfig) {
-
-  const response = await fetch(
-    `/api/configuracoes-pagamento?restauranteId=${restauranteConfig.id}`
+  const quantidadeItens = carrinho.reduce((s, i) => s + Number(i.quantity || 0), 0);
+  const subtotal = useMemo(
+    () => carrinho.reduce((s, i) => s + Number(i.preco) * Number(i.quantity), 0),
+    [carrinho]
   );
+  const descontoCupom = cupom ? Math.min(cupom.desconto, subtotal) : 0;
+  const premioEmDinheiro = programa?.tipoPremio === "dinheiro";
+  const descontoFiel =
+    usarPremio && premioEmDinheiro
+      ? Math.min(Number(programa?.valorDesconto || 0), Math.max(subtotal + taxaEntrega - descontoCupom, 0))
+      : 0;
+  const total = Math.max(subtotal + taxaEntrega - descontoCupom - descontoFiel, 0);
 
-  const config = await response.json();
+  async function aplicarCupom() {
+    const codigo = normalizarCodigoCupom(cupomTexto);
+    setCupomErro("");
+    if (codigo.length < 3 || !restauranteId) {
+      setCupomErro("Digite o código do cupom.");
+      return;
+    }
+    setValidandoCupom(true);
+    try {
+      const resposta = await fetch("/api/cupom/validar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restauranteId, codigo, subtotal, telefone: dados.telefone || "" }),
+      }).then((r) => r.json());
 
-  setAceitaDinheiro(config?.dinheiro ?? false);
-  setAceitaCartaoEntrega(config?.cartao_entrega ?? false);
-
-  console.log(config);
-}
-
-const carrinho = JSON.parse(
-  localStorage.getItem(
-    `cart-${slug}`
-  ) || "[]"
-);
-
-const subtotalCarrinho = carrinho.reduce(
-  (acc: number, item: any) =>
-    acc + Number(item.preco) * Number(item.quantity),
-  0
-);
-
-if (ehRetirada) {
-  setSubtotal(subtotalCarrinho);
-  setTaxaEntrega(0);
-}
-
-setQuantidadeItens(
-  carrinho.reduce(
-    (acc:any,item:any)=>
-      acc + item.quantity,
-    0
-  )
-);
-
-}
-
-carregarConfiguracaoPagamento();
-
-}, [slug]);
-
-const totalPedido =
-  subtotal +
-  taxaEntrega;
-
-const totalPagamento =
-  totalPedido +
-  taxaOperacional;
-
-  function MetodoPagamento({
-    id,
-    titulo,
-    descricao,
-    icon
-  }: any) {
-    const ativo =
-      formaPagamento === id;
-
-    return (
-      <button
-        onClick={() =>
-          setFormaPagamento(id)
-        }
-        className={`
-          w-full
-          bg-white
-          rounded-xl
-          border
-          p-4
-          flex
-          items-center
-          justify-between
-          transition-all
-
-          ${
-            ativo
-              ? "border-2"
-              : ""
-          }
-        `}
-        style={{
-          borderColor: ativo
-            ? corPrincipal
-            : "#E5E7EB"
-        }}
-      >
-        <div
-  className="
-    flex
-    items-center
-    gap-3
-  "
->
-  <div
-    className="
-      w-12
-      h-12
-      flex
-      items-center
-      justify-center
-    "
-  >
-    {icon}
-  </div>
-
-  <div className="text-left">
-    <p
-      className="
-        font-semibold
-      "
-    >
-      {titulo}
-    </p>
-
-    <p
-      className="
-        text-xs
-        text-zinc-500
-      "
-    >
-      {descricao}
-    </p>
-  </div>
-</div>
-          
-        <Circle
-          size={18}
-          fill={
-            ativo
-              ? corPrincipal
-              : "white"
-          }
-          color={
-            ativo
-              ? corPrincipal
-              : "#D4D4D8"
-          }
-        />
-      </button>
-    );
+      if (!resposta.success) {
+        setCupom(null);
+        setCupomErro(resposta.error || "Cupom inválido.");
+        return;
+      }
+      setCupom({ codigo: resposta.cupom.codigo, desconto: Number(resposta.desconto || 0) });
+      setCupomTexto(resposta.cupom.codigo);
+    } catch {
+      setCupomErro("Sem conexão. Tente de novo.");
+    } finally {
+      setValidandoCupom(false);
+    }
   }
+
+  const cpfOk = validarCPF(cpf);
+  const trocoNumero = Number(trocoPara.replace(/\./g, "").replace(",", "."));
+
+  function voltar() {
+    window.location.href = retirada ? `/${slug}/carrinho` : `/${slug}/endereco`;
+  }
+
+  async function finalizar() {
+    if (enviando || !restauranteId) return;
+
+    setErro("");
+
+    if (!pedidosAtivos) {
+      setErro("Este restaurante não está recebendo pedidos online agora.");
+      return;
+    }
+
+    if (!lojaAberta) {
+      setErro("O restaurante está fechado e não está recebendo pedidos.");
+      return;
+    }
+
+    if (!metodo) {
+      setErro("Escolha uma forma de pagamento.");
+      return;
+    }
+
+    if (metodo === "pix" && !cpfOk) {
+      setErro("Para gerar o Pix, informe um CPF válido.");
+      return;
+    }
+
+    if (metodo === "dinheiro" && precisaTroco && !(trocoNumero > total)) {
+      setErro(`O troco precisa ser para um valor maior que ${reais(total)}.`);
+      return;
+    }
+
+    if (carrinho.length === 0) {
+      setErro("Seu carrinho está vazio.");
+      return;
+    }
+
+    setEnviando(true);
+
+    try {
+      const resposta = await fetch("/api/pedido/criar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restauranteId,
+          nome: dados.nome,
+          telefone: dados.telefone,
+          tipoPedido: mesa ? "mesa" : retirada ? "retirada" : "entrega",
+          mesa: mesa || undefined,
+          bairro: retirada ? "" : dados.bairro,
+          rua: retirada ? "" : dados.rua,
+          numero: retirada ? "" : dados.numero,
+          complemento: retirada ? "" : dados.complemento,
+          referencia: dados.referencia || "",
+          observacoes: "",
+          payment_method: METODO_API[metodo],
+          trocoPara: metodo === "dinheiro" && precisaTroco ? trocoNumero : null,
+          usarPremioFidelidade: usarPremio,
+          cupom: cupom?.codigo || "",
+          clienteToken,
+          itens: carrinho.map((item) => ({
+            id: item.id,
+            quantity: item.quantity,
+            observacao: item.observacao || "",
+            adicionaisSelecionados: (item.adicionaisSelecionados || []).map((a: any) => ({
+              id: a.id,
+              nome: a.nome,
+            })),
+            obrigatoriosSelecionados: (item.obrigatoriosSelecionados || []).map((o: any) => ({
+              id: o.id,
+              grupo: o.grupo,
+              nome: o.nome,
+            })),
+          })),
+        }),
+      });
+
+      const resultado = await resposta.json();
+
+      if (!resultado.success) {
+        if (resultado.code === "CUPOM_INVALIDO") {
+          setCupom(null);
+          setCupomErro(resultado.error);
+          setMostrarCupom(true);
+        }
+        setErro(resultado.error || "Não foi possível criar o pedido.");
+        setEnviando(false);
+        return;
+      }
+
+      if (resultado.cliente?.token_acesso) {
+        localStorage.setItem(`cliente_token-${slug}`, resultado.cliente.token_acesso);
+      }
+
+      const pedido = resultado.pedido;
+      const codigo = pedido.codigo_acesso;
+
+      if (metodo === "pix") {
+        const pix = await fetch("/api/pagarme/criar-pix", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pedidoId: pedido.id, codigo, cpf }),
+        }).then((r) => r.json());
+
+        if (!pix.success || !pix.qrCode) {
+          setErro(pix.error || "Não foi possível gerar o Pix. Tente novamente.");
+          setEnviando(false);
+          return;
+        }
+
+        window.location.href = `/${slug}/pix?id=${pedido.id}&c=${codigo}&qr=${encodeURIComponent(pix.qrCode)}`;
+        return;
+      }
+
+      localStorage.removeItem(`cart-${slug}`);
+      localStorage.removeItem(`endereco-${slug}`);
+      localStorage.removeItem("dadosRetirada");
+      sessionStorage.removeItem(`sessao-${slug}`);
+
+      window.location.href = `/${slug}/pedido-aprovado?id=${pedido.id}&c=${codigo}`;
+    } catch {
+      setErro("Sem conexão. Confira sua internet e tente novamente.");
+      setEnviando(false);
+    }
+  }
+
+  const semFormas = !carregando && !aceitaPix && !aceitaPixChave && !aceitaDinheiro && !aceitaCartaoEntrega;
 
   return (
-    <main
-      className="
-        min-h-screen
-        bg-white
-        p-4
-        pb-40
-      "
-    >
-      {/* TOPO */}
+    <main className="min-h-screen bg-zinc-50 pb-44">
+      <div className="max-w-xl mx-auto px-4 pt-4">
+        {/* Topo */}
+        <div className="relative flex items-center justify-between mb-6 h-20">
+          <button
+            type="button"
+            onClick={voltar}
+            aria-label="Voltar"
+            className="w-11 h-11 rounded-full bg-white shadow-md flex items-center justify-center active:scale-95"
+          >
+            <ArrowLeft size={22} style={{ color: corPrincipal }} />
+          </button>
 
-      <div
-        className="
-          relative
-          flex
-          items-center
-          justify-between
-          mb-8
-        "
-      >
-        <button
- onClick={() => {
+          {logo && (
+            <img
+              src={logo}
+              alt="Logo"
+              className="absolute left-1/2 -translate-x-1/2 w-16 h-16 object-cover rounded-full shadow-md bg-white border"
+            />
+          )}
 
-  const tipoPedido =
-    localStorage.getItem("tipoPedido");
+          <div
+            className="px-3 py-2 rounded-xl text-white flex items-center gap-2"
+            style={{ backgroundColor: corPrincipal }}
+          >
+            <ShoppingCart size={16} />
+            <span>{quantidadeItens}</span>
+          </div>
+        </div>
 
-  if (tipoPedido === "retirada") {
+        <h1 className="text-2xl font-black text-zinc-900">Pagamento</h1>
+        <p className="text-zinc-500 mt-1 mb-5">Escolha como você vai pagar</p>
 
-    window.location.href = `/${slug}/carrinho`;
+        {!pedidosAtivos && !carregando && (
+          <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+            <div className="flex gap-3">
+              <AlertTriangle className="shrink-0 mt-0.5" size={20} />
+              <div>
+                <p className="font-semibold">Pedidos online pausados</p>
+                <p className="text-sm mt-1">
+                  O restaurante não está recebendo pedidos pelo cardápio agora.
+                </p>
+                {whatsappRestaurante && (
+                  <a
+                    href={`https://wa.me/55${whatsappRestaurante.replace(/^55/, "")}`}
+                    className="inline-block mt-3 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Pedir pelo WhatsApp
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
-  } else {
+        {carregando ? (
+          <div className="space-y-3">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-20 rounded-2xl bg-white animate-pulse" />
+            ))}
+          </div>
+        ) : semFormas ? (
+          <div className="rounded-2xl bg-white p-5 text-zinc-600">
+            O restaurante ainda não configurou as formas de pagamento.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {aceitaPix && (
+              <div>
+                <Opcao
+                  id="pix"
+                  ativo={metodo === "pix"}
+                  cor={corPrincipal}
+                  onEscolher={setMetodo}
+                  titulo="Pix"
+                  descricao="Pague agora pelo app do banco"
+                  icone={<FaPix size={24} color="#32BCAD" />}
+                />
 
-    window.location.href = `/${slug}/endereco`;
+                {metodo === "pix" && (
+                  <div className="mt-2 rounded-2xl bg-white border p-4">
+                    <label className="text-xs font-semibold text-zinc-600" htmlFor="cpf">
+                      CPF de quem vai pagar
+                    </label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        id="cpf"
+                        value={cpf}
+                        onChange={(e) => setCpf(formatarCPF(e.target.value))}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="000.000.000-00"
+                        className="flex-1 text-base font-semibold outline-none py-2"
+                      />
+                      {cpf.length === 14 && (
+                        <span className={`text-xs font-bold ${cpfOk ? "text-green-600" : "text-red-500"}`}>
+                          {cpfOk ? "OK" : "Inválido"}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Exigido pelo banco para gerar o Pix. Não fica salvo no cardápio.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
-  }
+            {aceitaPixChave && (
+              <Opcao
+                id="pix_chave"
+                ativo={metodo === "pix_chave"}
+                cor={corPrincipal}
+                onEscolher={setMetodo}
+                titulo={aceitaPix ? "Pix na chave do restaurante" : "Pix"}
+                descricao="Ao finalizar, você recebe o Pix copia e cola com o valor"
+                icone={<FaPix size={24} color="#32BCAD" />}
+              />
+            )}
 
-}}
-  className="
-    w-12
-    h-12
-    rounded-full
-    bg-white
-    shadow-md
-    flex
-    items-center
-    justify-center
-    transition-all
-    hover:scale-105
-    active:scale-95
-  "
->
-  <ArrowLeft
-    size={24}
-    style={{
-      color: corPrincipal,
-    }}
-  />
-</button>
+            {aceitaCartaoEntrega && (
+              <Opcao
+                id="cartao_entrega"
+                ativo={metodo === "cartao_entrega"}
+                cor={corPrincipal}
+                onEscolher={setMetodo}
+                titulo="Cartão de crédito ou débito"
+                descricao={mesa ? "Pague no final (maquininha)" : retirada ? "Pague na retirada" : "Pague na entrega (maquininha)"}
+                icone={<CreditCard size={22} color={corPrincipal} />}
+              />
+            )}
 
-    <img
-    
-  src={logo || "/logo.png"}
-  alt="Logo"
-  onError={() =>
-    console.log("ERRO AO CARREGAR LOGO:", logo)
-  }
-  className="
-    absolute
-    left-1/2
-    -translate-x-1/2
-    w-20
-    h-20
-    object-cover
-    rounded-full
-    shadow-md
-    bg-white
-    border
-  "
-/>
+            {aceitaDinheiro && (
+              <div>
+                <Opcao
+                  id="dinheiro"
+                  ativo={metodo === "dinheiro"}
+                  cor={corPrincipal}
+                  onEscolher={setMetodo}
+                  titulo="Dinheiro"
+                  descricao={mesa ? "Pague no final" : retirada ? "Pague na retirada" : "Pague na entrega"}
+                  icone={<Banknote size={22} color="#16A34A" />}
+                />
 
+                {metodo === "dinheiro" && (
+                  <div className="mt-2 rounded-2xl bg-white border p-4 space-y-3">
+                    <label className="flex items-center gap-3 text-sm font-medium">
+                      <input
+                        type="checkbox"
+                        checked={precisaTroco}
+                        onChange={(e) => setPrecisaTroco(e.target.checked)}
+                        className="w-5 h-5"
+                      />
+                      Preciso de troco
+                    </label>
 
+                    {precisaTroco && (
+                      <div>
+                        <label className="text-xs font-semibold text-zinc-600" htmlFor="troco">
+                          Troco para quanto?
+                        </label>
+                        <div className="flex items-center gap-2 mt-1 border rounded-xl px-3">
+                          <span className="text-zinc-500">R$</span>
+                          <input
+                            id="troco"
+                            value={trocoPara}
+                            onChange={(e) => setTrocoPara(e.target.value.replace(/[^\d,]/g, ""))}
+                            inputMode="decimal"
+                            placeholder="100,00"
+                            className="flex-1 text-base font-semibold outline-none py-3"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
-        <div
-          className="
-            px-3
-            py-2
-            rounded-xl
-            text-white
-            flex
-            items-center
-            gap-2
-          "
-          style={{
-            backgroundColor:
-              corPrincipal
-          }}
-        >
-          <ShoppingCart
-            size={16}
-          />
-          <span>
-  {quantidadeItens}
-</span>
+        {/* Prêmio do cliente fiel */}
+        {programa && premioDisponivel && (
+          <label
+            className="mt-4 block rounded-2xl border-2 bg-white p-4 cursor-pointer"
+            style={{ borderColor: usarPremio ? corPrincipal : "#E5E7EB" }}
+          >
+            <span className="flex items-center gap-3">
+              <Gift size={24} style={{ color: corPrincipal }} className="shrink-0" />
+              <span className="flex-1">
+                <span className="block font-bold">Parabéns!! Você é nosso cliente fiel 🎉</span>
+                <span className="block text-sm text-zinc-600">
+                  Usar meu prêmio agora: <strong>{programa.textoPremio}</strong>
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={usarPremio}
+                onChange={(e) => setUsarPremio(e.target.checked)}
+                className="w-6 h-6"
+              />
+            </span>
+            {!usarPremio && (
+              <span className="block mt-2 text-xs text-zinc-500">
+                Se preferir, guarde o prêmio para o próximo pedido.
+              </span>
+            )}
+          </label>
+        )}
+
+        {/* Cupom */}
+        <div className="mt-4 rounded-2xl bg-white border p-4">
+          {cupom ? (
+            <div className="flex items-center gap-3">
+              <TicketPercent size={22} className="text-green-600 shrink-0" />
+              <div className="flex-1">
+                <p className="font-bold text-zinc-900">Cupom {cupom.codigo} aplicado</p>
+                <p className="text-sm text-green-700">Você economizou {reais(descontoCupom)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCupom(null);
+                  setCupomTexto("");
+                }}
+                aria-label="Remover cupom"
+                className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : !mostrarCupom ? (
+            <button
+              type="button"
+              onClick={() => setMostrarCupom(true)}
+              className="w-full flex items-center gap-3 text-left"
+            >
+              <TicketPercent size={22} style={{ color: corPrincipal }} />
+              <span className="flex-1 font-semibold">Tem um cupom de desconto?</span>
+              <span className="text-sm font-bold" style={{ color: corPrincipal }}>Adicionar</span>
+            </button>
+          ) : (
+            <div>
+              <label htmlFor="cupom" className="text-sm font-semibold text-zinc-700">
+                Tem um cupom?
+              </label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  id="cupom"
+                  value={cupomTexto}
+                  onChange={(e) => {
+                    setCupomTexto(normalizarCodigoCupom(e.target.value));
+                    setCupomErro("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") aplicarCupom();
+                  }}
+                  placeholder="Digite o código"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  className="flex-1 min-w-0 h-12 rounded-xl border px-3 text-base font-bold uppercase tracking-wider outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={aplicarCupom}
+                  disabled={validandoCupom}
+                  className="h-12 px-5 rounded-xl text-white font-bold disabled:opacity-60"
+                  style={{ backgroundColor: corPrincipal }}
+                >
+                  {validandoCupom ? "..." : "Aplicar"}
+                </button>
+              </div>
+              {cupomErro && <p className="mt-2 text-sm text-red-600">{cupomErro}</p>}
+            </div>
+          )}
+        </div>
+
+        {/* Resumo */}
+        <div className="bg-white rounded-2xl p-5 mt-5">
+          <h2 className="text-lg font-bold mb-4">Resumo do pedido</h2>
+
+          <div className="flex justify-between mb-2 text-zinc-700">
+            <span>Total dos produtos</span>
+            <span>{reais(subtotal)}</span>
+          </div>
+
+          <div className="flex justify-between mb-2 text-zinc-700">
+            <span>{mesa ? `Mesa ${mesa}` : retirada ? "Retirada no local" : "Taxa de entrega"}</span>
+            <span>{retirada ? "Grátis" : reais(taxaEntrega)}</span>
+          </div>
+
+          {descontoCupom > 0 && (
+            <div className="flex justify-between mb-2 text-green-700">
+              <span>Cupom {cupom?.codigo}</span>
+              <span>- {reais(descontoCupom)}</span>
+            </div>
+          )}
+
+          {usarPremio && programa && (
+            <div className="flex justify-between mb-2 text-green-700 font-semibold">
+              {premioEmDinheiro ? (
+                <>
+                  <span>Cliente fiel</span>
+                  <span>- {reais(descontoFiel)}</span>
+                </>
+              ) : (
+                <>
+                  <span>Cliente fiel + {programa.textoPremio}</span>
+                  <span>{reais(0)}</span>
+                </>
+              )}
+            </div>
+          )}
+
+          <hr className="my-3" />
+
+          <div className="flex justify-between items-center">
+            <span className="text-lg font-black">Total</span>
+            <span className="text-2xl font-black" style={{ color: corPrincipal }}>
+              {reais(total)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mt-5 text-zinc-500 text-sm">
+            <ShieldCheck size={16} />
+            Ambiente seguro
+          </div>
         </div>
       </div>
 
-      {/* TITULO */}
+      {/* Botão */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="max-w-xl mx-auto">
+          {erro && (
+            <p role="alert" className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              {erro}
+            </p>
+          )}
 
-      <h1
-        className="
-          text-3xl
-          font-black
-        "
-      >
-        Pagamento
-      </h1>
-
-      <p
-        className="
-          text-zinc-500
-          mt-1
-          mb-6
-        "
-      >
-        Escolha a forma de pagamento
-      </p>
-
-      {/* FORMAS */}
-
-      <div
-        className="
-          space-y-3
-          mb-6
-        "
-      >
-        <MetodoPagamento
-          id="pix"
-          titulo="Pix"
-          descricao="Pagamento instantâneo"
-          icon={
-            <FaPix
-  size={28}
-  color="#32BCAD"
-/>
-          }
-        />
-
-{aceitaCartaoEntrega && (
-
-<MetodoPagamento
-  id="cartao_entrega"
-  titulo="Cartão de crédito ou débito"
-  descricao="Pagamento na entrega"
-  icon={
-    <CreditCard
-      size={22}
-      color={corPrincipal}
-    />
-  }
-/>
-
-)}
-
-
-{aceitaDinheiro && (
-
-<MetodoPagamento
-  id="dinheiro"
-  titulo="Dinheiro"
-  descricao="Pagamento na entrega"
-  icon={
-    <Banknote
-      size={22}
-      color="#16A34A"
-    />
-  }
-/>
-
-)}
-
-      
-      </div>
-
-      {/* RESUMO */}
-
- {false && (
-
-<div
-  className="
-    bg-white
-    rounded-2xl
-    p-5
-    mb-6
-  "
->
-
-  <h2 className="text-lg font-bold mb-4">
-  Dados do cartão
-</h2>
-
-<div className="relative mb-3">
-
-  <input
-    value={numeroCartao}
-    onChange={(e) => {
-
-      const valor = e.target.value
-        .replace(/\D/g, "")
-        .slice(0, 16)
-        .replace(/(.{4})/g, "$1 ")
-        .trim();
-
-      setNumeroCartao(valor);
-
-const numero = valor.replace(/\s/g, "");
-
-if (numero.length < 4) {
-  setBandeira("");
-  return;
-}
-
-const resultado = creditCardType(numero);
-
-if (resultado.length > 0) {
-  setBandeira(resultado[0].type);
-} else {
-  setBandeira("");
-}
-
-    }}
-
-    inputMode="numeric"
-    autoComplete="cc-number"
-
-    placeholder="Número do cartão"
-
-    className="
-      w-full
-      border
-      rounded-xl
-      p-3
-      pr-16
-      text-lg
-      tracking-wider
-      focus:outline-none
-      focus:ring-2
-      focus:ring-[#6D1F2F]
-    "
-  />
-
-  {bandeira && bandeiras[bandeira] && (
-    <img
-      src={bandeiras[bandeira]}
-      alt={bandeira}
-className="
-absolute
-right-4
-top-1/2
--translate-y-1/2
-w-10
-h-6
-object-contain
-border
-bg-red-200
-"
-/>
-  )}
-
-</div>
- 
-
-<input
-  value={nomeCartao}
-  onChange={(e) => setNomeCartao(e.target.value)}
-  placeholder="Nome impresso no cartão"
-  className="w-full border rounded-xl p-3 mb-3"
-/>
-
-<div className="grid grid-cols-2 gap-3">
-
-<input
-  value={validade}
-  onChange={(e) => {
-
-  let valor = e.target.value
-    .replace(/\D/g, "")
-    .slice(0, 4);
-
-  if (valor.length > 2) {
-    valor =
-      valor.slice(0, 2) +
-      "/" +
-      valor.slice(2);
-  }
-
-  setValidade(valor);
-
-}}
-
-  inputMode="numeric"
-  autoComplete="cc-exp"
-
-  placeholder="MM/AA"
-  className="border rounded-xl p-3"
-/>
-
-<input
-  value={cvv}
-  onChange={(e) =>
-
-  setCvv(
-
-    e.target.value
-      .replace(/\D/g, "")
-      .slice(0, 4)
-
-  )
-
-}
-
-  inputMode="numeric"
-  autoComplete="cc-csc"
-
-  placeholder="CVV"
-  className="border rounded-xl p-3"
-/>
-
-</div>
-
-</div>
-
-)}
-
-      <div
-        className="
-          bg-white
-          rounded-2xl
-          p-5
-        "
-      >
-        <h2
-          className="
-            text-lg
-            font-bold
-            mb-5
-          "
-        >
-          Resumo do pedido
-        </h2>
-
-        <div
-          className="
-            flex
-            justify-between
-            mb-3
-          "
-        >
-          <span>
-            Subtotal
-          </span>
-
-          <span>
-             R$ {subtotal.toFixed(2)}
-          </span>
+          <button
+            type="button"
+            disabled={enviando || carregando || semFormas || !pedidosAtivos}
+            onClick={finalizar}
+            className="w-full h-14 rounded-xl text-white font-bold shadow-lg transition active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-3"
+            style={{ backgroundColor: corPrincipal }}
+          >
+            {enviando ? (
+              <>
+                <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                Finalizando pedido...
+              </>
+            ) : metodo === "pix" ? (
+              `Gerar Pix de ${reais(total)}`
+            ) : (
+              `Finalizar pedido • ${reais(total)}`
+            )}
+          </button>
+          <p className="mt-2 text-center text-[11px] leading-4 text-zinc-400">
+            Seus dados vão para o restaurante preparar e entregar o pedido.{" "}
+            <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">Política de Privacidade</a>
+          </p>
         </div>
-
-        <div
-          className="
-            flex
-            justify-between
-            mb-3
-          "
-        >
-          <span>
-            Taxa de entrega
-          </span>
-
-          <span>
-            R$ {taxaEntrega.toFixed(2)}
-          </span>
-        </div>
-
-        <div
-          className="
-            flex
-            justify-between
-            mb-4
-          "
-        >
-          <div className="flex items-center gap-2">
-
-<span
-  className="
-    text-sm
-    text-zinc-500
-    font-medium
-  "
->
-  Taxa operacional
-</span>
-
-<span
-  className="
-    w-4
-    h-4
-    rounded-full
-    bg-zinc-300
-    text-white
-    text-[10px]
-    flex
-    items-center
-    justify-center
-    font-semibold
-  "
->
-  i
-</span>
-
-</div>
-
-<span className="text-sm text-zinc-500">
-  R$ 0,99
-</span>
-        </div>
-
-        <hr />
-
-<div
-  className="
-    flex
-    justify-between
-    items-center
-    mt-5
-  "
->
-  <span
-    className="
-      text-2xl
-      font-black
-      text-black
-    "
-  >
-    Total do pedido
-  </span>
-
-  <span
-    className="
-      text-3xl
-      font-black
-    "
-    style={{
-      color: corPrincipal
-    }}
-  >
-    R$ {totalPagamento.toFixed(2)}
-  </span>
-</div>
-      
-
-        <div
-          className="
-            flex
-            items-center
-            justify-center
-            gap-2
-            mt-6
-            text-zinc-500
-            text-sm
-          "
-        >
-          <ShieldCheck
-            size={16}
-          />
-
-          Ambiente 100% seguro
-        </div>
-      </div>
-
-      {/* BOTÃO */}
-
-      <div
-        className="
-          fixed
-          bottom-0
-          left-0
-          right-0
-          bg-white
-          border-t
-          p-4
-        "
-      >
-        <button
-disabled={carregandoPagamento}
-onClick={async () => {
-
-  if (!lojaAberta) {
-
-    alert(
-      "O restaurante está fechado e não está recebendo pedidos."
-    );
-
-    return;
-
-  }
-
-  if (carregandoPagamento) return;
-
-setCarregandoPagamento(true);
-
-if (!restauranteId) {
-  alert("Não foi possível identificar o restaurante. Atualize a página e tente novamente.");
-  setCarregandoPagamento(false);
-  return;
-}
-
-const dadosRetirada = JSON.parse(
-  localStorage.getItem("dadosRetirada") || "{}"
-);
-
-const ehRetirada =
-  localStorage.getItem("tipoPedido") === "retirada";
-
-const cpfValidar = ehRetirada
-  ? dadosRetirada.cpf
-  : cpf;
-
-  console.log("TIPO PEDIDO:", localStorage.getItem("tipoPedido"));
-console.log("DADOS RETIRADA:", dadosRetirada);
-console.log("CPF RETIRADA:", dadosRetirada.cpf);
-console.log("CPF ENTREGA:", cpf);
-
-
-if (!validarCPF(cpfValidar)) {
-  alert("Informe um CPF válido.");
-  setCarregandoPagamento(false);
-  return;
-}
-
-    console.log(
-  "RESTAURANTE LOCALSTORAGE:",
-  localStorage.getItem("restaurante_id")
-);
-
-console.log("====== VALORES DO PEDIDO ======");
-console.log("subtotal:", subtotal);
-console.log("taxaEntrega:", taxaEntrega);
-console.log("totalPedido:", totalPedido);
-console.log("totalPagamento:", totalPagamento);
-console.log("===============================");
-
-
-const pedidoResponse = await fetch(
-  "/api/pedido/criar",
-  {
-    method: "POST",
-
-    headers: {
-      "Content-Type": "application/json",
-    },
-
-    
-    body: JSON.stringify({
-
-restauranteId: restauranteId,
-
- nome: ehRetirada
-  ? dadosRetirada.nome
-  : nome,
-
-telefone: ehRetirada
-  ? dadosRetirada.telefone
-  : whatsapp,
-
-cpf: ehRetirada
-  ? dadosRetirada.cpf
-  : cpf,
-
-tipoPedido:
-  localStorage.getItem("tipoPedido") === "retirada"
-    ? "retirada"
-    : "entrega",
-
-      endereco: ehRetirada
-  ? "Retirada no local"
-  : `${rua}, ${numero}`,
-
-bairro: ehRetirada ? "" : bairro,
-
-rua: ehRetirada ? "" : rua,
-
-numero: ehRetirada ? "" : numero,
-
-complemento: ehRetirada ? "" : complemento,
-
-referencia,
-
-observacoes: "",
-
-      itens: JSON.parse(
-        localStorage.getItem(
-          `cart-${slug}`
-        ) || "[]"
-      ),
-
-  subtotal,
-
-taxaEntrega,
-
-taxaOperacional,
-
-total: totalPedido,
-
-totalPago: totalPagamento,
-
-payment_method:
-formaPagamento === "dinheiro"
-  ? "cash"
-  : formaPagamento === "cartao_entrega"
-  ? "card_delivery"
-  : "pix",
-    }),
-  }
-);
-
-const pedidoResultado =
-  await pedidoResponse.json();
-
-  console.log("RETORNO DA API:");
-console.log("CLIENTE:", pedidoResultado.cliente);
-console.log("TOKEN:", pedidoResultado.cliente?.token_acesso);
-
-
-if (pedidoResultado.cliente?.token_acesso) {
-  localStorage.setItem(
-    `cliente_token-${slug}`,
-    pedidoResultado.cliente.token_acesso
-  );
-}
-
-if (!pedidoResultado.success) {
-    setCarregandoPagamento(false);
-    alert("Erro ao criar pedido");
-    return;
-}
-
-const pedido = pedidoResultado.pedido;
-
-console.log("PEDIDO RESULTADO:", pedidoResultado);
-
-console.log("PEDIDO:", pedido);
-
-console.log("PEDIDO ID:", pedido.id);
-
-const itens = JSON.parse(
-  localStorage.getItem(`cart-${slug}`) || "[]"
-);
-console.log(itens);
-
-if (formaPagamento === "pix") {
-
-  const response = await fetch(
-    "/api/pagarme/criar-pix",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-
-
-body: JSON.stringify({
-  total: totalPagamento,
- restauranteId: restauranteId,
-pedidoId: pedido.id,
-
-  nome: ehRetirada
-    ? dadosRetirada.nome
-    : nome,
-
-  cpf: ehRetirada
-    ? dadosRetirada.cpf
-    : cpf,
-
-  whatsapp: ehRetirada
-    ? dadosRetirada.telefone
-    : whatsapp,
-}),
-
-
-    }
-  );
-
-  const resultado = await response.json();
-
-  console.log("RETORNO PAGARME:");
-console.dir(resultado, { depth: null });
-
-  console.log("PIX COMPLETO:");
-console.log(resultado);
-console.log(resultado);
-
-window.location.href =
-`/${slug}/pix?id=${pedido.id}&qr=${encodeURIComponent(resultado.qrCode)}`;
-
-return;
-}
-
-if (formaPagamento === "cartao_entrega") {
-
-  await fetch("/api/pedido/atualizar", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      pedidoId: pedido.id,
-      payment_status: "pending",
-      payment_method: "card_delivery",
-      status: "pendente",
-    }),
-  });
-
-  localStorage.removeItem(`cart-${slug}`);
-  localStorage.removeItem(`endereco-${slug}`);
-  localStorage.removeItem("dadosRetirada");  
-  sessionStorage.removeItem(`sessao-${slug}`);
-
-  window.location.href =
-    `/${slug}/pedido-aprovado?id=${pedido.id}`;
-
-  return;
-}
-
-
-if (formaPagamento === "dinheiro") {
-
-  await fetch("/api/pedido/atualizar", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      pedidoId: pedido.id,
-      payment_status: "pending",
-      payment_method: "cash",
-      status: "pendente",
-    }),
-  });
-
-localStorage.removeItem(`cart-${slug}`);
-localStorage.removeItem(`endereco-${slug}`);
-localStorage.removeItem("dadosRetirada");
-sessionStorage.removeItem(`sessao-${slug}`);
-
-window.location.href =
-  `/${slug}/pedido-aprovado?id=${pedido.id}`;
-
-return;
-
-}
-
-
-}}
-
-className="
-w-full
-h-14
-rounded-xl
-text-white
-font-bold
-shadow-lg
-
-transition-all
-duration-200
-
-active:scale-95
-
-disabled:opacity-80
-disabled:cursor-not-allowed
-
-flex
-items-center
-justify-center
-gap-3
-"
-  style={{
-    backgroundColor:
-      corPrincipal
-  }}
->
-{carregandoPagamento ? (
-  <>
-    <div
-      className="
-        w-5
-        h-5
-        border-2
-        border-white/40
-        border-t-white
-        rounded-full
-        animate-spin
-      "
-    />
-    Finalizando pedido...
-  </>
-) : (
-  "Finalizar pedido"
-)}
-</button>
       </div>
     </main>
   );

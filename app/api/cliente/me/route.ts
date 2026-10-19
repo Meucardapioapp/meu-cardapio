@@ -1,170 +1,59 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { tokenDoCliente } from "@/lib/server/cliente-token";
+import { limitar } from "@/lib/server/rate-limit";
+import { descriptografar } from "@/lib/server/cripto";
 
+/** Dados da conta do cliente final (exige o token salvo no aparelho). */
 export async function GET(req: NextRequest) {
   try {
-    const token = req.nextUrl.searchParams.get("token");
+    if (!(await limitar(req, "cliente-me", 60, 60))) {
+      return NextResponse.json({ success: false, error: "Muitas tentativas." }, { status: 429 });
+    }
+
+    const token = tokenDoCliente(req);
 
     if (!token) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Token não informado",
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Token não informado" }, { status: 400 });
     }
 
-    // ==========================================
-    // CLIENTE
-    // ==========================================
-
-    const {
-      data: cliente,
-      error: clienteError,
-    } = await supabaseAdmin
+    const { data: cliente } = await supabaseAdmin
       .from("clientes")
-      .select("*")
+      .select("id, nome, telefone, email, cpf, restaurante_id, total_pedidos, total_gasto, ultimo_pedido, token_acesso")
       .eq("token_acesso", token)
-      .single();
+      .maybeSingle();
 
-    console.log("========== API CLIENTE ==========");
-    console.log("TOKEN:", token);
-    console.log("CLIENTE:", cliente);
-    console.log("ERRO CLIENTE:", clienteError);
-
-    if (clienteError || !cliente) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Cliente não encontrado",
-          detalhes: clienteError?.message ?? null,
-        },
-        { status: 404 }
-      );
+    if (!cliente) {
+      return NextResponse.json({ success: false, error: "Cliente não encontrado" }, { status: 404 });
     }
 
-    // ==========================================
-    // ENDEREÇOS
-    // ==========================================
-
-    const {
-      data: enderecos,
-      error: enderecosError,
-    } = await supabaseAdmin
-      .from("enderecos_cliente")
-      .select("*")
-      .eq("cliente_id", cliente.id);
-
-    console.log("ENDEREÇOS:", enderecos);
-    console.log("ERRO ENDEREÇOS:", enderecosError);
-
-    // ==========================================
-    // PEDIDOS
-    // ==========================================
-
-    const {
-      data: pedidos,
-      error: pedidosError,
-    } = await supabaseAdmin
-      .from("pedidos")
-      .select("*")
-      .eq("cliente_id", cliente.id)
-      .eq("confirmado", true)
-      .order("created_at", {
-        ascending: false,
-      });
-
-    console.log("PEDIDOS:", pedidos);
-    console.log("ERRO PEDIDOS:", pedidosError);
-
-    // ==========================================
-    // FIDELIDADE
-    // ==========================================
-
-    const {
-      data: fidelidades,
-      error: fidelidadeError,
-    } = await supabaseAdmin
-      .from("cliente_fidelidade")
-      .select("*")
-      .eq("cliente_id", cliente.id);
-
-    console.log("========== FIDELIDADE ==========");
-    console.log("CLIENTE ID:", cliente.id);
-    console.log(
-      "RESTAURANTE ID:",
-      cliente.restaurante_id
-    );
-    console.log(
-      "FIDELIDADES:",
-      fidelidades
-    );
-    console.log(
-      "ERRO FIDELIDADE:",
-      fidelidadeError
-    );
-
-    // Se houver erro na tabela de fidelidade,
-    // NÃO derruba a API inteira.
-    if (fidelidadeError) {
-      return NextResponse.json({
-        success: true,
-        cliente,
-        enderecos: enderecos ?? [],
-        pedidos: pedidos ?? [],
-        fidelidade: null,
-        fidelidade_error: {
-          message: fidelidadeError.message,
-          details: fidelidadeError.details,
-          hint: fidelidadeError.hint,
-          code: fidelidadeError.code,
-        },
-      });
-    }
-
-    // ==========================================
-    // PEGA A FIDELIDADE DO RESTAURANTE ATUAL
-    // ==========================================
-
-    const fidelidade =
-      fidelidades?.find(
-        (item) =>
-          item.restaurante_id ===
-          cliente.restaurante_id
-      ) ?? null;
-
-    console.log(
-      "FIDELIDADE FINAL:",
-      fidelidade
-    );
-
-    // ==========================================
-    // RESPOSTA
-    // ==========================================
+    const [{ data: enderecos }, { data: pedidos }, { data: fidelidade }] = await Promise.all([
+      supabaseAdmin.from("enderecos_cliente").select("*").eq("cliente_id", cliente.id),
+      supabaseAdmin
+        .from("pedidos")
+        .select("id, numero_pedido, codigo_acesso, status, created_at, total, total_pago, payment_method, payment_status, tipo_pedido, itens")
+        .eq("cliente_id", cliente.id)
+        .eq("confirmado", true)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabaseAdmin
+        .from("cliente_fidelidade")
+        .select("selos, desconto_disponivel, ultimo_resgate, restaurante_id")
+        .eq("cliente_id", cliente.id)
+        .eq("restaurante_id", cliente.restaurante_id)
+        .maybeSingle(),
+    ]);
 
     return NextResponse.json({
       success: true,
-      cliente,
+      // CPF fica criptografado no banco; o próprio cliente vê só o dele.
+      cliente: { ...cliente, cpf: descriptografar(cliente.cpf) },
       enderecos: enderecos ?? [],
       pedidos: pedidos ?? [],
-      fidelidade,
+      fidelidade: fidelidade ?? null,
     });
-  } catch (error: any) {
-    console.error(
-      "========== ERRO GERAL API CLIENTE =========="
-    );
-
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erro interno do servidor",
-        detalhes: error?.message ?? String(error),
-        stack: error?.stack ?? null,
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("[cliente/me]", error);
+    return NextResponse.json({ success: false, error: "Erro interno do servidor" }, { status: 500 });
   }
 }

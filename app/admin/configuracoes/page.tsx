@@ -1,9 +1,11 @@
 "use client";
 
+import { apiFetch } from "@/utils/apiFetch";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import CancelarPlano from "../components/CancelarPlano";
 
 import {
   Lightbulb,
@@ -45,8 +47,8 @@ async function carregarDados() {
 
   setRestauranteId(id);
 
-  const response = await fetch(
-    `/api/configuracoes/${id}`
+  const response = await apiFetch(
+    `/api/configuracoes`
   );
 
   const restaurante =
@@ -62,7 +64,7 @@ setWhatsapp(
 }
 
 async function salvarAlteracoes() {
-  await fetch("/api/configuracoes", {
+  await apiFetch("/api/configuracoes", {
     method: "PUT",
 
     headers: {
@@ -179,6 +181,9 @@ async function salvarAlteracoes() {
         </div>
 
       </div>
+
+      {/* PLANO */}
+      <CancelarPlano />
 
       {/* DICA */}
 

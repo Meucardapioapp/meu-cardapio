@@ -102,8 +102,6 @@ async function moverCategoria(
 
     if (error) {
 
-      console.log(error)
-
       return
     }
 
@@ -152,8 +150,6 @@ async function moverCategoria(
           ])
 
       if (error) {
-
-        console.log(error)
 
         alert(
           "Erro ao salvar categoria"

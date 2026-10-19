@@ -69,9 +69,7 @@ const [enderecoExcluir, setEnderecoExcluir] = useState<string | null>(null);
     }
 
     try {
-      const response = await fetch(
-        `/api/cliente/enderecos?token=${token}`
-      );
+      const response = await fetch("/api/cliente/enderecos", { headers: { "x-cliente-token": token || "" } });
 
       const resultado = await response.json();
 
@@ -555,9 +553,10 @@ function excluirEndereco(id: string) {
     const token = localStorage.getItem("cliente_token");
 
     const response = await fetch(
-      `/api/cliente/enderecos?token=${token}&id=${enderecoExcluir}`,
+      `/api/cliente/enderecos?id=${encodeURIComponent(String(enderecoExcluir))}`,
       {
         method: "DELETE",
+        headers: { "x-cliente-token": token || "" },
       }
     );
 

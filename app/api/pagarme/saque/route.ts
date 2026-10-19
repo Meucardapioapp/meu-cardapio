@@ -1,396 +1,160 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { erroInterno, getDonoAutenticado, naoAutenticado } from "@/lib/server/auth";
+import { getRecebedorId } from "@/lib/server/recebedor";
+import { PagarmeError, pagarme } from "@/lib/server/pagarme";
+import { limitar } from "@/lib/server/rate-limit";
+import { SenhaInvalidaError, confirmarSenhaDoDono } from "@/lib/server/confirmar-senha";
 
+const HORAS_TRAVA_APOS_TROCAR_CONTA = 24;
+
+const TAXA_SAQUE = 3.67;
+
+/** Histórico de saques do restaurante logado, sincronizado com a Pagar.me. */
 export async function GET(req: NextRequest) {
   try {
-    const restauranteId =
-      req.nextUrl.searchParams.get("restauranteId");
+    const dono = await getDonoAutenticado(req);
+    if (!dono) return naoAutenticado();
 
-    if (!restauranteId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Restaurante não informado",
-        },
-        { status: 400 }
-      );
-    }
+    const recipientId = await getRecebedorId(dono.restaurante.id);
 
-    // =====================================================
-    // 1. BUSCAR O RECEBEDOR DO RESTAURANTE
-    // =====================================================
+    const { data: saques, error } = await supabaseAdmin
+      .from("saques")
+      .select("*")
+      .eq("restaurante_id", dono.restaurante.id)
+      .order("created_at", { ascending: false });
 
-    const { data: restaurante, error: restauranteError } =
-      await supabaseAdmin
-        .from("restaurantes")
-        .select("pagarme_recipient_id")
-        .eq("id", restauranteId)
-        .single();
+    if (error) throw error;
 
-    if (restauranteError || !restaurante?.pagarme_recipient_id) {
-      console.error(
-        "Erro ao buscar recebedor:",
-        restauranteError
-      );
+    if (recipientId && saques?.some((s) => s.pagarme_withdrawal_id)) {
+      try {
+        const resposta = await pagarme<any>(`/recipients/${recipientId}/transfers`);
+        const transferencias: any[] = Array.isArray(resposta) ? resposta : resposta?.data || [];
 
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Recebedor do restaurante não encontrado",
-        },
-        { status: 404 }
-      );
-    }
+        for (const saque of saques) {
+          const t = transferencias.find((x) => x.id === saque.pagarme_withdrawal_id);
 
-    // =====================================================
-    // 2. BUSCAR SAQUES SALVOS NO SUPABASE
-    // =====================================================
-
-    const { data: saques, error: saquesError } =
-      await supabaseAdmin
-        .from("saques")
-        .select("*")
-        .eq("restaurante_id", restauranteId)
-        .order("created_at", {
-          ascending: false,
-        });
-
-    if (saquesError) {
-      console.error(
-        "Erro ao buscar saques:",
-        saquesError
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: saquesError,
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    // =====================================================
-// 3. CONSULTAR AS TRANSFERÊNCIAS NA PAGAR.ME
-// =====================================================
-
-console.log("🔥 CHEGOU ANTES DO FETCH DA PAGARME 🔥");
-console.log("RECIPIENT:", restaurante.pagarme_recipient_id);
-
-
-    const response = await fetch(
-      `https://api.pagar.me/core/v5/recipients/${restaurante.pagarme_recipient_id}/transfers`,
-      {
-        method: "GET",
-
-        headers: {
-          Authorization:
-            "Basic " +
-            Buffer.from(
-              process.env.PAGARME_SECRET_KEY + ":"
-            ).toString("base64"),
-
-          "Content-Type": "application/json",
-
-          "User-Agent": "MeuCardapioApp",
-        },
-
-        cache: "no-store",
-      }
-    );
-
-    // =====================================================
-    // 4. SE A PAGAR.ME RESPONDER, SINCRONIZAR STATUS
-    // =====================================================
-
-    if (response.ok) {
-      const pagarmeResponse = await response.json();
-
-      console.log(
-        "TRANSFERÊNCIAS PAGAR.ME:",
-        JSON.stringify(pagarmeResponse, null, 2)
-      );
-
-      const transferencias = Array.isArray(pagarmeResponse)
-        ? pagarmeResponse
-        : pagarmeResponse?.data || [];
-
-      for (const saque of saques || []) {
-        if (!saque.pagarme_withdrawal_id) {
-          continue;
-        }
-
-        const transferencia = transferencias.find(
-          (item: any) =>
-            item.id === saque.pagarme_withdrawal_id
-        );
-
-        if (!transferencia) {
-          continue;
-        }
-
-        const novoStatus =
-          transferencia.status || saque.status;
-
-        // Só atualiza se realmente mudou
-        if (novoStatus !== saque.status) {
-          console.log(
-            `Atualizando saque ${saque.pagarme_withdrawal_id}:`,
-            saque.status,
-            "->",
-            novoStatus
-          );
-
-          const { error: updateError } =
-            await supabaseAdmin
-              .from("saques")
-              .update({
-                status: novoStatus,
-              })
-              .eq("id", saque.id);
-
-          if (updateError) {
-            console.error(
-              "Erro ao atualizar status do saque:",
-              updateError
-            );
-          } else {
-            // Atualiza também o objeto que será enviado
-            // para o frontend imediatamente
-            saque.status = novoStatus;
+          if (t?.status && t.status !== saque.status) {
+            await supabaseAdmin.from("saques").update({ status: t.status }).eq("id", saque.id);
+            saque.status = t.status;
           }
         }
+      } catch (e) {
+        console.error("[saque] sincronização", e);
       }
-    } else {
-      const erroPagarme = await response.text();
-
-      console.error(
-        "Erro ao consultar transferências na Pagar.me:",
-        response.status,
-        erroPagarme
-      );
     }
 
-    // =====================================================
-    // 5. DEVOLVER HISTÓRICO ATUALIZADO
-    // =====================================================
-
-    return NextResponse.json({
-      success: true,
-      saques: saques || [],
-    });
-
-  } catch (error: any) {
-    console.error(
-      "Erro na API de saques:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
-    );
+    return NextResponse.json({ success: true, saques: saques || [] });
+  } catch (error) {
+    return erroInterno("pagarme/saque GET", error);
   }
 }
 
+/** Solicita um saque do saldo disponível para a conta bancária cadastrada. */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { restauranteId, valor } = body;
+    const dono = await getDonoAutenticado(req);
+    if (!dono) return naoAutenticado();
 
-    // =====================================================
-    // 1. VALIDAR DADOS DE ENTRADA
-    // =====================================================
-
-    if (!restauranteId) {
+    if (!(await limitar(req, "saque", 5, 3600))) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Restaurante não informado",
-        },
+        { success: false, error: "Muitas solicitações de saque. Tente de novo em 1 hora." },
+        { status: 429 }
+      );
+    }
+
+    const { valor, senha } = await req.json();
+
+    if (
+      typeof valor !== "number" ||
+      !Number.isFinite(valor) ||
+      valor < 1 ||
+      valor > 1_000_000 ||
+      Math.round(valor * 100) !== Math.round(valor * 100 * 1000) / 1000
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Valor inválido para saque" },
         { status: 400 }
       );
     }
 
-    if (!valor || typeof valor !== "number" || valor <= 0) {
+    // Sacar exige a senha de novo.
+    try {
+      await confirmarSenhaDoDono(dono, senha);
+    } catch (e) {
+      if (e instanceof SenhaInvalidaError) {
+        return NextResponse.json({ success: false, error: e.message }, { status: e.status });
+      }
+      throw e;
+    }
+
+    // Conta bancária trocada há pouco: espera 24 h (golpe comum é trocar a conta e sacar na hora).
+    const { data: financeiro } = await supabaseAdmin
+      .from("restaurantes_financeiro")
+      .select("conta_alterada_em")
+      .eq("restaurante_id", dono.restaurante.id)
+      .maybeSingle();
+
+    const alteradaEm = financeiro?.conta_alterada_em ? new Date(financeiro.conta_alterada_em).getTime() : 0;
+    const liberaEm = alteradaEm + HORAS_TRAVA_APOS_TROCAR_CONTA * 3600 * 1000;
+
+    if (alteradaEm && liberaEm > Date.now()) {
+      const horas = Math.ceil((liberaEm - Date.now()) / 3600000);
       return NextResponse.json(
         {
           success: false,
-          error: "Valor inválido para saque",
+          error: `Por segurança, os saques ficam travados por 24 horas depois de trocar a conta bancária. Libera em ${horas}h.`,
         },
+        { status: 423 }
+      );
+    }
+
+    const recipientId = await getRecebedorId(dono.restaurante.id);
+
+    if (!recipientId) {
+      return NextResponse.json(
+        { success: false, error: "Cadastre seus dados bancários primeiro." },
         { status: 400 }
       );
     }
 
-    // =====================================================
-    // 2. BUSCAR O RECEBEDOR DO RESTAURANTE
-    // =====================================================
+    let transferencia: any;
 
-    const { data: restaurante, error: restauranteError } =
-      await supabaseAdmin
-        .from("restaurantes")
-        .select("pagarme_recipient_id")
-        .eq("id", restauranteId)
-        .single();
-
-    if (restauranteError || !restaurante?.pagarme_recipient_id) {
-      console.error(
-        "Erro ao buscar recebedor:",
-        restauranteError
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Recebedor do restaurante não encontrado",
-        },
-        { status: 404 }
-      );
-    }
-
-    // =====================================================
-    // 3. CRIAR A TRANSFERÊNCIA NA PAGAR.ME
-    // =====================================================
-
-    const idempotencyKey = crypto.randomUUID();
-
-    const valorEmCentavos = Math.round(valor * 100);
-
-    console.log("🔥 CRIANDO TRANSFERÊNCIA NA PAGARME 🔥");
-    console.log("RECIPIENT:", restaurante.pagarme_recipient_id);
-    console.log("VALOR (centavos):", valorEmCentavos);
-
-    const response = await fetch(
-      "https://api.pagar.me/core/v5/transfers",
-      {
+    try {
+      transferencia = await pagarme<any>("/transfers", {
         method: "POST",
-
-        headers: {
-          Authorization:
-            "Basic " +
-            Buffer.from(
-              process.env.PAGARME_SECRET_KEY + ":"
-            ).toString("base64"),
-
-          "Content-Type": "application/json",
-
-          "Idempotency-Key": idempotencyKey,
-
-          "User-Agent": "MeuCardapioApp",
+        idempotencyKey: crypto.randomUUID(),
+        body: {
+          amount: Math.round(valor * 100),
+          recipient_id: recipientId,
+          metadata: { restaurante_id: dono.restaurante.id },
         },
-
-        body: JSON.stringify({
-          amount: valorEmCentavos,
-          recipient_id: restaurante.pagarme_recipient_id,
-          metadata: {
-            restaurante_id: restauranteId,
-          },
-        }),
-
-        cache: "no-store",
-      }
-    );
-
-    const pagarmeResponse = await response.json();
-
-    // =====================================================
-    // 4. SE A PAGAR.ME RETORNAR ERRO, DEVOLVER EXATAMENTE
-    // =====================================================
-
-    if (!response.ok) {
-      console.error(
-        "Erro ao criar transferência na Pagar.me:",
-        response.status,
-        JSON.stringify(pagarmeResponse, null, 2)
-      );
-
-      return NextResponse.json(pagarmeResponse, {
-        status: response.status,
       });
-    }
-
-    console.log(
-      "TRANSFERÊNCIA CRIADA:",
-      JSON.stringify(pagarmeResponse, null, 2)
-    );
-
-    // =====================================================
-    // 5. CALCULAR TAXA E VALOR LÍQUIDO (TAXA FIXA DA PLATAFORMA)
-    // =====================================================
-
-console.log("VALOR RECEBIDO DO FRONT:", valor);
-
-const taxa = 3.67;
-
-// o frontend envia o valor que o restaurante quer RECEBER
-const valorLiquido = valor;
-
-// o valor realmente descontado do saldo
-const valorBruto = valorLiquido + taxa;
-
-console.log("VALOR BRUTO:", valorBruto);
-console.log("VALOR LÍQUIDO:", valorLiquido);
-
-    // =====================================================
-    // 6. SALVAR REGISTRO NA TABELA SAQUES
-    // =====================================================
-
-    const { error: insertError } = await supabaseAdmin
-      .from("saques")
-.insert({
-  restaurante_id: restauranteId,
-  pagarme_recipient_id: restaurante.pagarme_recipient_id,
-
-  valor: valorBruto,
-  taxa: taxa,
-  valor_liquido: valorLiquido,
-
-  status: pagarmeResponse.status || "pending",
-  pagarme_withdrawal_id: pagarmeResponse.id,
-
-  created_at: new Date().toISOString(),
-})
-
-    if (insertError) {
-      console.error(
-        "Erro ao salvar saque no Supabase:",
-        insertError
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: insertError,
-        },
-        { status: 500 }
-      );
-    }
-
-    // =====================================================
-    // 7. RETORNAR SUCESSO
-    // =====================================================
-
-    return NextResponse.json({
-      success: true,
-    });
-  } catch (error: any) {
-    console.error("Erro na criação de saque:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
+    } catch (e) {
+      if (e instanceof PagarmeError) {
+        return NextResponse.json(
+          { success: false, error: e.message || "A Pagar.me recusou o saque." },
+          { status: 400 }
+        );
       }
-    );
+      throw e;
+    }
+
+    const { error } = await supabaseAdmin.from("saques").insert({
+      restaurante_id: dono.restaurante.id,
+      pagarme_recipient_id: recipientId,
+      valor: valor + TAXA_SAQUE,
+      taxa: TAXA_SAQUE,
+      valor_liquido: valor,
+      status: transferencia.status || "pending",
+      pagarme_withdrawal_id: transferencia.id,
+      created_at: new Date().toISOString(),
+    });
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return erroInterno("pagarme/saque POST", error);
   }
 }

@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useRef, useState } from "react"
+import Turnstile, { type TurnstileRef } from "@/app/components/Turnstile"
 import { Eye, EyeOff } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import Toast from "@/app/components/ui/toast"
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [senha, setSenha] = useState("")
   const [loading, setLoading] = useState(false)
+  const turnstile = useRef<TurnstileRef>(null)
   const [mostrarSenha, setMostrarSenha] =
     useState(false)
     
@@ -23,10 +25,13 @@ export default function LoginPage() {
     try {
       setLoading(true)
 
+      const captchaToken = await turnstile.current?.obterToken()
+
       const { data, error } =
         await supabase.auth.signInWithPassword({
           email: email.trim(),
-          password: senha.trim(),
+          password: senha,
+          options: captchaToken ? { captchaToken } : undefined,
         })
 
       if (error) {
@@ -50,39 +55,50 @@ export default function LoginPage() {
         error: restauranteError,
       } = await supabase
         .from("restaurantes")
-        .select("*")
+        .select("id")
         .eq("auth_user_id", userId)
         .single()
 
-      if (
-  restauranteError ||
-  !restaurante
-) {
-  setToast({
-    tipo: "erro",
-    titulo: "Conta não encontrada",
-    mensagem:
-      "Não encontramos um restaurante vinculado a esta conta.",
-  })
+      // Dono: achou o restaurante direto. Atendente da equipe: o servidor diz qual é.
+      let restauranteId = !restauranteError && restaurante ? String(restaurante.id) : ""
+      let papel = "dono"
 
-  setTimeout(() => {
-    setToast(null)
-  }, 5000)
+      if (!restauranteId) {
+        try {
+          const r = await fetch("/api/restaurante", {
+            headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+          })
+          const d = await r.json()
+          if (d?.success && d.restaurante?.id) {
+            restauranteId = String(d.restaurante.id)
+            papel = d.papel === "atendente" ? "atendente" : "dono"
+          }
+        } catch {}
+      }
 
-  return
-}
+      if (!restauranteId) {
+        await supabase.auth.signOut()
+        setToast({
+          tipo: "erro",
+          titulo: "Conta não encontrada",
+          mensagem:
+            "Não encontramos um restaurante vinculado a esta conta.",
+        })
 
-      localStorage.setItem(
-        "restaurante_id",
-        restaurante.id
-      )
+        setTimeout(() => {
+          setToast(null)
+        }, 5000)
+
+        return
+      }
+
+      localStorage.setItem("restaurante_id", restauranteId)
+      localStorage.setItem("papel_painel", papel)
 
       window.location.href =
-        "/admin/"
+        papel === "atendente" ? "/admin/pedidos" : "/admin/"
 
    } catch (err) {
-  console.log(err)
-
   setToast({
     tipo: "erro",
     titulo: "Erro inesperado",
@@ -248,6 +264,8 @@ export default function LoginPage() {
 </Link>
 
           </div>
+
+          <Turnstile ref={turnstile} />
 
           <button
   type="submit"

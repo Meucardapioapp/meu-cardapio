@@ -341,7 +341,7 @@ export default function FeaturesMobile() {
 
             <div className="mt-6">
               <p className="text-[11px] font-semibold text-white/60">
-                Economize até
+                Taxa por pedido
               </p>
 
               <div className="mt-1 flex items-end gap-1.5">
@@ -354,11 +354,11 @@ export default function FeaturesMobile() {
                     text-white
                   "
                 >
-                  R$ 10.000
+                  R$ 0
                 </span>
 
                 <span className="mb-1 text-[13px] font-bold text-[#FF5477]">
-                  /mês
+                  no MeuCardápio
                 </span>
               </div>
 
@@ -371,8 +371,8 @@ export default function FeaturesMobile() {
                   text-white/55
                 "
               >
-                Ao reduzir a dependência de marketplaces, seu delivery
-                pode manter muito mais dinheiro dentro do próprio negócio.
+                Marketplaces cobram comissão em cada pedido. No seu canal
+                próprio você paga só a mensalidade fixa.
               </p>
             </div>
 

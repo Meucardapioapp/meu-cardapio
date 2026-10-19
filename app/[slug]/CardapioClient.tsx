@@ -28,7 +28,6 @@ import ProductCard from "../components/ProductCard"
 import FeaturedProductCard from "../components/FeaturedProductCard";
 import ProductModal from "../components/ProductModal"
 import Cart from "../components/Cart"
-import CheckoutModal from "../components/CheckoutModal"
 import BottomNavigation from "../components/BottomNavigation";
 import RestaurantFooter from "../components/RestaurantFooter";
 
@@ -39,13 +38,18 @@ import type {
   ProdutoFormatado,
   CartItem
 } from "../types"
+import { lerRestaurantePublico } from "@/lib/restaurantePublico";
+import { agoraLocal, lojaAbertaAgora } from "@/lib/horario";
 
 type CardapioClientProps = {
   modoEditor?: boolean;
+  /** Dados já carregados no servidor: o cardápio aparece sem tela de carregamento. */
+  inicial?: any;
 };
 
 export default function CardapioClient({
   modoEditor = false,
+  inicial,
 }: CardapioClientProps) {
 
 const params = useParams()
@@ -56,8 +60,6 @@ const {
   logo,
   corPrincipal,
 } = useRestaurant();
-
-console.log("SLUG ATUAL:", slug)
 
 useEffect(() => {
   localStorage.setItem(
@@ -80,9 +82,7 @@ useEffect(() => {
     }
 
     try {
-      const response = await fetch(
-        `/api/cliente/me?token=${token}`
-      );
+      const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
 
       const resultado = await response.json();
 
@@ -92,15 +92,9 @@ if (resultado.success) {
     selos_pix: resultado.fidelidade?.selos ?? 0,
   });
 
-  console.log(
-    "CLIENTE LOGADO:",
-    resultado.cliente
-  );
+  
 
-  console.log(
-    "FIDELIDADE CLIENTE:",
-    resultado.fidelidade
-  );
+  
 }
     } catch (e) {
       console.error(e);
@@ -115,19 +109,51 @@ if (resultado.success) {
 
 
   const [produtos, setProdutos] =
-    useState<ProdutoFormatado[]>([])
+    useState<ProdutoFormatado[]>(inicial?.produtos ?? [])
 
     const [produtosCarregados, setProdutosCarregados] =
-  useState(false);
+  useState(Boolean(inicial));
 
 const [loadingInicial, setLoadingInicial] =
-  useState(true);
+  useState(!inicial);
+
+  // Horário de abertura depende da hora do celular: só calcula depois de abrir.
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+
+  const [tempos, setTempos] = useState<any>(inicial?.operacao ?? null);
+  const [avaliacao, setAvaliacao] = useState<any>(inicial?.avaliacao ?? null);
+  const [taxaMinima, setTaxaMinima] = useState<number | null>(inicial?.taxaMinima ?? null);
+  const [verAvaliacoes, setVerAvaliacoes] = useState(false);
+
+  // Pedido pela mesa: o QR Code da mesa abre o cardápio com ?mesa=5.
+  const [mesa, setMesa] = useState("");
+  useEffect(() => {
+    if (!slug) return;
+    try {
+      const daUrl = new URLSearchParams(window.location.search).get("mesa");
+      const chave = `mesa-${slug}`;
+      if (daUrl) {
+        const limpa = daUrl.replace(/[^0-9A-Za-z-]/g, "").slice(0, 10);
+        if (limpa) sessionStorage.setItem(chave, limpa);
+      }
+      setMesa(sessionStorage.getItem(chave) || "");
+    } catch {}
+  }, [slug]);
+
+  function sairDaMesa() {
+    try { sessionStorage.removeItem(`mesa-${slug}`); } catch {}
+    setMesa("");
+  }
 
   const [selectedProduct, setSelectedProduct] =
     useState<ProdutoFormatado | null>(null)
 
   const [openModal, setOpenModal] =
     useState(false)
+
+    const [pedidosPausados, setPedidosPausados] =
+  useState(inicial ? inicial.pedidosAtivos === false : false)
 
     const [modalLojaFechada, setModalLojaFechada] =
   useState(false)
@@ -146,12 +172,12 @@ const [loadingInicial, setLoadingInicial] =
   const [
   categoriaSelecionada,
   setCategoriaSelecionada,
-] = useState<string | null>(null)
+] = useState<string | null>(inicial?.categorias?.[0] ?? null)
 
 
 
   const [categorias, setCategorias] =
-    useState<string[]>([])
+    useState<string[]>(inicial?.categorias ?? [])
 
 const categoriasRef =
   useRef<HTMLDivElement>(null)
@@ -172,10 +198,10 @@ const [mostrarDireita, setMostrarDireita] =
   useState("")
 
 const [restaurante, setRestaurante] =
-  useState<any>(null)
+  useState<any>(inicial?.restaurante ?? null)
 
 const [aparencia, setAparencia] =
-  useState<any>(null)
+  useState<any>(inicial?.aparencia ?? null)
 
   const [cliente, setCliente] =
   useState<any>(null);
@@ -200,10 +226,10 @@ const corTextoBotao = "#FFFFFF"
 
 
 const [banner, setBanner] =
-  useState<string>("")
+  useState<string>(inicial?.aparencia?.banner_url ?? "")
 
 const [lightMode, setLightMode] =
-  useState(true)
+  useState(inicial?.aparencia ? inicial.aparencia.tema !== "escuro" : true)
 
   useEffect(() => {
 
@@ -288,346 +314,73 @@ useEffect(() => {
     window.removeEventListener("scroll", handleScroll);
 }, [categorias, categoriaSelecionada]);
 
-  async function buscarProdutos() {
+  /** Aplica os dados do cardápio na tela (vindos do servidor junto com a página). */
+  function aplicarCardapio(dados: any) {
+    const restauranteData = dados.restaurante
+    setRestaurante(restauranteData)
+    setPedidosPausados(dados.pedidosAtivos === false)
+    setTempos(dados.operacao ?? null)
+    setAvaliacao(dados.avaliacao ?? null)
+    setTaxaMinima(dados.taxaMinima ?? null)
 
+    const aparenciaData = dados.aparencia
+    if (aparenciaData) {
+      setAparencia(aparenciaData)
+      try {
+        localStorage.setItem("logo-restaurante", aparenciaData.logo_url || "")
+        localStorage.setItem("cor-principal", aparenciaData.cor_primaria || "#571f5b")
+      } catch {}
+      setBanner(aparenciaData.banner_url || "")
+      setLightMode(aparenciaData.tema !== "escuro")
+    } else {
+      setBanner("")
+      setLightMode(true)
+    }
+
+    setProdutos(dados.produtos || [])
+    setProdutosCarregados(true)
+
+    const categoriasOrdenadas: string[] = dados.categorias || []
+    setCategorias(categoriasOrdenadas)
+    if (categoriasOrdenadas.length > 0) {
+      setCategoriaSelecionada((atual) => atual ?? categoriasOrdenadas[0])
+    }
+
+    // Programa de fidelidade + selos deste cliente (se o aparelho já pediu aqui).
+    let tokenCliente = ""
+    try {
+      tokenCliente =
+        localStorage.getItem(`cliente_token-${slug}`) ||
+        localStorage.getItem("cliente_token") ||
+        ""
+    } catch {}
+    fetch(`/api/fidelidade?restauranteId=${encodeURIComponent(restauranteData.id)}`, {
+      headers: { "x-cliente-token": tokenCliente },
+    })
+      .then((r) => r.json())
+      .then((f) => setFidelidade(f?.programa ? f : null))
+      .catch(() => setFidelidade(null))
+
+    setLoadingInicial(false)
+  }
+
+  async function buscarProdutos() {
     if (!slug) return
 
+    if (inicial) {
+      aplicarCardapio(inicial)
+      return
+    }
+
     try {
-
-      /* RESTAURANTE */
-
-      const {
-        data: restauranteData,
-        error: restauranteError,
-      } = await supabase
-        .from("restaurantes")
-        .select("*")
-        .eq("slug", slug)
-        .single()
-
-
-      if (
-        restauranteError ||
-        !restauranteData
-      ) {
-
-        console.log(
-          "Erro restaurante:",
-          restauranteError
-        )
-
-        return
-      }
-
-      setRestaurante(
-        restauranteData
-      )
-
-      const { data: fidelidadeData, error: fidelidadeError } =
-  await supabase
-    .from("fidelidade")
-    .select("*")
-    .eq("restaurante_id", restauranteData.id)
-    .eq("ativo", true)
-    .maybeSingle();
-
-if (fidelidadeError) {
-  console.error(
-    "ERRO FIDELIDADE:",
-    fidelidadeError
-  );
-}
-
-setFidelidade(fidelidadeData);
-
-const {
-  data: categoriasData
-} = await supabase
-  .from("categorias")
-  .select("*")
-  .eq(
-    "restaurante_id",
-    restauranteData.id
-  )
-  .order("ordem", {
-    ascending: true,
-  })
-
-      console.log(
-  "RESTAURANTE ENCONTRADO:",
-  restauranteData
-)
-
-      /* APARÊNCIA */
-
-      const {
-  data: aparenciaArray,
-  error: aparenciaError,
-} = await supabase
-  .from("aparencia")
-  .select("*")
-  .eq(
-    "restaurante_id",
-    restauranteData.id
-  )
-  .limit(1)
-
-console.log(
-  "BUSCANDO ID:",
-  restauranteData.id
-)
-
-const aparenciaData =
-  aparenciaArray?.[0]
-
-  console.log(
-  "APARENCIA ARRAY:",
-  aparenciaArray
-)
-
-console.log(
-  "APARENCIA ERROR:",
-  aparenciaError
-)
-
-console.log(
-  "RESTAURANTE ID:",
-  restauranteData.id
-)
-
-   if (
-  aparenciaData &&
-  !aparenciaError
-) {
-
-  setAparencia(
-  aparenciaData
-)
-console.log(
-  "COR DO BANCO:",
-  aparenciaData.cor_primaria
-)
-
-console.log(
-  "LOGO DO BANCO:",
-  aparenciaData.logo_url
-)
-
-localStorage.setItem(
-  "logo-restaurante",
-  aparenciaData.logo_url || ""
-)
-
-localStorage.setItem(
-  "cor-principal",
-  aparenciaData.cor_primaria || "#571f5b"
-)
-
-
-console.log(
-  "BANNER DO BANCO:",
-  aparenciaData.banner_url
-)
-
-console.log(
-  "PEDIDO APARENCIA DATA:",
-  aparenciaData.pedido_minimo
-)
-
-console.log(
-  "NOME APARENCIA DATA:",
-  aparenciaData.nome_restaurante
-)
-
-console.log(
-  "APARENCIA COMPLETA:",
-  JSON.stringify(
-    aparenciaData,
-    null,
-    2
-  )
-)
-console.log(
-  "COR PRIMARIA:",
-  aparenciaData?.cor_primaria
-)
-
-console.log(
-  "NOME:",
-  aparenciaData.nome_restaurante
-)
-
-console.log(
-  "PEDIDO:",
-  aparenciaData.pedido_minimo
-)
-
-console.log("RESTAURANTE:", restaurante);
-
- 
-  setBanner(
-    aparenciaData.banner_url ||
-    ""
-  )
-
-  setLightMode(
-    aparenciaData.tema !==
-    "escuro"
-  )
-
-} else {
-
-  setBanner("")
-
-  setLightMode(true)
-}
-      /* PRODUTOS */
-
-      const {
-  data: produtosData,
-  error: produtosError,
-} = await supabase
-  .from("produtos")
-  .select("*")
-  .eq(
-    "restaurante_id",
-    restauranteData.id
-  )
-  .eq(
-    "ativo",
-    true
-  )
-  .order("created_at", {
-    ascending: false,
-  })
-
-      if (
-        produtosError ||
-        !produtosData
-      ) {
-
-        console.log(
-          "Erro produtos:",
-          produtosError
-        )
-
-        setProdutos([])
-
-        return
-      }
-
-      const produtosFormatados =
-        await Promise.all(
-
-          produtosData.map(
-            async (produto) => {
-
-              const {
-                data: adicionais,
-              } = await supabase
-                .from("adicionais")
-                .select("*")
-                .eq(
-                  "produto_id",
-                  produto.id
-                )
-
-                const {
-  data: gruposObrigatorios,
-} = await supabase
-  .from("grupos_obrigatorios")
-  .select(`
-    *,
-    grupo_obrigatorio_opcoes(*)
-  `)
-  .eq("produto_id", produto.id);
-
-console.log(
-  "SUPABASE PRODUTO:",
-  produto
-)
-
-       return {
-
-  id: produto.id,
-
-  nome: produto.nome,
-
-  descricao:
-    produto.descricao,
-
-  preco: Number(
-    produto.preco
-  ),
-
-  precoAntigo: Number(produto.preco_antigo || 0),
-
-  imagem:
-    produto.imagem,
-
-  categoria:
-    produto.categoria ||
-    "Outros",
-
-    promocao:
-  produto.promocao === true,
-
-adicionais:
-  adicionais || [],
-
-gruposObrigatorios:
-  gruposObrigatorios || [],
-}
-
-            }
-          )
-        )
-
-    setProdutos(
-      produtosFormatados
-    )
-
-    setProdutosCarregados(true);
-
-    console.log(
-      "PRODUTOS:",
-      produtosFormatados
-    )
-
-    const categoriasOrdenadas =
-      categoriasData?.map(
-        (categoria) =>
-          categoria.nome
-      ) || []
-
-    setCategorias(
-      categoriasOrdenadas
-    )
-
-    if (
-      categoriasOrdenadas.length > 0 &&
-      categoriaSelecionada === null
-    ) {
-      setCategoriaSelecionada(
-        categoriasOrdenadas[0]
-      )
+      const resposta = await fetch(`/api/cardapio/${encodeURIComponent(slug)}`)
+      const dados = await resposta.json()
+      if (dados?.success) aplicarCardapio(dados.cardapio)
+      else setLoadingInicial(false)
+    } catch {
+      setLoadingInicial(false)
     }
-
-    // 👇 ADICIONE ESTA LINHA
-    setLoadingInicial(false);
-
-  } catch (error) {
-
-      console.log(
-        "Erro geral:",
-        error
-      )
-
-      // 👇 E ESTA TAMBÉM
-      setLoadingInicial(false);
-
-    }
-}
+  }
 
 useEffect(() => {
 
@@ -723,7 +476,6 @@ function addToCart(
   ) || 0
 
 const novoItem: CartItem = {
-
   ...produto,
 
   uniqueId: crypto.randomUUID(),
@@ -732,16 +484,18 @@ const novoItem: CartItem = {
 
   observacao,
 
+  precoBase: Number(produto.preco),
+
   adicionaisSelecionados:
     adicionaisSelecionados || [],
 
-obrigatoriosSelecionados:
-  obrigatoriosSelecionados || [],
+  obrigatoriosSelecionados:
+    obrigatoriosSelecionados || [],
 
-preco:
-  Number(produto.preco) +
-  totalAdicionais +
-  totalObrigatorios,
+  preco:
+    Number(produto.preco) +
+    totalAdicionais +
+    totalObrigatorios,
 }
 
     setCart((prev) => [
@@ -801,10 +555,6 @@ preco:
   }
 
 const total = cart.reduce((acc, item) => {
-  console.log("ITEM DO CARRINHO:", item)
-  console.log("PRECO:", item.preco)
-  console.log("QUANTITY:", item.quantity)
-
   return acc + Number(item.preco) * Number(item.quantity)
 }, 0)
 
@@ -849,8 +599,13 @@ const total = cart.reduce((acc, item) => {
 
     function obterStatusLoja() {
 
-  if (!aparencia) {
+  if (!aparencia || !montado) {
     return "Carregando..."
+  }
+
+  // Aberto (inclusive horário que passa da meia-noite).
+  if (lojaAbertaAgora(aparencia, agoraLocal())) {
+    return "Aberto Agora"
   }
 
   const agora = new Date()
@@ -1067,8 +822,10 @@ function obterProximaAbertura() {
   return ""
 }
 
+// Antes de montar no celular, não decide (a hora do servidor é outra).
 const lojaAberta =
-  obterStatusLoja().trim().startsWith("Aberto")
+  !pedidosPausados &&
+  (!montado || lojaAbertaAgora(aparencia, agoraLocal()))
 
 if (loadingInicial) {
   return <SplashScreen />;
@@ -1086,6 +843,62 @@ if (loadingInicial) {
         ${textPrimary}
       `}
     >
+
+      {pedidosPausados && !modoEditor && (
+        <div className="sticky top-0 z-[60] bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-white">
+          Pedidos online pausados no momento.
+          {restaurante?.whatsapp && (
+            <>
+              {" "}
+              <a
+                className="underline"
+                href={`https://wa.me/55${String(restaurante.whatsapp).replace(/\D/g, "").replace(/^55/, "")}`}
+              >
+                Peça pelo WhatsApp
+              </a>
+            </>
+          )}
+        </div>
+      )}
+
+      {mesa && !modoEditor && (
+        <div className="sticky top-0 z-[59] flex items-center justify-center gap-3 bg-emerald-600 px-4 py-2 text-center text-sm font-semibold text-white">
+          🍽️ Pedido na Mesa {mesa}
+          <button type="button" onClick={sairDaMesa} className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium">
+            Não estou na mesa
+          </button>
+        </div>
+      )}
+
+      {verAvaliacoes && avaliacao && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 md:items-center" onClick={() => setVerAvaliacoes(false)}>
+          <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 text-zinc-900 md:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-lg font-bold">
+                <span className="text-amber-500">★</span>{" "}
+                {Number(avaliacao.media).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                <span className="ml-2 text-sm font-normal text-zinc-500">{avaliacao.total} avaliações</span>
+              </p>
+              <button type="button" onClick={() => setVerAvaliacoes(false)} className="text-2xl leading-none text-zinc-400">×</button>
+            </div>
+            <div className="mt-4 space-y-3">
+              {(avaliacao.comentarios ?? []).map((c: any, i: number) => (
+                <div key={i} className="rounded-2xl bg-zinc-50 p-3">
+                  <p className="text-sm">
+                    <span className="text-amber-500">{"★".repeat(c.nota)}</span>
+                    <span className="text-zinc-300">{"★".repeat(5 - c.nota)}</span>
+                    {c.nome && <span className="ml-2 font-semibold">{c.nome}</span>}
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-600">{c.comentario}</p>
+                </div>
+              ))}
+              {(avaliacao.comentarios ?? []).length === 0 && (
+                <p className="text-sm text-zinc-500">Ainda sem comentários escritos.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HERO */}
 
@@ -1189,7 +1002,7 @@ shadow-sm
  <div 
 className="
 grid
-grid-cols-4
+grid-cols-3
 text-center
 px-4
 pb-6
@@ -1207,13 +1020,26 @@ items-center
 />
       <p className="text-xs font-semibold mt-2">
         Delivery
+        {tempos?.tempoEntregaMin && tempos?.tempoEntregaMax ? (
+          <span className="block font-normal text-[11px] text-zinc-500">
+            {tempos.tempoEntregaMin}–{tempos.tempoEntregaMax} min
+          </span>
+        ) : null}
       </p>
-      <p className="mt-1 text-[11px] leading-5 text-zinc-500">
-        Taxa a partir de
-      </p>
-      <p className="text-sm">
-        R$ 5,00
-      </p>
+      {mesa ? (
+        <p className="mt-1 text-[11px] leading-5 text-zinc-500">Na mesa: sem taxa</p>
+      ) : taxaMinima != null ? (
+        <>
+          <p className="mt-1 text-[11px] leading-5 text-zinc-500">
+            {taxaMinima > 0 ? "Taxa a partir de" : "Taxa"}
+          </p>
+          <p className="text-sm">
+            {taxaMinima > 0
+              ? `R$ ${taxaMinima.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+              : "Grátis"}
+          </p>
+        </>
+      ) : null}
     </div>
 
     <div>
@@ -1233,7 +1059,7 @@ className="mx-auto text-zinc-500 mb-2"
 </p>
 
 <p className="mt-1 text-[11px] leading-5 text-zinc-900 font-medium">
-  Fecha às {obterHorarioFechamento()}
+  {montado && obterHorarioFechamento() ? `Fecha às ${obterHorarioFechamento()}` : "\u00a0"}
 </p>
     </div>
 
@@ -1255,130 +1081,89 @@ className="mx-auto text-zinc-500 mb-2"
       </p>
     </div>
 
-    <div>
-      <Star
-size={22}
-className="mx-auto text-zinc-500 mb-2"
-/>
-      <p className="text-xs font-semibold mt-2">
-        Avaliação
-      </p>
-      <p className="text-sm">
-        4,9
-      </p>
-    </div>
 
   </div>
+
+{avaliacao?.total >= 3 && (
+  <button
+    type="button"
+    onClick={() => setVerAvaliacoes(true)}
+    className="mx-auto -mt-3 mb-3 flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[13px] text-zinc-700"
+  >
+    <span className="text-amber-500">★</span>
+    <strong>{Number(avaliacao.media).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</strong>
+    <span className="text-zinc-500">({avaliacao.total} avaliações)</span>
+    {avaliacao.comentarios?.length > 0 && <span className="underline text-zinc-500">ver</span>}
+  </button>
+)}
 
 <div className="mx-4 -mt-1 border-t border-zinc-100" />
 
 
 
 
-{fidelidade?.ativo && (
-  <div className="mx-3 mt-3 mb-3 rounded-2xl border border-[#E8E1DA] bg-[#FFFDF9] px-3 py-3">
+{fidelidade?.programa && (() => {
+  const necessarios = Number(fidelidade.programa.pedidosNecessarios || 10);
+  const selos = Number(fidelidade.cliente?.selos || 0);
+  const liberado = selos >= necessarios;
+  const premio = String(fidelidade.programa.textoPremio || "");
 
-    {/* TÍTULO */}
-    <div className="flex items-center justify-center">
+  if (liberado) {
+    return (
+      <div
+        className="mx-3 mt-3 mb-3 rounded-2xl px-4 py-4 text-center text-white shadow-md"
+        style={{ backgroundColor: corPrincipal }}
+      >
+        <p className="text-2xl">🎉</p>
+        <p className="mt-1 text-[15px] font-black leading-5">
+          Parabéns!! Você é nosso cliente fiel
+        </p>
+        <p className="text-[13px] text-white/90">e vai receber agora:</p>
+        <p className="mt-1 text-xl font-black">{premio}</p>
+        <p className="mt-2 text-[12px] text-white/85">
+          Use quando quiser: é só marcar “Usar meu prêmio” na hora de pagar.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-3 mt-3 mb-3 rounded-2xl border border-[#E8E1DA] bg-[#FFFDF9] px-3 py-3">
       <p className="text-center text-[13px] leading-5 text-zinc-800">
-        Junte{" "}
-        <strong>
-          {fidelidade.pedidos_necessarios} pedidos no Pix
-        </strong>{" "}
-        e ganhe{" "}
-        <strong style={{ color: corPrincipal }}>
-          {Number(
-            fidelidade.valor_desconto
-          ).toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-          })}
-        </strong>{" "}
-        de desconto!
+        Junte <strong>{necessarios} pedidos</strong> e ganhe{" "}
+        <strong style={{ color: corPrincipal }}>{premio}</strong>!
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-y-1">
+        {Array.from({ length: necessarios }).map((_, index) => {
+          const preenchido = index < selos;
+          return (
+            <div key={index} className="flex justify-center" style={{ width: `${100 / Math.min(necessarios, 10)}%` }}>
+              <Ticket
+                size={20}
+                strokeWidth={1.8}
+                style={{
+                  color: preenchido ? corPrincipal : "#D6B46A",
+                  fill: preenchido ? corPrincipal : "transparent",
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="mt-3 text-center text-[12px] leading-4 text-zinc-500">
+        {selos > 0 ? (
+          <>
+            Faltam <strong>{necessarios - selos}</strong> pedidos para você ganhar seu prêmio.
+          </>
+        ) : (
+          <>Cada pedido vale 1 selo. Vale Pix, dinheiro ou cartão.</>
+        )}
       </p>
     </div>
-
-    {/* SELOS */}
-    <div className="mt-3 flex items-center gap-0.5">
-      {Array.from({
-        length: Number(
-          fidelidade.pedidos_necessarios || 10
-        ),
-      }).map((_, index) => {
-        const selos = Number(
-          cliente?.selos_pix || 0
-        );
-
-        const preenchido = index < selos;
-
-        return (
-          <div
-            key={index}
-            className="flex-1 flex justify-center"
-          >
-            <Ticket
-              size={20}
-              strokeWidth={1.8}
-              style={{
-                color: preenchido
-                  ? corPrincipal
-                  : "#D6B46A",
-                fill: preenchido
-                  ? corPrincipal
-                  : "transparent",
-              }}
-            />
-          </div>
-        );
-      })}
-    </div>
-
-    {/* MENSAGEM */}
-    <p className="mt-3 text-center text-[12px] leading-4 text-zinc-500">
-      {Number(cliente?.selos_pix || 0) >=
-      Number(
-        fidelidade.pedidos_necessarios || 10
-      ) ? (
-        <strong
-          style={{
-            color: corPrincipal,
-          }}
-        >
-          Você liberou seu desconto!
-        </strong>
-      ) : (
-        <>
-          Faltam{" "}
-          <strong>
-            {Math.max(
-              Number(
-                fidelidade.pedidos_necessarios || 10
-              ) -
-                Number(
-                  cliente?.selos_pix || 0
-                ),
-              0
-            )}
-          </strong>{" "}
-          pedidos no Pix para você liberar seu desconto.
-        </>
-      )}
-    </p>
-
-  </div>
-)}
-
-
-
-
-
-
-
-
-
-
-
-
+  );
+})()}
 
 <div
 className={`
@@ -1513,6 +1298,35 @@ duration-300
 </section>
 
 <section className="bg-white">
+
+{/* Mais pedidos (últimos 30 dias) — só aparece sem busca e com pedidos suficientes */}
+{!busca.trim() && (inicial?.maisPedidos?.length ?? 0) >= 3 && (
+  <div className="px-4 pt-6">
+    <h2 className="text-lg font-black text-zinc-900">🔥 Mais pedidos</h2>
+    <div className="mt-3 -mx-4 px-4 flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+      {(inicial.maisPedidos as string[])
+        .map((pid) => produtos.find((p) => String(p.id) === pid))
+        .filter(Boolean)
+        .map((produto: any) => (
+          <button
+            key={`mais-${produto.id}`}
+            onClick={() => openProductModal(produto)}
+            className="w-36 shrink-0 text-left rounded-2xl border border-zinc-200 bg-white overflow-hidden"
+          >
+            {produto.imagem ? (
+              <img loading="lazy" decoding="async" src={produto.imagem} alt={produto.nome} className="w-full h-24 object-cover" />
+            ) : (
+              <div className="w-full h-24 bg-zinc-100" />
+            )}
+            <span className="block px-2 pt-2 text-sm font-semibold text-zinc-900 line-clamp-2">{produto.nome}</span>
+            <span className="block px-2 pb-2 text-sm font-bold" style={{ color: corPrincipal }}>
+              {Number(produto.preco).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </span>
+          </button>
+        ))}
+    </div>
+  </div>
+)}
 
 {categorias.map((categoria, indexCategoria) => {
 
@@ -1672,21 +1486,6 @@ produtosCategoria.map((produto) => (
   corPrincipal={corPrincipal}
 />
 
-    <CheckoutModal
-  open={openCheckout}
-  onClose={() => setOpenCheckout(false)}
-  cart={cart}
-  total={total}
-  slug={slug}
-  restauranteId={restaurante?.id}
-  lojaAberta={obterStatusLoja().includes("Aberto")}
-  clearCart={() => {
-    setCart([])
-    localStorage.removeItem(
-  `cart-${slug}`
-)
-  }}
-/>
 
 {cart.length > 0 && (
 <div
@@ -1912,7 +1711,9 @@ style={{
             text-zinc-900
           "
         >
-          Estamos fechados no momento
+          {pedidosPausados
+            ? "Pedidos online pausados"
+            : "Estamos fechados no momento"}
         </h2>
 
         {/* TEXTO */}
@@ -1924,8 +1725,9 @@ style={{
             text-zinc-500
           "
         >
-          No momento não estamos aceitando novos pedidos.
-          Você pode voltar quando estivermos abertos.
+          {pedidosPausados
+            ? "No momento não estamos recebendo pedidos pelo cardápio. Fale com a gente pelo WhatsApp."
+            : "No momento não estamos aceitando novos pedidos. Você pode voltar quando estivermos abertos."}
         </p>
 
         {/* HORÁRIO */}

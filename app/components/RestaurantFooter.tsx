@@ -70,6 +70,13 @@ export default function RestaurantFooter({
                 <span className="hidden md:inline"> </span>
                 Todos os direitos reservados.
               </p>
+              <p className="mt-1 text-[11px] text-zinc-400">
+                <a href="/privacidade" className="underline">Privacidade</a> ·{" "}
+                <a href="/termos" className="underline">Termos</a> ·{" "}
+                <button type="button" onClick={() => window.dispatchEvent(new Event("preferencias-cookies"))} className="underline">
+                  Cookies
+                </button>
+              </p>
 
 
 

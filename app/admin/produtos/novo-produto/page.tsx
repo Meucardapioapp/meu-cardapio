@@ -1,2035 +1,1007 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  Camera,
+  CheckCircle2,
+  HelpCircle,
+  ListChecks,
+  Loader2,
+  Plus,
+  PlusCircle,
+  Trash2,
+  X,
+} from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { normalizarRegra, type RegraPreco } from "@/lib/precos";
 
-type Extra = {
-  id?: string;
+/* ============================================================
+   Tipos e utilidades
+   ============================================================ */
+
+type Opcao = { chave: string; nome: string; descricao: string; preco: string };
+
+type Regra = "uma" | "ate" | "livre";
+
+type Grupo = {
+  chave: string;
   nome: string;
-  preco: string;
+  regra: Regra;
+  maximo: number; // usado quando regra = "ate"
+  cobranca: RegraPreco; // como cobrar quando escolhe mais de uma (meio a meio)
+  opcoes: Opcao[];
 };
 
-type Categoria = {
-  id: string;
-  nome: string;
-};
+type Extra = { chave: string; nome: string; descricao: string; preco: string };
 
-function formatarPreco(valor: string) {
-  let numero = valor
-    .replace(/[^\d.,]/g, "")
-    .replace(".", ",");
+const novaChave = () => crypto.randomUUID();
 
-  if (!numero) return "";
-
-  const partes = numero.split(",");
-
-  let inteiro = partes[0];
-
-  inteiro = inteiro.replace(/^0+(?!$)/, "");
-
-  inteiro = inteiro.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-
-  let decimal = partes[1] || "";
-
-  decimal = decimal.substring(0, 2);
-
-if (numero.includes(",")) {
-  return `${inteiro},${decimal.padEnd(2, "0")}`;
+/** "1990" → "19,90" enquanto digita (máscara de dinheiro). */
+function mascaraDinheiro(valor: string) {
+  const digitos = valor.replace(/\D/g, "").replace(/^0+/, "").slice(0, 9);
+  if (!digitos) return "";
+  const centavos = digitos.padStart(3, "0");
+  const inteiro = centavos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${inteiro},${centavos.slice(-2)}`;
 }
 
-return `${inteiro},00`;
+function paraNumero(valor: string) {
+  return Number(String(valor || "0").replace(/\./g, "").replace(",", ".")) || 0;
 }
 
-function precoNumero(valor: string) {
-  return Number(
-    valor
-      .replace("R$", "")
-      .replace(/\./g, "")
-      .replace(",", ".")
-      .trim()
-  );
+function paraTexto(valor: number | string | null | undefined) {
+  const n = Number(valor || 0);
+  return n ? mascaraDinheiro(n.toFixed(2).replace(".", "")) : "";
 }
 
+const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function regraDoBanco(minimo: number, maximo: number): { regra: Regra; maximo: number } {
+  if (maximo >= 999) return { regra: "livre", maximo: 2 };
+  if (minimo === 1 && maximo === 1) return { regra: "uma", maximo: 1 };
+  return { regra: "ate", maximo: Math.max(2, maximo) };
+}
+
+function regraParaBanco(g: Grupo) {
+  if (g.regra === "uma") return { minimo: 1, maximo: 1 };
+  if (g.regra === "livre") return { minimo: 1, maximo: 999 };
+  return { minimo: 1, maximo: Math.max(2, g.maximo) };
+}
+
+function textoRegra(g: Grupo) {
+  if (g.regra === "uma") return "Escolha 1 opção";
+  if (g.regra === "livre") return "Escolha pelo menos 1";
+  return `Escolha de 1 até ${g.maximo}`;
+}
+
+const MODELOS = [
+  { nome: "Escolha o tamanho", regra: "uma" as Regra, opcoes: ["Pequeno", "Médio", "Grande"] },
+  { nome: "Escolha o sabor", regra: "uma" as Regra, opcoes: [] },
+  { nome: "Meio a meio: escolha até 2 sabores", regra: "ate" as Regra, opcoes: [], cobranca: "maior" as RegraPreco },
+  { nome: "Escolha a borda", regra: "uma" as Regra, opcoes: ["Sem borda", "Catupiry", "Cheddar"] },
+  { nome: "Escolha a bebida", regra: "uma" as Regra, opcoes: [] },
+  { nome: "Ponto da carne", regra: "uma" as Regra, opcoes: ["Mal passada", "Ao ponto", "Bem passada"] },
+];
+
+/* ============================================================
+   Página
+   ============================================================ */
 
 export default function NovoProdutoPage() {
   return (
     <Suspense fallback={null}>
-      <NovoProdutoContent />
+      <FormularioProduto />
     </Suspense>
   );
 }
 
-function NovoProdutoContent() {
+function FormularioProduto() {
+  const produtoId = useSearchParams().get("id");
 
-  const searchParams = useSearchParams();
-
-  const produtoId = searchParams.get("id");
-
-  /* ===========================
-      ESTADOS
-  =========================== */
-
-  const [loading, setLoading] = useState(false);
+  const [carregando, setCarregando] = useState(Boolean(produtoId));
+  const [salvando, setSalvando] = useState(false);
 
   const [nome, setNome] = useState("");
-
   const [descricao, setDescricao] = useState("");
-
+  const [categoria, setCategoria] = useState("");
+  const [categorias, setCategorias] = useState<string[]>([]);
   const [preco, setPreco] = useState("");
-
+  const [promocao, setPromocao] = useState(false);
   const [precoAntigo, setPrecoAntigo] = useState("");
+  // Opções avançadas (ficam fechadas para não confundir)
+  const [avancado, setAvancado] = useState(false);
+  const [colunasNovas, setColunasNovas] = useState(false);
+  const [promoPreco, setPromoPreco] = useState("");
+  const [promoDias, setPromoDias] = useState<number[]>([]);
+  const [promoInicio, setPromoInicio] = useState("");
+  const [promoFim, setPromoFim] = useState("");
+  const [controlarEstoque, setControlarEstoque] = useState(false);
+  const [estoque, setEstoque] = useState("");
+  const [sugerir, setSugerir] = useState(false);
+  const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
+  const [imagemUrl, setImagemUrl] = useState("");
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
+  const [extras, setExtras] = useState<Extra[]>([]);
+  const [ajuda, setAjuda] = useState(false);
+  const inputFoto = useRef<HTMLInputElement>(null);
 
-  const [promocao, setPromocao] =
-    useState(false);
+  useEffect(() => {
+    async function carregar() {
+      const restauranteId = localStorage.getItem("restaurante_id");
+      if (!restauranteId) return;
 
-  const [categoria, setCategoria] =
-    useState("");
+      // Categorias, produto, grupos e adicionais em uma rodada só.
+      const [{ data: cats }, produtoRes, gruposRes, adicionaisRes] = await Promise.all([
+        supabase
+          .from("categorias")
+          .select("nome")
+          .eq("restaurante_id", restauranteId)
+          .order("ordem", { ascending: true }),
+        produtoId
+          ? supabase.from("produtos").select("*").eq("id", produtoId).maybeSingle()
+          : Promise.resolve({ data: null }),
+        produtoId
+          ? supabase
+              .from("grupos_obrigatorios")
+              .select("*, grupo_obrigatorio_opcoes(*)")
+              .eq("produto_id", produtoId)
+              .order("ordem")
+          : Promise.resolve({ data: null }),
+        produtoId
+          ? supabase.from("adicionais").select("*").eq("produto_id", produtoId).order("nome")
+          : Promise.resolve({ data: null }),
+      ]);
+      setCategorias((cats ?? []).map((c: any) => c.nome));
 
-  const [categorias, setCategorias] =
-    useState<Categoria[]>([]);
+      if (!produtoId) {
+        setCarregando(false);
+        return;
+      }
 
-  const [imagem, setImagem] =
-    useState<File | null>(null);
+      const p: any = produtoRes.data;
+      if (!p) {
+        toast.error("Produto não encontrado.");
+        setCarregando(false);
+        return;
+      }
 
-  const [previewImagem, setPreviewImagem] =
-    useState("");
+      setNome(p.nome || "");
+      setDescricao(p.descricao || "");
+      setCategoria(p.categoria || "");
+      setPreco(paraTexto(p.preco));
+      setPromocao(Boolean(p.promocao));
+      setPrecoAntigo(paraTexto(p.preco_antigo));
+      setColunasNovas("promo_preco" in p);
+      setPromoPreco(p.promo_preco ? paraTexto(p.promo_preco) : "");
+      setPromoDias(Array.isArray(p.promo_dias) ? p.promo_dias.map(Number) : []);
+      setPromoInicio(p.promo_inicio ? String(p.promo_inicio).slice(0, 5) : "");
+      setPromoFim(p.promo_fim ? String(p.promo_fim).slice(0, 5) : "");
+      setControlarEstoque(p.estoque != null);
+      setEstoque(p.estoque != null ? String(p.estoque) : "");
+      setSugerir(Boolean(p.sugerir_no_carrinho));
+      if (p.promo_preco || p.estoque != null || p.sugerir_no_carrinho) setAvancado(true);
+      setImagemUrl(p.imagem || "");
 
-  const [extras, setExtras] =
-    useState<Extra[]>([]);
+      const gs: any[] | null = gruposRes.data as any;
+      const ads: any[] | null = adicionaisRes.data as any;
 
-  const [extraNome, setExtraNome] =
-    useState("");
+      setGrupos(
+        (gs ?? []).map((g: any) => ({
+          chave: novaChave(),
+          nome: g.nome,
+          ...regraDoBanco(Number(g.minimo ?? 1), Number(g.maximo ?? 1)),
+          cobranca: normalizarRegra(g.regra_preco),
+          opcoes: [...(g.grupo_obrigatorio_opcoes ?? [])]
+            .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
+            .map((o: any) => ({
+              chave: novaChave(),
+              nome: o.nome,
+              descricao: o.descricao || "",
+              preco: paraTexto(o.preco),
+            })),
+        }))
+      );
 
-  const [extraPreco, setExtraPreco] =
-    useState("");
-
-
-  /* ===========================
-      ITENS OBRIGATÓRIOS
-  =========================== */
-
-type OpcaoObrigatoria = {
-  id: string;
-  nome: string;
-  descricao: string;
-  preco: string;
-  imagem: string;
-};
-
-type GrupoObrigatorio = {
-  id: string;
-  nome: string;
-  minimo: number;
-  maximo: number;
-
-  inputNome: string;
-  inputDescricao: string;
-  inputPreco: string;
-
-  opcoes: OpcaoObrigatoria[];
-};
-
-const [gruposObrigatorios, setGruposObrigatorios] =
-  useState<GrupoObrigatorio[]>([
- {
-  id: crypto.randomUUID(),
-  nome: "",
-  minimo: 1,
-  maximo: 2,
-
-  inputNome: "",
-inputDescricao: "",
-
-  inputPreco: "",
-
-opcoes: [],
-    },
-  ]);
-
-  const [opcaoEditando, setOpcaoEditando] = useState<string | null>(null);
-
-  /* ===========================
-      LOAD
-  =========================== */
-
-useEffect(() => {
-
-    buscarCategorias();
-
-    if (produtoId) {
-
-        carregarProduto();
-
+      setExtras((ads ?? []).map((a: any) => ({ chave: novaChave(), nome: a.nome, descricao: a.descricao || "", preco: paraTexto(a.preco) })));
+      setCarregando(false);
     }
 
-}, [produtoId]);
+    carregar();
+  }, [produtoId]);
 
-  /* ===========================
-      CATEGORIAS
-  =========================== */
+  const previewFoto = useMemo(
+    () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : imagemUrl),
+    [imagemArquivo, imagemUrl]
+  );
 
-  async function buscarCategorias() {
+  /* ---------- grupos ---------- */
 
-    const restauranteId =
-      localStorage.getItem("restaurante_id");
+  function adicionarGrupo(modelo?: (typeof MODELOS)[number]) {
+    setGrupos((g) => [
+      ...g,
+      {
+        chave: novaChave(),
+        nome: modelo?.nome ?? "",
+        regra: modelo?.regra ?? "uma",
+        maximo: 2,
+        cobranca: (modelo as any)?.cobranca ?? "soma",
+        opcoes: (modelo?.opcoes.length ? modelo.opcoes : ["", ""]).map((nome) => ({
+          chave: novaChave(),
+          nome,
+          descricao: "",
+          preco: "",
+        })),
+      },
+    ]);
+  }
 
+  function mudarGrupo(chave: string, campo: Partial<Grupo>) {
+    setGrupos((g) => g.map((x) => (x.chave === chave ? { ...x, ...campo } : x)));
+  }
+
+  function mudarOpcao(grupo: string, opcao: string, campo: Partial<Opcao>) {
+    setGrupos((g) =>
+      g.map((x) =>
+        x.chave === grupo
+          ? { ...x, opcoes: x.opcoes.map((o) => (o.chave === opcao ? { ...o, ...campo } : o)) }
+          : x
+      )
+    );
+  }
+
+  function adicionarOpcao(grupo: string) {
+    setGrupos((g) =>
+      g.map((x) =>
+        x.chave === grupo
+          ? { ...x, opcoes: [...x.opcoes, { chave: novaChave(), nome: "", descricao: "", preco: "" }] }
+          : x
+      )
+    );
+  }
+
+  function removerOpcao(grupo: string, opcao: string) {
+    setGrupos((g) =>
+      g.map((x) => (x.chave === grupo ? { ...x, opcoes: x.opcoes.filter((o) => o.chave !== opcao) } : x))
+    );
+  }
+
+  /* ---------- foto ---------- */
+
+  function escolherFoto(arquivo: File | undefined) {
+    if (!arquivo) return;
+    if (!arquivo.type.startsWith("image/")) {
+      toast.error("Escolha um arquivo de imagem (JPG, PNG ou WEBP).");
+      return;
+    }
+    if (arquivo.size > 5 * 1024 * 1024) {
+      toast.error("A foto pode ter no máximo 5 MB.");
+      return;
+    }
+    setImagemArquivo(arquivo);
+  }
+
+  async function enviarFoto(arquivo: File) {
+    const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const restauranteId = localStorage.getItem("restaurante_id");
+    if (!restauranteId) throw new Error("Entre novamente para enviar fotos.");
+    const caminho = `${restauranteId}/${crypto.randomUUID()}.${extensao}`;
+
+    const { error } = await supabase.storage.from("products").upload(caminho, arquivo, {
+      contentType: arquivo.type,
+      upsert: false,
+    });
+
+    if (error) throw new Error("Não foi possível enviar a foto.");
+
+    return supabase.storage.from("products").getPublicUrl(caminho).data.publicUrl;
+  }
+
+  /* ---------- validação e salvar ---------- */
+
+  function validar(): string | null {
+    if (!nome.trim()) return "Dê um nome para o produto (passo 1).";
+    if (!categoria) return "Escolha a categoria do produto (passo 1).";
+    if (paraNumero(preco) <= 0) return "Informe o preço do produto (passo 1).";
+    if (paraNumero(promoPreco) > 0 && paraNumero(promoPreco) >= paraNumero(preco)) {
+      return "O preço da promoção precisa ser menor que o preço normal.";
+    }
+    if (promocao && paraNumero(precoAntigo) <= paraNumero(preco)) {
+      return "Na promoção, o preço antigo precisa ser maior que o preço atual.";
+    }
+
+    for (const [i, g] of grupos.entries()) {
+      const opcoesValidas = g.opcoes.filter((o) => o.nome.trim());
+      if (!g.nome.trim()) return `Escreva a pergunta da escolha ${i + 1} (ex.: "Escolha o sabor").`;
+      if (opcoesValidas.length === 0) return `A escolha "${g.nome}" precisa de pelo menos uma opção.`;
+      if (g.regra === "ate" && g.maximo > opcoesValidas.length) {
+        return `Em "${g.nome}" o cliente pode escolher até ${g.maximo}, mas só existem ${opcoesValidas.length} opções.`;
+      }
+    }
+
+    for (const e of extras) {
+      if (e.nome.trim() && paraNumero(e.preco) <= 0) return `Informe o preço do adicional "${e.nome}".`;
+    }
+
+    return null;
+  }
+
+  async function salvar() {
+    const problema = validar();
+    if (problema) {
+      toast.error(problema);
+      return;
+    }
+
+    const restauranteId = localStorage.getItem("restaurante_id");
     if (!restauranteId) return;
 
-    const { data, error } =
-      await supabase
-        .from("categorias")
-        .select("*")
-        .eq("restaurante_id", restauranteId)
-        .order("nome");
-
-    if (error) {
-
-      console.log(error);
-
-      return;
-
-    }
-
-    setCategorias(data || []);
-  }
-
-
-  async function carregarProduto() {
-
-  const { data, error } = await supabase
-    .from("produtos")
-    .select("*")
-    .eq("id", produtoId)
-    .single()
-
-  if (error || !data) return
-
-  setNome(data.nome || "")
-  setDescricao(data.descricao || "")
-  setPreco(formatarPreco(String(data.preco)))
-  setPrecoAntigo(
-    data.preco_antigo
-      ? formatarPreco(String(data.preco_antigo))
-      : ""
-  )
-
-  setCategoria(data.categoria || "")
-  setPromocao(data.promocao || false)
-  setPreviewImagem(data.imagem || "")
-
-// CARREGA OS GRUPOS OBRIGATÓRIOS
-
-const { data: grupos } = await supabase
-  .from("grupos_obrigatorios")
-  .select("*")
-  .eq("produto_id", produtoId)
-  .order("ordem")
-
-if (grupos && grupos.length > 0) {
-
-  const gruposFormatados = await Promise.all(
-
-    grupos.map(async (grupo: any) => {
-
-      const { data: opcoes } = await supabase
-        .from("grupo_obrigatorio_opcoes")
-        .select("*")
-        .eq("grupo_id", grupo.id)
-        .order("ordem")
-
-return {
-
-  id: grupo.id,
-
-  nome: grupo.nome,
-
-  minimo: grupo.minimo,
-
-  maximo: grupo.maximo,
-
-  inputNome: "",
-inputDescricao: "",
-
-
-  inputPreco: "",
-
-  opcoes:
-
-(opcoes || []).map((o: any) => ({
-  id: o.id,
-  nome: o.nome,
-  descricao: o.descricao || "",
-  preco: formatarPreco(String(o.preco)),
-  imagem: o.imagem || "",
-}))
-
-      }
-
-    })
-
-  )
-
-  setGruposObrigatorios(gruposFormatados)
-
-}
-
-const { data: adicionais } = await supabase
-  .from("adicionais")
-  .select("*")
-  .eq("produto_id", produtoId)
-  .order("nome")
-
-if (adicionais) {
-
-  setExtras(
-
-    adicionais.map((item: any) => ({
-
-      id: item.id,
-
-      nome: item.nome,
-
-      preco: formatarPreco(String(item.preco))
-
-    }))
-
-  )
-
-}
-
-
-}
-
-  /* ===========================
-      UPLOAD IMAGEM
-  =========================== */
-
-  async function uploadImagem(file: File) {
-
-    const fileName =
-      `${Date.now()}-${file.name}`;
-
-    const { error } =
-      await supabase.storage
-        .from("products")
-        .upload(fileName, file);
-
-    if (error) {
-
-      toast.error("Erro ao enviar imagem");
-
-      return null;
-
-    }
-
-    const { data } =
-      supabase.storage
-        .from("products")
-        .getPublicUrl(fileName);
-
-    return data.publicUrl;
-  }
-
-  /* ===========================
-      ADICIONAIS
-  =========================== */
-
-  function adicionarExtra() {
-
-    if (!extraNome || !extraPreco)
-      return;
-
-    setExtras((atual) => [
-
-      ...atual,
-
-      {
-
-        nome: extraNome,
-
-preco: formatarPreco(extraPreco),
-
-      },
-
-    ]);
-
-    setExtraNome("");
-
-    setExtraPreco("");
-
-  }
-
-  function adicionarGrupoObrigatorio() {
-
-  setGruposObrigatorios((atual)=>[
-
-    ...atual,
-
-{
-  id: crypto.randomUUID(),
-  nome: "",
-  minimo: 1,
-  maximo: 2,
-
-  inputNome: "",
-inputDescricao: "",
-
-  inputPreco: "",
-
-opcoes: []
-
-    }
-
-  ])
-
-}
-
-function removerGrupo(id: string) {
-
-  if (gruposObrigatorios.length === 1) {
-
-    setGruposObrigatorios([
-      {
-        id: crypto.randomUUID(),
-        nome: "",
-        minimo: 1,
-        maximo: 2,
-        inputNome: "",
-inputDescricao: "",
-
-        inputPreco: "",
-        opcoes: [],
-      },
-    ]);
-
-    return;
-  }
-
-  setGruposObrigatorios((atual) =>
-    atual.filter((grupo) => grupo.id !== id)
-  );
-
-}
-
-
-function adicionarOpcao(grupoId: string) {
-
-  setGruposObrigatorios((atual) =>
-
-    atual.map((grupo) => {
-
-      if (grupo.id !== grupoId) return grupo;
-
-      if (!grupo.inputNome || !grupo.inputPreco)
-        return grupo;
-
-      return {
-
-        ...grupo,
-
-inputNome: "",
-inputDescricao: "",
-inputPreco: "",
-
-opcoes: [
-  ...grupo.opcoes,
-  {
-    id: crypto.randomUUID(),
-    nome: grupo.inputNome,
-    descricao: grupo.inputDescricao,
-    preco: formatarPreco(grupo.inputPreco),
-    imagem: "",
-  },
-],
-
-      };
-
-    })
-
-  );
-
-}
-
-function alterarNomeGrupo(
-
-grupoId:string,
-
-nome:string
-
-){
-
-setGruposObrigatorios((atual)=>
-
-atual.map((grupo)=>{
-
-if(grupo.id!==grupoId)
-return grupo
-
-return{
-
-...grupo,
-
-nome
-
-}
-
-})
-
-)
-
-}
-
-function alterarMaximo(
-
-grupoId:string,
-
-maximo:number
-
-){
-
-setGruposObrigatorios((atual)=>
-
-atual.map((grupo)=>{
-
-if(grupo.id!==grupoId)
-return grupo
-
-return{
-
-...grupo,
-
-maximo
-
-}
-
-})
-
-)
-
-}
-
-function alterarInputNomeGrupo(
-  grupoId: string,
-  valor: string
-) {
-
-  setGruposObrigatorios((atual)=>
-
-    atual.map((grupo)=>
-
-      grupo.id===grupoId
-        ? { ...grupo, inputNome: valor }
-        : grupo
-
-    )
-
-  );
-
-}
-
-
-function alterarInputDescricaoGrupo(
-  grupoId: string,
-  valor: string
-) {
-  setGruposObrigatorios((atual) =>
-    atual.map((grupo) =>
-      grupo.id === grupoId
-        ? { ...grupo, inputDescricao: valor }
-        : grupo
-    )
-  );
-}
-
-
-function alterarInputPrecoGrupo(
-  grupoId: string,
-  valor: string
-) {
-
-  setGruposObrigatorios((atual)=>
-
-    atual.map((grupo)=>
-
-      grupo.id===grupoId
-        ? { ...grupo, inputPreco: valor }
-        : grupo
-
-    )
-
-  );
-
-}
-
-
-function alterarOpcao(
-  grupoId: string,
-  opcaoId: string,
-  campo: "nome" | "descricao" | "preco" | "imagem",
-  valor: string
-) {
-  setGruposObrigatorios((atual) =>
-    atual.map((grupo) => {
-      if (grupo.id !== grupoId) return grupo;
-
-      return {
-        ...grupo,
-        opcoes: grupo.opcoes.map((opcao) => {
-          if (opcao.id !== opcaoId) return opcao;
-
-          return {
-            ...opcao,
-            [campo]: valor,
-          };
-        }),
-      };
-    })
-  );
-}
-
-function removerOpcao(
-  grupoId: string,
-  opcaoId: string
-) {
-  setGruposObrigatorios((atual) =>
-    atual.map((grupo) => {
-
-      if (grupo.id !== grupoId)
-        return grupo;
-
-      return {
-        ...grupo,
-        opcoes: grupo.opcoes.filter(
-          (opcao) => opcao.id !== opcaoId
-        ),
-      };
-
-    })
-  );
-}
-
-function validarFormulario() {
-
-  if (!nome.trim()) {
-  console.log("ERRO 1");
-toast.error("Informe o nome");
-return false;
-  }
-
-  if (!categoria) {
- console.log("ERRO 2");
-toast.error("Escolha uma categoria");
-return false;
-  }
-
-  if (!preco.trim()) {
-console.log("ERRO 3");
-toast.error("Informe o preço");
-return false;
-  }
-
- for (let i = 0; i < gruposObrigatorios.length; i++) {
-
-  const grupo = gruposObrigatorios[i];
-
-  // Ignora grupo vazio
-  if (
-    !grupo.nome.trim() &&
-    grupo.opcoes.every(
-      (o) => !o.nome.trim() && !o.preco.trim()
-    )
-  ) {
-    continue;
-  }
-
-  if (!grupo.nome.trim()) {
-    toast.error(
-      `O Item Obrigatório ${i + 1} está sem nome.`
-    );
-    return false;
-  }
-
-    if (grupo.opcoes.length === 0) {
-      toast.error(
-        `O Item Obrigatório ${i + 1} precisa ter pelo menos uma opção.`
-      );
-      return false;
-    }
-
-    for (let j = 0; j < grupo.opcoes.length; j++) {
-
-      const opcao = grupo.opcoes[j];
-
-      if (!opcao.nome.trim()) {
-        toast.error(
-          `A opção ${j + 1} do Item Obrigatório ${i + 1} está sem nome.`
-        );
-        return false;
-      }
-
-      if (!opcao.preco.trim()) {
-        toast.error(
-          `Informe o preço da opção "${opcao.nome || j + 1}".`
-        );
-        return false;
-      }
-
-    }
-
-  }
-
-  return true;
-
-}
-
-
-async function editarProduto() {
-
-  console.log("EDITAR INICIO")
-
-  const imagemUrl = imagem
-    ? await uploadImagem(imagem)
-    : previewImagem
-
-  console.log("IMAGEM OK")
-
-  const { data, error } = await supabase
-    .from("produtos")
-    .update({
-      nome,
-      descricao,
-      categoria,
-      preco: precoNumero(preco),
-      preco_antigo: precoAntigo
-        ? precoNumero(precoAntigo)
-        : null,
-      promocao,
-      imagem: imagemUrl,
-    })
-    .eq("id", produtoId)
-    .select()
-
-  console.log("DATA:", data)
-  console.log("ERROR:", error)
-
-  if (error) {
-    console.log(error)
-    toast.error("Erro ao editar produto")
-    return
-  }
-
- console.log("EDITOU")
-
-await supabase
-  .from("grupos_obrigatorios")
-  .delete()
-  .eq("produto_id", produtoId)
-
-for (const grupo of gruposObrigatorios) {
-
-  if (!grupo.nome.trim()) continue
-
-  const respostaGrupo = await supabase
-    .from("grupos_obrigatorios")
-    .insert({
-      produto_id: produtoId,
-      nome: grupo.nome,
-      minimo: grupo.minimo,
-      maximo: grupo.maximo,
-      ordem: 0,
-    })
-    .select()
-
-  const grupoCriado = respostaGrupo.data?.[0]
-
-  if (!grupoCriado) continue
-
-  const opcoes = grupo.opcoes
-    .filter((o) => o.nome.trim() !== "")
-.map((o) => ({
-  grupo_id: grupoCriado.id,
-  nome: o.nome,
-  descricao: o.descricao?.trim() || null,
-  preco: precoNumero(o.preco),
-  imagem: o.imagem || "",
-  ordem: 0,
-}))
-
-  if (opcoes.length > 0) {
-
-    await supabase
-      .from("grupo_obrigatorio_opcoes")
-      .insert(opcoes)
-
-  }
-
-}
-
-await supabase
-  .from("adicionais")
-  .delete()
-  .eq("produto_id", produtoId)
-
-if (extras.length > 0) {
-
-  await supabase
-    .from("adicionais")
-    .insert(
-
-      extras.map(extra => ({
-
-        produto_id: produtoId,
-
-        nome: extra.nome,
-
-        preco: precoNumero(extra.preco)
-
-      }))
-
-    )
-
-}
-
-toast.success("Produto atualizado!")
-
-window.location.href = "/admin/produtos"
-
-}
-
-  /* ===========================
-      CRIAR PRODUTO
-  =========================== */
-
-  async function criarProduto() {
-
-  console.log("CLICOU NO BOTÃO");
+    setSalvando(true);
 
     try {
+      const foto = imagemArquivo ? await enviarFoto(imagemArquivo) : imagemUrl;
 
-      setLoading(true);
+      const dados = {
+        nome: nome.trim(),
+        descricao: descricao.trim(),
+        categoria,
+        preco: paraNumero(preco),
+        preco_antigo: promocao ? paraNumero(precoAntigo) : null,
+        promocao,
+        imagem: foto || "",
+      };
 
-if (produtoId) {
-
-  await editarProduto()
-
-  return
-
-}
-
-const valido = validarFormulario();
-
-console.log("VALIDOU:", valido);
-
-if (!valido) return;
-
-      const restauranteId =
-        localStorage.getItem("restaurante_id");
-
-        console.log("RESTAURANTE:", restauranteId);
-
-      if (!restauranteId) {
-
-        toast.error("Restaurante não encontrado");
-
-        return;
-
+      // Campos novos (SQL 08): só vão quando usados ou quando o banco já tem as colunas.
+      const usaNovos = colunasNovas || Boolean(paraNumero(promoPreco)) || controlarEstoque || sugerir;
+      if (usaNovos) {
+        Object.assign(dados, {
+          promo_preco: paraNumero(promoPreco) > 0 ? paraNumero(promoPreco) : null,
+          promo_dias: paraNumero(promoPreco) > 0 && promoDias.length ? promoDias : null,
+          promo_inicio: paraNumero(promoPreco) > 0 && promoInicio && promoFim ? promoInicio : null,
+          promo_fim: paraNumero(promoPreco) > 0 && promoInicio && promoFim ? promoFim : null,
+          estoque: controlarEstoque ? Math.max(0, Math.floor(Number(estoque) || 0)) : null,
+          sugerir_no_carrinho: sugerir,
+        });
       }
 
-      if (!categoria) {
+      let id = produtoId;
 
-        toast.error("Selecione uma categoria");
+      if (id) {
+        const { error } = await supabase.from("produtos").update(dados).eq("id", id);
+        if (error) throw error;
 
-        return;
-
-      }
-
-      let imagemUrl = "";
-
-      if (imagem) {
-
-        const upload =
-          await uploadImagem(imagem);
-
-        if (!upload)
-          return;
-
-        imagemUrl = upload;
-
-      }
-
-      const { data, error } =
-        await supabase
+        const { data: antigos } = await supabase.from("grupos_obrigatorios").select("id").eq("produto_id", id);
+        const idsAntigos = (antigos ?? []).map((g) => g.id);
+        if (idsAntigos.length) await supabase.from("grupo_obrigatorio_opcoes").delete().in("grupo_id", idsAntigos);
+        await supabase.from("grupos_obrigatorios").delete().eq("produto_id", id);
+        await supabase.from("adicionais").delete().eq("produto_id", id);
+      } else {
+        const { data, error } = await supabase
           .from("produtos")
-          .insert({
-
-            restaurante_id:
-              restauranteId,
-
-            nome,
-
-            descricao,
-
-            categoria,
-
-preco: precoNumero(preco),
-
-preco_antigo:
-precoAntigo
-? precoNumero(precoAntigo)
-: null,
-
-            promocao,
-
-            imagem: imagemUrl,
-
-            destaque: "normal",
-
-          })
-          .select()
+          .insert({ ...dados, restaurante_id: restauranteId, destaque: "normal", ativo: true })
+          .select("id")
           .single();
-
-          console.log("DATA:", data);
-console.log("ERROR:", error);
-
-      if (error) {
-
-        console.log(error);
-
-        toast.error("Erro ao criar produto");
-
-        return;
-
+        if (error) throw error;
+        id = data.id;
       }
 
-      if (extras.length > 0) {
+      for (const [ordem, g] of grupos.entries()) {
+        const { data: grupoCriado, error } = await supabase
+          .from("grupos_obrigatorios")
+          .insert({
+            produto_id: id,
+            nome: g.nome.trim(),
+            ordem,
+            ...regraParaBanco(g),
+            // só envia quando não é o padrão (funciona antes do SQL 08)
+            ...(g.regra !== "uma" && g.cobranca !== "soma" ? { regra_preco: g.cobranca } : {}),
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
 
-        await supabase
-          .from("adicionais")
-          .insert(
+        const opcoes = g.opcoes
+          .filter((o) => o.nome.trim())
+          .map((o, i) => ({
+            grupo_id: grupoCriado.id,
+            nome: o.nome.trim(),
+            descricao: o.descricao.trim() || null,
+            preco: paraNumero(o.preco),
+            imagem: "",
+            ordem: i,
+          }));
 
-            extras.map((extra) => ({
-
-              produto_id: data.id,
-
-              nome: extra.nome,
-
-              preco: precoNumero(extra.preco),
-
-            }))
-
-          );
-
-          console.log("ADICIONAIS:", extras);
-console.log("ERRO ADICIONAIS:", error);
-
-
+        if (opcoes.length) {
+          const { error: erroOpcoes } = await supabase.from("grupo_obrigatorio_opcoes").insert(opcoes);
+          if (erroOpcoes) throw erroOpcoes;
         }
-
-console.log("GRUPOS:", gruposObrigatorios);
-
-for (const grupo of gruposObrigatorios) {
-
-  console.log("SALVANDO GRUPO:", grupo);
-
-  if (!grupo.nome.trim()) continue;
-
-const respostaGrupo = await supabase
-  .from("grupos_obrigatorios")
-  .insert({
-    produto_id: data.id,
-    nome: grupo.nome,
-    minimo: grupo.minimo,
-    maximo: grupo.maximo,
-    ordem: 0,
-  })
-  .select();
-
-console.log("RESPOSTA COMPLETA:", respostaGrupo);
-
-const grupoCriado = respostaGrupo.data?.[0];
-const erroGrupo = respostaGrupo.error;
-
-console.log("GRUPO CRIADO:", grupoCriado);
-console.log("ERRO GRUPO:", erroGrupo);
-
-  if (erroGrupo) {
-
-    console.log(erroGrupo);
-
-    toast.error("Erro ao salvar item obrigatório");
-
-    continue;
-
-  }
-
-  if (grupo.opcoes.length > 0) {
-
-const opcoes = grupo.opcoes
-  .filter((o) => o.nome.trim() !== "")
-  .map((o) => ({
-    grupo_id: grupoCriado.id,
-    nome: o.nome,
-    descricao: o.descricao?.trim() || null,
-    preco: precoNumero(o.preco),
-    imagem: o.imagem || "",
-    ordem: 0,
-  }));
-
-    if (opcoes.length > 0) {
-
-      const { error } = await supabase
-        .from("grupo_obrigatorio_opcoes")
-        .insert(opcoes);
-
-        console.log("OPÇÕES:", opcoes);
-console.log("ERRO OPÇÕES:", error);
-
-      if (error) {
-
-        console.log(error);
-
-        toast.error("Erro ao salvar opções");
-
       }
 
-    }
+      const extrasValidos = extras
+        .filter((e) => e.nome.trim())
+        .map((e) => ({
+          produto_id: id,
+          nome: e.nome.trim(),
+          preco: paraNumero(e.preco),
+          // Ingredientes só vão quando preenchidos (funciona mesmo antes do SQL 12).
+          ...(e.descricao.trim() ? { descricao: e.descricao.trim().slice(0, 300) } : {}),
+        }));
 
+      if (extrasValidos.length) {
+        const { error } = await supabase.from("adicionais").insert(extrasValidos);
+        if (error) throw error;
+      }
+
+      toast.success(produtoId ? "Produto atualizado!" : "Produto criado! Ele já aparece no cardápio.");
+      window.location.href = "/admin/produtos";
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message?.startsWith("Não foi") ? e.message : "Não foi possível salvar. Tente de novo.");
+      setSalvando(false);
+    }
   }
 
-}
-
-
-      toast.success("Produto criado!");
-
-      setNome("");
-setDescricao("");
-setPreco("");
-setPrecoAntigo("");
-setCategoria("");
-setPromocao(false);
-setImagem(null);
-setPreviewImagem("");
-setExtras([]);
-
-setGruposObrigatorios([
-  {
-    id: crypto.randomUUID(),
-    nome: "",
-    minimo: 1,
-    maximo: 2,
-
-    inputNome: "",
-inputDescricao: "",
-
-    inputPreco: "",
-
-  opcoes: [],
-  },
-]);
-
-    } catch (err) {
-
-      console.log(err);
-
-      toast.error("Erro inesperado");
-
-    } finally {
-
-      setLoading(false);
-
-    }
-
-  }
-  
-
- return (
-  <main className="min-h-screen bg-[#F8F6F4] py-10 px-8">
-
-    <div className="max-w-[1700px] mx-auto">
-
-      {/* HEADER */}
-
-      <div className="flex items-center justify-between mb-10">
-
-        <div>
-
-<Link
-  href="/admin/produtos"
-  className="
-    inline-flex
-    items-center
-    gap-2
-    h-11
-    px-5
-    rounded-2xl
-    border
-    border-zinc-200
-    bg-white
-    text-zinc-600
-    font-semibold
-    shadow-sm
-    hover:border-[#7A1F3D]
-    hover:text-[#7A1F3D]
-    hover:shadow-md
-    transition-all
-    duration-200
-"
->
-  <ArrowLeft size={18} />
-  Voltar para produtos
-</Link>
-
-          
-        </div>
-
+  if (carregando) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="animate-spin text-[#6D1F2F]" />
       </div>
+    );
+  }
 
-      {/* ====================== */}
-      {/* INFORMAÇÕES BÁSICAS */}
-      {/* ====================== */}
-
-      <section
-        className="
-        bg-white
-        rounded-[28px]
-        border
-        border-zinc-200
-        p-10
-        shadow-md
-        mb-8
-        "
-      >
-
-        <h2
-          className="
-          text-2xl
-          font-black
-          text-[#1F1720]
-          mb-8
-          "
-        >
-          Informações Básicas
-        </h2>
-
-        <div className="space-y-6">
-
-            <label className="font-semibold text-zinc-700 mb-3 block">
-              Nome do produto
-            </label>
-
-            <input
-              value={nome}
-              onChange={(e) =>
-                setNome(e.target.value)
-              }
-              placeholder="Ex.: X-Burger Especial"
-              className="
-              w-full
-              h-16
-              rounded-2xl
-              border
-              border-zinc-200
-              px-5
-              outline-none
-              focus:border-[#7A1F3D]
-              "
-            />
-
-          </div>
-
-<div className="grid grid-cols-2 gap-6 mt-6">
-
-          <div>
-
-            <label className="font-semibold text-zinc-700 mb-3 block">
-              Preço
-            </label>
-
-<div className="relative">
-
-  <span
-    className="
-      absolute
-      left-5
-      top-1/2
-      -translate-y-1/2
-      text-zinc-500
-      font-semibold
-      pointer-events-none
-    "
-  >
-    R$
-  </span>
-
-  <input
-    value={preco}
-    onChange={(e) => setPreco(e.target.value)}
-    onBlur={() => setPreco(formatarPreco(preco))}
-    placeholder="19,90"
-    className="
-      w-full
-      h-16
-      rounded-2xl
-      border
-      border-zinc-200
-      pl-14
-      pr-5
-      outline-none
-      focus:border-[#7A1F3D]
-    "
-  />
-
-</div>
-
-          </div>
-
-          <div>
-
-            <label className="font-semibold text-zinc-700 mb-3 block">
-              Preço antigo
-            </label>
-
-<div className="relative">
-
-  <span
-    className="
-      absolute
-      left-5
-      top-1/2
-      -translate-y-1/2
-      text-zinc-500
-      font-semibold
-      pointer-events-none
-    "
-  >
-    R$
-  </span>
-
-  <input
-    value={precoAntigo}
-    onChange={(e) => setPrecoAntigo(e.target.value)}
-    onBlur={() => setPrecoAntigo(formatarPreco(precoAntigo))}
-    placeholder="29,90"
-    className="
-      w-full
-      h-16
-      rounded-2xl
-      border
-      border-zinc-200
-      pl-14
-      pr-5
-      outline-none
-      focus:border-[#7A1F3D]
-    "
-  />
-
-</div>
-
-        </div>
-
-        </div>
-
-        <div className="grid grid-cols-2 gap-6 mt-8">
-
-          <div>
-
-            <label className="font-semibold text-zinc-700 mb-3 block">
-              Categoria
-            </label>
-
-            <select
-              value={categoria}
-              onChange={(e)=>
-                setCategoria(e.target.value)
-              }
-              className="
-              w-full
-              h-16
-              rounded-2xl
-              border
-              border-zinc-200
-              px-5
-              "
-            >
-
-              <option value="">
-                Escolha uma categoria
-              </option>
-
-              {categorias.map((item)=>(
-                <option
-                  key={item.id}
-                  value={item.nome}
-                >
-                  {item.nome}
-                </option>
-              ))}
-
-            </select>
-
-          </div>
-
-          <div className="flex items-end pt-8">
-
-<label
-className="
-flex
-items-center
-gap-4
-h-16
-px-5
-rounded-2xl
-border
-border-zinc-200
-cursor-pointer
-hover:border-[#7A1F3D]
-transition
-select-none
-"
->
-
-<input
-type="checkbox"
-checked={promocao}
-onChange={(e)=>setPromocao(e.target.checked)}
-className="
-w-6
-h-6
-accent-[#7A1F3D]
-cursor-pointer
-"
-/>
-
-              Produto em promoção
-
-            </label>
-
-          </div>
-
-        </div>
-
-        <div className="mt-6">
-
-          <label className="font-semibold text-zinc-700 mb-2 block">
-            Descrição
-          </label>
-
-          <textarea
-            value={descricao}
-            onChange={(e)=>
-              setDescricao(e.target.value)
-            }
-            placeholder="Descreva o produto..."
-            className="
-            w-full
-            h-40
-            rounded-2xl
-            border
-            border-zinc-200
-            p-5
-            resize-none
-            outline-none
-            "
-          />
-
-        </div>
-
-      </section>
-
-      {/* ====================== */}
-      {/* IMAGEM */}
-      {/* ====================== */}
-
-      <section
-        className="
-        bg-white
-        rounded-[28px]
-        border
-        border-zinc-200
-        p-10
-        shadow-md
-        mb-8
-        "
-      >
-
-        <h2
-          className="
-          text-2xl
-          font-black
-          mb-8
-          "
-        >
-          Imagem do Produto
-        </h2>
-
-        <label
-          htmlFor="imagem"
-          className="
-          w-full
-          h-[240px]
-          rounded-[28px]
-          border-2
-          border-dashed
-          border-zinc-300
-          flex
-          flex-col
-          justify-center
-          items-center
-          cursor-pointer
-          hover:border-[#7A1F3D]
-          transition
-          overflow-hidden
-          "
-        >
-
-          {imagem || previewImagem ? (
-
-            <img
-              src={
-                imagem
-                  ? URL.createObjectURL(imagem)
-                  : previewImagem
-              }
-              className="
-              w-full
-              h-full
-              object-cover
-              "
-            />
-
-          ) : (
-
-            <>
-
-              <div className="text-5xl">
-                📷
-              </div>
-
-              <p className="font-bold text-lg mt-3">
-                Clique para enviar uma imagem
-              </p>
-
-              <span className="text-zinc-500 mt-2">
-                JPG, PNG ou WEBP
-              </span>
-
-            </>
-
-          )}
-
-        </label>
-
-        <input
-          id="imagem"
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e)=>{
-
-            const file=e.target.files?.[0];
-
-            if(!file) return;
-
-            setImagem(file);
-
-            setPreviewImagem(
-              URL.createObjectURL(file)
-            );
-
-          }}
-        />
-
-      </section>
-
-      {/* ==========================
-    ITENS OBRIGATÓRIOS
-========================== */}
-
-<section
-  className="
-  bg-white
-  rounded-[28px]
-  border
-  border-zinc-200
-  p-10
-  shadow-md
-  mb-8
-  "
->
-
-  <div className="flex items-center justify-between">
-
-    <div>
-
-      <h2 className="text-2xl font-black">
-        Itens Obrigatórios
-      </h2>
-
-      <p className="text-zinc-500 mt-2">
-        O cliente será obrigado a selecionar estes itens.
-      </p>
-
-    </div>
-
-    <button
-      onClick={adicionarGrupoObrigatorio}
-      className="
-      bg-[#7A1F3D]
-      text-white
-      rounded-2xl
-      px-6
-      h-12
-      font-bold
-      hover:scale-105
-      transition
-      "
-    >
-      + Novo Item Obrigatório
-    </button>
-
-  </div>
-
-  <div className="space-y-8 mt-8">
-
-    {gruposObrigatorios.map((grupo,index)=>(
-
-      <div
-        key={grupo.id}
-        className="
-        rounded-[28px]
-        border
-        border-zinc-200
-        p-6
-        "
-      >
-
-        <div className="flex justify-between">
-
-          <h3 className="text-lg font-bold">
-
-            Item Obrigatório {index+1}
-
-          </h3>
-
-          <button
-            onClick={()=>
-              removerGrupo(grupo.id)
-            }
-            className="
-            text-red-500
-            font-semibold
-            "
-          >
-            Excluir
-          </button>
-
-        </div>
-
-        <div className="grid grid-cols-2 gap-6 mt-6">
-
-          <div>
-
-            <label className="font-semibold mb-2 block">
-
-              Nome do Item
-
-            </label>
-
-            <input
-
-              value={grupo.nome}
-
-              onChange={(e)=>
-
-                alterarNomeGrupo(
-
-                  grupo.id,
-
-                  e.target.value
-
-                )
-
-              }
-
-              placeholder="Ex.: Escolha o pão"
-
-              className="
-              w-full
-              h-16
-              border
-              rounded-2xl
-              px-5
-              "
-
-            />
-
-          </div>
-
-          <div>
-
-            <label className="font-semibold mb-2 block">
-
-              Máximo de opções
-
-            </label>
-
-            <select
-
-              value={grupo.maximo}
-
-              onChange={(e)=>
-
-                alterarMaximo(
-
-                  grupo.id,
-
-                  Number(e.target.value)
-
-                )
-
-              }
-
-              className="
-              w-full
-              h-16
-              border
-              rounded-2xl
-              px-5
-              "
-
-            >  
-              <option value={1}>
-                Até 1 opção
-              </option>
-
-              <option value={2}>
-                Até 2 opções
-              </option>
-
-              <option value={3}>
-                Até 3 opções
-              </option>
-
-              <option value={4}>
-                Até 4 opções
-              </option>
-
-<option value={999}>ilimitado</option>
-
-
-            </select>
-
-          </div>
-
-        </div>
-
-<div className="mt-8">
-
-  <div
-    className="
-      grid
-      grid-cols-[1fr_220px_180px]
-      gap-5
-    "
-  >
-
-    {/* NOME */}
-    <input
-      value={grupo.inputNome}
-      onChange={(e) =>
-        alterarInputNomeGrupo(
-          grupo.id,
-          e.target.value
-        )
-      }
-      placeholder="Nome"
-      className="
-        h-16
-        border
-        border-zinc-200
-        rounded-2xl
-        px-5
-        outline-none
-        focus:border-[#7A1F3D]
-      "
-    />
-
-    {/* PREÇO */}
-    <div className="relative">
-
-      <span
-        className="
-          absolute
-          left-5
-          top-1/2
-          -translate-y-1/2
-          text-zinc-500
-          font-semibold
-          pointer-events-none
-        "
-      >
-        R$
-      </span>
-
-      <input
-        value={grupo.inputPreco}
-        onChange={(e) =>
-          alterarInputPrecoGrupo(
-            grupo.id,
-            e.target.value
-          )
-        }
-        onBlur={() =>
-          alterarInputPrecoGrupo(
-            grupo.id,
-            formatarPreco(grupo.inputPreco)
-          )
-        }
-        placeholder="0,00"
-        className="
-          w-full
-          h-16
-          border
-          border-zinc-200
-          rounded-2xl
-          pl-14
-          pr-5
-          outline-none
-          focus:border-[#7A1F3D]
-        "
-      />
-
-    </div>
-
-    {/* ADICIONAR */}
-    <button
-      onClick={() => adicionarOpcao(grupo.id)}
-      className="
-        bg-[#7A1F3D]
-        text-white
-        h-16
-        rounded-2xl
-        font-bold
-        hover:bg-[#531723]
-        transition
-      "
-    >
-      Adicionar
-    </button>
-
-  </div>
-
-  {/* DESCRIÇÃO OPCIONAL */}
-  <input
-    value={grupo.inputDescricao}
-    onChange={(e) =>
-      alterarInputDescricaoGrupo(
-        grupo.id,
-        e.target.value
-      )
-    }
-    placeholder="Descrição (opcional) — Ex.: Massa, molho, muçarela, calabresa e cebola"
-    className="
-      w-full
-      h-14
-      mt-3
-      border
-      border-zinc-200
-      rounded-2xl
-      px-5
-      text-sm
-      outline-none
-      focus:border-[#7A1F3D]
-    "
-  />
-
-</div>
-
-<div className="space-y-3 mt-7">
-
- {grupo.opcoes.map((opcao) => {
-
-  const estaEditando = opcaoEditando === opcao.id;
+  const precoAtual = paraNumero(preco);
 
   return (
-    <div
-      key={opcao.id}
-      className="
-        rounded-2xl
-        border
-        border-zinc-200
-        p-4
-      "
-    >
+    <div className="max-w-6xl mx-auto pb-28">
+      <Link href="/admin/produtos" className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-600">
+        <ArrowLeft size={16} /> Voltar para produtos
+      </Link>
 
-      {estaEditando ? (
+      <h1 className="mt-3 text-2xl sm:text-3xl font-black text-zinc-900">
+        {produtoId ? "Editar produto" : "Novo produto"}
+      </h1>
+      <p className="text-sm text-zinc-500 mt-1">Preencha os passos abaixo. Ao lado você vê como o cliente vai ver.</p>
 
-        /* =========================
-           MODO EDIÇÃO
-        ========================= */
-        <div className="space-y-3">
+      <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="space-y-5 min-w-0">
+          {/* PASSO 1 */}
+          <section className="rounded-2xl bg-white border p-4 sm:p-6">
+            <Passo numero={1} titulo="O básico" subtitulo="Foto, nome, preço e categoria." />
 
-          <div className="grid grid-cols-[1fr_220px] gap-4">
-
-            {/* NOME */}
-            <input
-              value={opcao.nome}
-              onChange={(e) =>
-                alterarOpcao(
-                  grupo.id,
-                  opcao.id,
-                  "nome",
-                  e.target.value
-                )
-              }
-              placeholder="Nome"
-              className="
-                w-full
-                h-12
-                border
-                border-zinc-200
-                rounded-xl
-                px-4
-                outline-none
-                focus:border-[#7A1F3D]
-              "
-            />
-
-            {/* PREÇO */}
-            <div className="relative">
-
-              <span
-                className="
-                  absolute
-                  left-4
-                  top-1/2
-                  -translate-y-1/2
-                  text-zinc-500
-                  font-semibold
-                "
+            <div className="mt-4 grid gap-4 sm:grid-cols-[140px_1fr]">
+              <button
+                type="button"
+                onClick={() => inputFoto.current?.click()}
+                className="relative w-36 sm:w-[140px] mx-auto sm:mx-0 aspect-square rounded-2xl border-2 border-dashed border-zinc-300 bg-zinc-50 overflow-hidden flex flex-col items-center justify-center text-zinc-500"
               >
-                R$
-              </span>
-
+                {previewFoto ? (
+                  <>
+                    <img src={previewFoto} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    <span className="absolute bottom-2 left-2 right-2 rounded-lg bg-black/60 text-white text-xs py-1">
+                      Trocar foto
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Camera size={28} />
+                    <span className="mt-1 text-xs font-semibold">Adicionar foto</span>
+                  </>
+                )}
+              </button>
               <input
-                value={opcao.preco}
-                onChange={(e) =>
-                  alterarOpcao(
-                    grupo.id,
-                    opcao.id,
-                    "preco",
-                    e.target.value
-                  )
-                }
-                onBlur={() =>
-                  alterarOpcao(
-                    grupo.id,
-                    opcao.id,
-                    "preco",
-                    formatarPreco(opcao.preco)
-                  )
-                }
-                placeholder="0,00"
-                className="
-                  w-full
-                  h-12
-                  border
-                  border-zinc-200
-                  rounded-xl
-                  pl-12
-                  pr-4
-                  outline-none
-                  focus:border-[#7A1F3D]
-                "
+                ref={inputFoto}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => escolherFoto(e.target.files?.[0])}
               />
 
+              <div className="space-y-3 min-w-0">
+                <Campo rotulo="Nome do produto">
+                  <input
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value.slice(0, 80))}
+                    placeholder="Ex.: Pizza de Calabresa"
+                    className="campo"
+                  />
+                </Campo>
+                <Campo rotulo="Descrição (opcional)" dica="Ingredientes ou detalhes que ajudam o cliente a decidir.">
+                  <textarea
+                    value={descricao}
+                    onChange={(e) => setDescricao(e.target.value.slice(0, 300))}
+                    placeholder="Ex.: Molho de tomate, mussarela, calabresa e cebola"
+                    rows={2}
+                    className="campo resize-none"
+                  />
+                </Campo>
+              </div>
             </div>
 
-          </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Campo rotulo="Categoria">
+                {categorias.length ? (
+                  <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="campo">
+                    <option value="">Escolha…</option>
+                    {categorias.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <Link href="/admin/categorias" className="campo flex items-center text-[#6D1F2F] font-semibold">
+                    + Criar categorias primeiro
+                  </Link>
+                )}
+              </Campo>
+              <Campo rotulo="Preço">
+                <Dinheiro valor={preco} aoMudar={setPreco} />
+              </Campo>
+            </div>
 
-          {/* DESCRIÇÃO */}
-          <input
-            value={opcao.descricao}
-            onChange={(e) =>
-              alterarOpcao(
-                grupo.id,
-                opcao.id,
-                "descricao",
-                e.target.value
-              )
-            }
-            placeholder="Descrição (opcional)"
-            className="
-              w-full
-              h-12
-              border
-              border-zinc-200
-              rounded-xl
-              px-4
-              text-sm
-              outline-none
-              focus:border-[#7A1F3D]
-            "
-          />
+            <label className="mt-4 flex items-center gap-3 rounded-xl bg-zinc-50 p-3 cursor-pointer">
+              <input type="checkbox" checked={promocao} onChange={(e) => setPromocao(e.target.checked)} className="w-5 h-5" />
+              <span className="text-sm">
+                <strong>Está em promoção?</strong> Mostra o preço antigo riscado.
+              </span>
+            </label>
+            {promocao && (
+              <div className="mt-3 max-w-xs">
+                <Campo rotulo="Preço antigo (riscado)">
+                  <Dinheiro valor={precoAntigo} aoMudar={setPrecoAntigo} />
+                </Campo>
+              </div>
+            )}
+          </section>
 
-          <div className="flex justify-end gap-3">
+          {/* OPÇÕES AVANÇADAS */}
+          <section className="rounded-2xl bg-white border">
+            <button
+              type="button"
+              onClick={() => setAvancado((v) => !v)}
+              className="w-full flex items-center justify-between p-4 sm:px-6 text-left"
+            >
+              <span>
+                <span className="block font-bold text-zinc-900">Mais opções (opcional)</span>
+                <span className="block text-sm text-zinc-500">Promoção por dia e horário, estoque e “Peça também”.</span>
+              </span>
+              <span className="text-2xl text-zinc-400">{avancado ? "−" : "+"}</span>
+            </button>
+
+            {avancado && (
+              <div className="px-4 pb-5 sm:px-6 space-y-5">
+                <div>
+                  <p className="font-semibold text-zinc-900">Promoção por dia e horário</p>
+                  <p className="text-sm text-zinc-500">Ex.: terça da pizza, happy hour. Fora do dia/horário, volta ao preço normal sozinho.</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <Campo rotulo="Preço na promoção">
+                      <Dinheiro valor={promoPreco} aoMudar={setPromoPreco} />
+                    </Campo>
+                    <Campo rotulo="Das (opcional)">
+                      <input type="time" value={promoInicio} onChange={(e) => setPromoInicio(e.target.value)} className="campo" />
+                    </Campo>
+                    <Campo rotulo="Até (opcional)">
+                      <input type="time" value={promoFim} onChange={(e) => setPromoFim(e.target.value)} className="campo" />
+                    </Campo>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d, i) => {
+                      const ativo = promoDias.includes(i);
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setPromoDias((l) => (ativo ? l.filter((x) => x !== i) : [...l, i].sort()))}
+                          className={`h-10 px-3 rounded-full border-2 text-sm font-semibold ${
+                            ativo ? "border-[#6D1F2F] bg-[#6D1F2F] text-white" : "border-zinc-200"
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">Sem dia marcado = vale todos os dias.</p>
+                </div>
+
+                <label className="flex items-start gap-3 rounded-xl bg-zinc-50 p-3 cursor-pointer">
+                  <input type="checkbox" checked={controlarEstoque} onChange={(e) => setControlarEstoque(e.target.checked)} className="w-5 h-5 mt-0.5" />
+                  <span className="flex-1 text-sm">
+                    <strong>Controlar estoque</strong>
+                    <span className="block text-zinc-500">Cada pedido desconta. Quando zerar, o produto some do cardápio sozinho.</span>
+                    {controlarEstoque && (
+                      <input
+                        value={estoque}
+                        onChange={(e) => setEstoque(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                        inputMode="numeric"
+                        placeholder="Quantidade disponível"
+                        className="campo mt-2 max-w-[220px] bg-white"
+                      />
+                    )}
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-3 rounded-xl bg-zinc-50 p-3 cursor-pointer">
+                  <input type="checkbox" checked={sugerir} onChange={(e) => setSugerir(e.target.checked)} className="w-5 h-5 mt-0.5" />
+                  <span className="text-sm">
+                    <strong>Sugerir no carrinho (“Peça também”)</strong>
+                    <span className="block text-zinc-500">Bom para bebidas e sobremesas: aparece no carrinho para o cliente adicionar com um toque.</span>
+                  </span>
+                </label>
+              </div>
+            )}
+          </section>
+
+          {/* PASSO 2 */}
+          <section className="rounded-2xl bg-white border p-4 sm:p-6">
+            <Passo
+              numero={2}
+              titulo="O cliente precisa escolher algo?"
+              subtitulo="Use quando o produto só pode ser pedido depois de uma escolha. Se não precisa, pule este passo."
+            />
 
             <button
               type="button"
-              onClick={() => setOpcaoEditando(null)}
-              className="
-                h-10
-                px-5
-                rounded-xl
-                border
-                border-zinc-200
-                text-zinc-600
-                font-semibold
-                hover:bg-zinc-50
-                transition
-              "
+              onClick={() => setAjuda((v) => !v)}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
             >
-              Concluir
+              <HelpCircle size={16} /> {ajuda ? "Esconder exemplos" : "Ver exemplos"}
             </button>
 
-          </div>
-
-        </div>
-
-      ) : (
-
-        /* =========================
-           MODO NORMAL
-        ========================= */
-        <div className="flex justify-between items-center gap-4">
-
-          <div className="min-w-0">
-
-            <p className="font-bold">
-              {opcao.nome}
-            </p>
-
-            {opcao.descricao && (
-              <p className="text-sm text-zinc-500 mt-1">
-                {opcao.descricao}
-              </p>
+            {ajuda && (
+              <div className="mt-3 rounded-xl bg-blue-50 border border-blue-100 p-4 text-sm text-blue-900 space-y-1.5">
+                <p><strong>Pizza:</strong> “Escolha o tamanho” (Broto, Média, Grande) e “Escolha a borda”.</p>
+                <p><strong>Açaí:</strong> “Escolha até 3 complementos” (Granola, Leite em pó, Banana…).</p>
+                <p><strong>Combo:</strong> “Escolha a bebida” (Coca, Guaraná, Suco).</p>
+                <p>Se a opção não muda o preço, deixe o valor em branco. Se custa mais, coloque quanto a mais (ex.: Borda de Catupiry + R$ 8,00).</p>
+              </div>
             )}
 
-            <p className="text-zinc-500 mt-1">
-              R$ {opcao.preco}
-            </p>
+            <div className="mt-4 space-y-4">
+              {grupos.map((g, i) => (
+                <div key={g.chave} className="rounded-2xl border-2 border-zinc-200 p-3 sm:p-4">
+                  <div className="flex items-start gap-2">
+                    <span className="mt-2.5 text-xs font-black text-zinc-400 w-5 shrink-0">{i + 1}.</span>
+                    <div className="flex-1 min-w-0">
+                      <Campo rotulo="Pergunta para o cliente">
+                        <input
+                          value={g.nome}
+                          onChange={(e) => mudarGrupo(g.chave, { nome: e.target.value.slice(0, 60) })}
+                          placeholder='Ex.: "Escolha o sabor"'
+                          className="campo"
+                        />
+                      </Campo>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setGrupos((x) => x.filter((y) => y.chave !== g.chave))}
+                      aria-label="Remover esta escolha"
+                      className="mt-6 w-10 h-10 shrink-0 rounded-lg text-red-600 hover:bg-red-50 flex items-center justify-center"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
 
-          </div>
+                  <p className="mt-3 text-xs font-semibold text-zinc-600">Quantas opções o cliente escolhe?</p>
+                  <div className="mt-1 grid gap-2 sm:grid-cols-3">
+                    {(
+                      [
+                        ["uma", "Só 1", "Ex.: tamanho"],
+                        ["ate", "Até um limite", "Ex.: até 2 sabores"],
+                        ["livre", "Quantas quiser", "Ex.: complementos"],
+                      ] as [Regra, string, string][]
+                    ).map(([valor, titulo, exemplo]) => (
+                      <button
+                        key={valor}
+                        type="button"
+                        onClick={() => mudarGrupo(g.chave, { regra: valor })}
+                        className={`rounded-xl border-2 px-3 py-2 text-left ${
+                          g.regra === valor ? "border-[#6D1F2F] bg-[#6D1F2F]/5" : "border-zinc-200"
+                        }`}
+                      >
+                        <span className="block text-sm font-bold">{titulo}</span>
+                        <span className="block text-xs text-zinc-500">{exemplo}</span>
+                      </button>
+                    ))}
+                  </div>
 
-          <div className="flex items-center gap-5 shrink-0">
+                  {g.regra === "ate" && (
+                    <div className="mt-2 flex items-center gap-2 text-sm">
+                      Até
+                      <select
+                        value={g.maximo}
+                        onChange={(e) => mudarGrupo(g.chave, { maximo: Number(e.target.value) })}
+                        className="h-10 rounded-lg border px-2"
+                      >
+                        {[2, 3, 4, 5, 6, 8, 10].map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                      opções
+                    </div>
+                  )}
 
-            {/* EDITAR */}
+                  {g.regra !== "uma" && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-zinc-600">Quando escolher mais de uma, como cobrar?</p>
+                      <div className="mt-1 grid gap-2 sm:grid-cols-3">
+                        {(
+                          [
+                            ["soma", "Somar tudo", "Ex.: complementos"],
+                            ["maior", "Pela mais cara", "Ex.: pizza meio a meio"],
+                            ["media", "Pela média", "Ex.: meio a meio pela média"],
+                          ] as [RegraPreco, string, string][]
+                        ).map(([valor, titulo, exemplo]) => (
+                          <button
+                            key={valor}
+                            type="button"
+                            onClick={() => mudarGrupo(g.chave, { cobranca: valor })}
+                            className={`rounded-xl border-2 px-3 py-2 text-left ${
+                              g.cobranca === valor ? "border-[#6D1F2F] bg-[#6D1F2F]/5" : "border-zinc-200"
+                            }`}
+                          >
+                            <span className="block text-sm font-bold">{titulo}</span>
+                            <span className="block text-xs text-zinc-500">{exemplo}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="mt-4 text-xs font-semibold text-zinc-600">Opções</p>
+                  <div className="mt-1 space-y-2">
+                    {g.opcoes.map((o) => (
+                      <div key={o.chave} className="grid grid-cols-[1fr_auto] gap-2 rounded-xl bg-zinc-50 p-2">
+                        <div className="grid gap-2 sm:grid-cols-[1fr_130px] min-w-0">
+                          <input
+                            value={o.nome}
+                            onChange={(e) => mudarOpcao(g.chave, o.chave, { nome: e.target.value.slice(0, 60) })}
+                            placeholder="Nome da opção"
+                            className="campo bg-white"
+                          />
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-zinc-500 shrink-0">+ R$</span>
+                            <input
+                              value={o.preco}
+                              onChange={(e) => mudarOpcao(g.chave, o.chave, { preco: mascaraDinheiro(e.target.value) })}
+                              inputMode="numeric"
+                              placeholder="0,00"
+                              className="campo bg-white"
+                            />
+                          </div>
+                          <input
+                            value={o.descricao}
+                            onChange={(e) => mudarOpcao(g.chave, o.chave, { descricao: e.target.value.slice(0, 300) })}
+                            placeholder="Ingredientes (opcional) — Ex.: massa, molho, muçarela, calabresa e cebola"
+                            className="campo bg-white text-sm sm:col-span-2"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removerOpcao(g.chave, o.chave)}
+                          aria-label="Remover opção"
+                          className="w-10 h-10 rounded-lg text-zinc-500 hover:bg-white flex items-center justify-center"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => adicionarOpcao(g.chave)}
+                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
+                  >
+                    <Plus size={16} /> Adicionar opção
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => adicionarGrupo()}
+                className="w-full h-12 rounded-xl border-2 border-dashed border-[#6D1F2F]/40 text-[#6D1F2F] font-bold flex items-center justify-center gap-2"
+              >
+                <ListChecks size={18} /> {grupos.length ? "Adicionar outra escolha" : "Sim, o cliente precisa escolher algo"}
+              </button>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="text-xs text-zinc-500 self-center">Atalhos:</span>
+                {MODELOS.map((m) => (
+                  <button
+                    key={m.nome}
+                    type="button"
+                    onClick={() => adicionarGrupo(m)}
+                    className="h-8 px-3 rounded-full bg-zinc-100 text-xs font-semibold"
+                  >
+                    {m.nome}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* PASSO 3 */}
+          <section className="rounded-2xl bg-white border p-4 sm:p-6">
+            <Passo
+              numero={3}
+              titulo="Adicionais (opcional)"
+              subtitulo="Extras que o cliente pode colocar pagando a mais, se quiser. Ex.: Bacon + R$ 4,00."
+            />
+
+            <div className="mt-4 space-y-2">
+              {extras.map((e) => (
+                <div key={e.chave} className="rounded-xl bg-zinc-50 p-2 space-y-2">
+                <div className="grid grid-cols-[1fr_120px_auto] gap-2 items-center">
+                  <input
+                    value={e.nome}
+                    onChange={(ev) =>
+                      setExtras((x) => x.map((y) => (y.chave === e.chave ? { ...y, nome: ev.target.value.slice(0, 60) } : y)))
+                    }
+                    placeholder="Ex.: Bacon"
+                    className="campo min-w-0"
+                  />
+                  <Dinheiro
+                    valor={e.preco}
+                    aoMudar={(v) => setExtras((x) => x.map((y) => (y.chave === e.chave ? { ...y, preco: v } : y)))}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setExtras((x) => x.filter((y) => y.chave !== e.chave))}
+                    aria-label="Remover adicional"
+                    className="w-10 h-10 rounded-lg text-zinc-500 hover:bg-zinc-100 flex items-center justify-center"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <input
+                  value={e.descricao}
+                  onChange={(ev) =>
+                    setExtras((x) => x.map((y) => (y.chave === e.chave ? { ...y, descricao: ev.target.value.slice(0, 300) } : y)))
+                  }
+                  placeholder="Ingredientes (opcional) — Ex.: bacon em cubos, cheddar"
+                  className="campo bg-white text-sm w-full"
+                />
+                </div>
+              ))}
+            </div>
+
             <button
               type="button"
-              onClick={() => setOpcaoEditando(opcao.id)}
-              className="
-                text-zinc-600
-                font-semibold
-                hover:text-[#7A1F3D]
-                transition
-              "
+              onClick={() => setExtras((x) => [...x, { chave: novaChave(), nome: "", descricao: "", preco: "" }])}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
             >
-              Editar
+              <PlusCircle size={16} /> Adicionar adicional
             </button>
-
-            {/* EXCLUIR */}
-            <button
-              type="button"
-              onClick={() =>
-                removerOpcao(
-                  grupo.id,
-                  opcao.id
-                )
-              }
-              className="
-                text-red-500
-                font-semibold
-                hover:text-red-600
-                transition
-              "
-            >
-              Excluir
-            </button>
-
-          </div>
-
+          </section>
         </div>
 
-      )}
+        {/* PRÉVIA */}
+        <aside className="lg:sticky lg:top-6 h-fit">
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2">Como o cliente vê</p>
+          <div className="rounded-3xl bg-white border shadow-sm overflow-hidden">
+            <div className="aspect-[4/3] bg-zinc-100 flex items-center justify-center text-zinc-400">
+              {previewFoto ? <img src={previewFoto} alt="" className="w-full h-full object-cover" /> : <Camera size={32} />}
+            </div>
+            <div className="p-4">
+              <p className="text-lg font-black">{nome || "Nome do produto"}</p>
+              {descricao && <p className="text-sm text-zinc-500 mt-1">{descricao}</p>}
+              <p className="mt-2">
+                <span className="text-xl font-black text-[#6D1F2F]">{reais(precoAtual)}</span>
+                {promocao && paraNumero(precoAntigo) > 0 && (
+                  <span className="ml-2 text-sm text-zinc-400 line-through">{reais(paraNumero(precoAntigo))}</span>
+                )}
+              </p>
 
+              {grupos.map((g) => (
+                <div key={g.chave} className="mt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-sm">{g.nome || "Pergunta"}</p>
+                    <span className="text-[10px] font-semibold bg-red-50 text-red-500 px-2 py-0.5 rounded-full">Obrigatório</span>
+                  </div>
+                  <p className="text-xs text-zinc-500">{textoRegra(g)}</p>
+                  {g.opcoes.filter((o) => o.nome.trim()).map((o) => (
+                    <div key={o.chave} className="mt-1.5 flex justify-between gap-2 text-sm rounded-lg border px-3 py-2">
+                      <span className="min-w-0">
+                        {o.nome}
+                        {o.descricao.trim() && <span className="block text-xs text-zinc-500">{o.descricao}</span>}
+                      </span>
+                      {paraNumero(o.preco) > 0 && <span className="text-zinc-500 shrink-0">+ {reais(paraNumero(o.preco))}</span>}
+                    </div>
+                  ))}
+                </div>
+              ))}
+
+              {extras.some((e) => e.nome.trim()) && (
+                <div className="mt-4">
+                  <p className="font-bold text-sm">Adicionais</p>
+                  {extras.filter((e) => e.nome.trim()).map((e) => (
+                    <div key={e.chave} className="mt-1.5 flex justify-between gap-2 text-sm rounded-lg border px-3 py-2">
+                      <span className="min-w-0">
+                        + {e.nome}
+                        {e.descricao.trim() && <span className="block text-xs text-zinc-500">{e.descricao}</span>}
+                      </span>
+                      <span className="text-zinc-500 shrink-0">{reais(paraNumero(e.preco))}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Barra de salvar */}
+      <div className="fixed bottom-16 lg:bottom-0 left-0 right-0 lg:left-72 z-[55] bg-white/95 backdrop-blur border-t p-3 lg:pr-48">
+        <div className="max-w-6xl mx-auto flex gap-2">
+          <Link href="/admin/produtos" className="h-12 px-4 rounded-xl border font-semibold flex items-center">
+            Cancelar
+          </Link>
+          <button
+            type="button"
+            onClick={salvar}
+            disabled={salvando}
+            className="flex-1 h-12 rounded-xl bg-[#6D1F2F] text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+          >
+            {salvando ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+            {salvando ? "Salvando…" : produtoId ? "Salvar alterações" : "Salvar produto"}
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        .campo { width: 100%; height: 44px; border: 1px solid #e4e4e7; border-radius: 12px; padding: 0 12px; font-size: 16px; background: #fff; outline: none; }
+        textarea.campo { height: auto; padding: 10px 12px; }
+        .campo:focus { border-color: #6D1F2F; box-shadow: 0 0 0 3px rgba(109,31,47,.12); }
+      `}</style>
     </div>
   );
+}
 
-})}
+/* ============================================================
+   Componentes pequenos
+   ============================================================ */
 
-</div>
+function Passo({ numero, titulo, subtitulo }: { numero: number; titulo: string; subtitulo: string }) {
+  return (
+    <div className="flex gap-3">
+      <span className="w-8 h-8 shrink-0 rounded-full bg-[#6D1F2F] text-white font-black flex items-center justify-center">
+        {numero}
+      </span>
+      <div>
+        <h2 className="text-lg font-black text-zinc-900 leading-tight">{titulo}</h2>
+        <p className="text-sm text-zinc-500">{subtitulo}</p>
+      </div>
+    </div>
+  );
+}
 
-</div>
+function Campo({ rotulo, dica, children }: { rotulo: string; dica?: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold text-zinc-600">{rotulo}</span>
+      <div className="mt-1">{children}</div>
+      {dica && <span className="block mt-1 text-xs text-zinc-400">{dica}</span>}
+    </label>
+  );
+}
 
-))}
-
-</div>
-
-</section>
-
-</div>
-
-{/* FOOTER */}
-
-<div className="sticky bottom-0 mt-10 bg-[#F8F6F4] py-6">
-
-  <div className="flex justify-end gap-4">
-
-    <Link
-      href="/admin/produtos"
-      className="
-      h-14
-      px-8
-      rounded-2xl
-      border
-      flex
-      items-center
-      justify-center
-      font-semibold
-      "
-    >
-      Cancelar
-    </Link>
-
-    <button
-      onClick={criarProduto}
-      disabled={loading}
-      className="
-      h-14
-      px-10
-      rounded-2xl
-      bg-[#7A1F3D]
-      text-white
-      font-bold
-      hover:scale-[1.02]
-      active:scale-95
-      transition
-      disabled:opacity-60
-      "
-    >
-      {loading
-        ? "Salvando..."
-        : "Salvar Produto"}
-    </button>
-
-  </div>
-
-</div>
-
-  </main>
-);
+function Dinheiro({ valor, aoMudar }: { valor: string; aoMudar: (v: string) => void }) {
+  return (
+    <div className="relative">
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
+      <input
+        value={valor}
+        onChange={(e) => aoMudar(mascaraDinheiro(e.target.value))}
+        inputMode="numeric"
+        placeholder="0,00"
+        className="campo"
+        style={{ paddingLeft: 36 }}
+      />
+    </div>
+  );
 }

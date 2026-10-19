@@ -1,12 +1,11 @@
 import { MetadataRoute } from "next";
 import { supabase } from "@/lib/supabase";
+import { lerRestaurantePublico } from "@/lib/restaurantePublico";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://meucardapioapp.com";
 
-  const { data: restaurantes } = await supabase
-    .from("restaurantes")
-    .select("slug, created_at");
+  const { data: restaurantes } = await lerRestaurantePublico((tabela) => supabase.from(tabela).select("slug, created_at"));
 
   const paginasFixas: MetadataRoute.Sitemap = [
     {
@@ -31,8 +30,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const paginasRestaurantes: MetadataRoute.Sitemap =
     (restaurantes ?? [])
-      .filter((restaurante) => restaurante.slug)
-      .map((restaurante) => ({
+      .filter((restaurante: { slug?: string }) => restaurante.slug)
+      .map((restaurante: { slug: string; created_at?: string }) => ({
         url: `${baseUrl}/${restaurante.slug}`,
         lastModified: restaurante.created_at
           ? new Date(restaurante.created_at)

@@ -7,6 +7,7 @@ import { FaWhatsapp } from "react-icons/fa";
 import { supabase } from "@/lib/supabase";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { ArrowLeft } from "lucide-react";
+import { lerRestaurantePublico } from "@/lib/restaurantePublico";
 
 export default function EnderecoPage() {
 
@@ -52,27 +53,33 @@ useEffect(() => {
     )
 
 const { data: restaurante } =
-  await supabase
-    .from("restaurantes")
-    .select("*")
-    .eq("slug", slug)
-    .single()
+  await lerRestaurantePublico((tabela) => supabase.from(tabela).select("*").eq("slug", slug).single())
 
 if (!restaurante) return
 
 setRestauranteId(restaurante.id)
 
-console.log("RESTAURANTE:", restaurante);
 
-const { data: bairros } = await supabase
-  .from("bairros_entrega")
-  .select("*")
-  .eq("restaurante_id", restaurante.id)
-  .order("bairro");
+
+// Bairros e forma de cobrança da entrega ao mesmo tempo.
+const [{ data: bairros }, configFrete] = await Promise.all([
+  supabase
+    .from("bairros_entrega")
+    .select("*")
+    .eq("restaurante_id", restaurante.id)
+    .order("bairro"),
+  fetch(`/api/calcular-frete?restauranteId=${encodeURIComponent(restaurante.id)}`)
+    .then((r) => r.json())
+    .catch(() => null),
+]);
+
+if (configFrete?.modo === "km") {
+  setModoFrete("km");
+}
  
 
-console.log("RESTAURANTE ID:", restaurante.id);
-console.log("BAIRROS RETORNADOS:", bairros);
+
+
 
 if (bairros) {
   setBairrosEntrega(bairros);
@@ -164,15 +171,15 @@ const token = localStorage.getItem(
     if (!token) return;
 
     try {
-      const response = await fetch(`/api/cliente/me?token=${token}`);
+      const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
       const resultado = await response.json();
 
       if (!resultado.success) return;
 
       const cliente = resultado.cliente;
       const endereco = resultado.enderecos?.[0];
-      console.log("CLIENTE:", cliente);
-console.log("ENDERECO:", endereco);
+      
+
      
 
       setNome(cliente.nome || "");
@@ -188,7 +195,7 @@ const bairroCliente = endereco.bairro || "";
 
 setBairroSalvo(bairroCliente);
 setBairro(bairroCliente);
-console.log("BAIRRO DO BANCO:", endereco.bairro);
+
       }
 
     } catch (error) {
@@ -225,6 +232,9 @@ const [bairro, setBairro] =
   useState("")
 
   const [bairrosEntrega, setBairrosEntrega] = useState<any[]>([]);
+  // "km": entrega cobrada pela distância (bairro vira campo livre)
+  const [modoFrete, setModoFrete] = useState<"bairro" | "km">("bairro");
+  const [distanciaKm, setDistanciaKm] = useState<number | null>(null);
 
 const [bairroSalvo, setBairroSalvo] = useState("");
 
@@ -391,7 +401,6 @@ async function calcularFrete() {
 
 if (
   !nome ||
-  !cpf ||
   !whatsapp ||
   !restauranteId ||
   !rua ||
@@ -432,11 +441,7 @@ body: JSON.stringify({
 
    const data = await response.json()
 
-   console.log(response.status)
-console.log(data)
-console.log("STATUS:", response.status)
-console.log("RESPOSTA:", data)
-console.log("FAIXA:", data.faixaFrete);
+   
 
 setCarregandoFrete(false)
 
@@ -444,20 +449,19 @@ if (!response.ok) {
 
 if (data.foraDaArea) {
 
-  setForaDaArea(true)
-
   resetarFrete()
+
+  setForaDaArea(true)
 
   return
 }
 
-  alert(data.erro || "Erro ao calcular frete")
+  alert(data.erro || data.error || "Erro ao calcular frete")
 
   return
 }
 
 if (!data.faixaFrete) {
-  console.log("Não veio faixaFrete:", data)
   alert("Nenhuma faixa encontrada.")
   return
 }
@@ -465,6 +469,7 @@ if (!data.faixaFrete) {
 setForaDaArea(false)
 
 setTaxaEntrega(Number(data.faixaFrete.valor))
+setDistanciaKm(data.faixaFrete.distanciaKm ?? null)
 
 setFreteCalculado(true)
 
@@ -481,6 +486,8 @@ function resetarFrete() {
   setFreteCalculado(false)
 
   setTaxaEntrega(0)
+
+  setDistanciaKm(null)
 
   setForaDaArea(false)
 
@@ -841,105 +848,6 @@ autoComplete="tel"
      
 <div className="space-y-4">
 
-<div
-  className="
-    bg-white
-    rounded-xl
-    border
-    p-4
-    mt-4
-  "
->
-
-  <div
-    className="
-      flex
-      items-center
-      justify-between
-    "
-  >
-
-    <div className="flex-1">
-
-      <p
-        className="
-          text-xs
-          font-semibold
-          mb-2
-          text-zinc-600
-        "
-      >
-        CPF
-      </p>
-
-      <input
-        value={cpf}
-        onChange={(e) =>
-          setCpf(
-            formatarCPF(e.target.value)
-          )
-        }
-        inputMode="numeric"
-        autoComplete="off"
-        placeholder="000.000.000-00"
-        className="
-          w-full
-          outline-none
-          font-semibold
-        "
-      />
-
-    </div>
-
-    {cpf.length === 14 && (
-
-      validarCPF(cpf) ? (
-
-        <div
-          className="
-            ml-3
-            w-6
-            h-6
-            rounded-full
-            bg-green-500
-            text-white
-            flex
-            items-center
-            justify-center
-            text-xs
-            font-bold
-          "
-        >
-          ✓
-        </div>
-
-      ) : (
-
-        <div
-          className="
-            ml-3
-            w-6
-            h-6
-            rounded-full
-            bg-red-500
-            text-white
-            flex
-            items-center
-            justify-center
-            text-xs
-            font-bold
-          "
-        >
-          ✕
-        </div>
-
-      )
-
-    )}
-
-  </div>
-
-</div>
 
 
 <h2
@@ -959,6 +867,17 @@ autoComplete="tel"
     Bairro
   </p>
 
+  {modoFrete === "km" ? (
+  <input
+    value={bairro}
+    onChange={(e) => {
+      setBairro(e.target.value)
+      resetarFrete()
+    }}
+    placeholder="Seu bairro"
+    className="w-full rounded-xl border p-4"
+  />
+  ) : (
   <select
     value={bairro}
     onChange={(e) => {
@@ -981,6 +900,7 @@ autoComplete="tel"
     ))}
 
   </select>
+  )}
 
 </div>
 
@@ -992,7 +912,7 @@ autoComplete="tel"
 
   <input
     value={rua}
-    onChange={(e)=>setRua(e.target.value)}
+    onChange={(e)=>{ setRua(e.target.value); if (modoFrete === "km") resetarFrete() }}
     className="w-full rounded-xl border p-4"
   />
 
@@ -1015,7 +935,7 @@ autoComplete="tel"
 
     <input
       value={numero}
-      onChange={(e)=>setNumero(e.target.value)}
+      onChange={(e)=>{ setNumero(e.target.value); if (modoFrete === "km") resetarFrete() }}
       className="w-full rounded-xl border p-4"
     />
 
@@ -1069,6 +989,15 @@ autoComplete="tel"
   Calcular entrega
 </button>
 
+{foraDaArea && (
+  <div className="mt-5 rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
+    <p className="font-bold">Fora da área de entrega</p>
+    <p className="text-sm mt-1">
+      Infelizmente ainda não entregamos neste endereço. Confira o endereço ou volte ao carrinho e escolha retirar no local.
+    </p>
+  </div>
+)}
+
 {freteCalculado && (
 
   <div
@@ -1087,8 +1016,14 @@ autoComplete="tel"
     </p>
 
     <p className="text-2xl font-black text-green-600">
-      R$ {taxaEntrega.toFixed(2)}
+      R$ {taxaEntrega.toFixed(2).replace(".", ",")}
     </p>
+
+    {distanciaKm != null && (
+      <p className="text-sm text-green-700 mt-1">
+        Você está a {String(distanciaKm).replace(".", ",")} km do restaurante.
+      </p>
+    )}
 
   </div>
 
@@ -1256,17 +1191,6 @@ if (whatsapp.replace(/\D/g, "").length !== 11) {
 }
 
 
-// CPF OBRIGATÓRIO E VÁLIDO
-
-if (!validarCPF(cpf)) {
-  setAlerta({
-    titulo: "CPF inválido",
-    mensagem:
-      "Informe um CPF válido para continuar.",
-  });
-
-  return;
-}
 
     setCarregandoPagamento(true);
 

@@ -1,42 +1,30 @@
+import { limitar } from "@/lib/server/rate-limit";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export async function GET(
-  request: Request
-) {
-  const { searchParams } =
-    new URL(request.url);
+export async function GET(request: Request) {
+    if (!(await limitar(request, "pedido-status", 120, 60))) {
+      return NextResponse.json({ success: false, error: "Muitas tentativas. Aguarde um pouco." }, { status: 429 });
+    }
 
-  const id =
-    searchParams.get("id");
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  const codigo = searchParams.get("c");
 
-  if (!id) {
-    return NextResponse.json(
-      {
-        success: false,
-      },
-      {
-        status: 400,
-      }
-    );
+  if (!id || !codigo) {
+    return NextResponse.json({ success: false }, { status: 400 });
   }
 
-  const { data } =
-    await supabaseAdmin
-      .from("pedidos")
-      .select(
-        "payment_status"
-      )
-      .eq("id", id)
-      .single();
-
-      console.log("Pedido:", id);
-console.log("Status encontrado:", data);
+  const { data } = await supabaseAdmin
+    .from("pedidos")
+    .select("payment_status, status")
+    .eq("id", id)
+    .eq("codigo_acesso", codigo)
+    .maybeSingle();
 
   return NextResponse.json({
-    success: true,
-    payment_status:
-      data?.payment_status ||
-      "pending",
+    success: Boolean(data),
+    payment_status: data?.payment_status || "pending",
+    status: data?.status || null,
   });
 }

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 
 import QRCode from "react-qr-code"
+import QrMesas from "../components/QrMesas"
 
 import {
   Copy,
@@ -86,8 +87,6 @@ useEffect(() => {
       )
 
     } catch (error) {
-      console.log(error)
-
       toast.error(
         "Erro ao carregar restaurante"
       )
@@ -517,6 +516,8 @@ useEffect(() => {
         </div>
 
       </div>
+
+      <QrMesas link={link} nome={nomeRestaurante} />
 
     </main>
   )

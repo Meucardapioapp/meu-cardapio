@@ -1,28 +1,13 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-
-    const categorias = body.categorias ?? [];
-
-    for (const categoria of categorias) {
-      await supabaseAdmin.from("categorias").insert({
-        nome: categoria.nome,
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-    });
-
-  } catch (e) {
-    console.error(e);
-
-    return NextResponse.json({
-      success: false,
-      message: "Erro ao salvar categorias",
-    });
-  }
+// Rota desativada por segurança (removida na atualização de 12/10/2026).
+// Pode apagar esta pasta.
+function desativada() {
+  return NextResponse.json({ error: "Rota desativada." }, { status: 410 });
 }
+
+export const GET = desativada;
+export const POST = desativada;
+export const PUT = desativada;
+export const PATCH = desativada;
+export const DELETE = desativada;

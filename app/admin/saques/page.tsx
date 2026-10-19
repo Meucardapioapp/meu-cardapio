@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/utils/apiFetch";
 import { useEffect, useMemo, useState } from "react";
 import {
   Wallet,
@@ -47,6 +48,7 @@ const [historico, setHistorico] = useState<Saque[]>([]);
 const [dadosBancarios, setDadosBancarios] = useState<any>(null);
 
 const [valor, setValor] = useState("");
+const [senhaSaque, setSenhaSaque] = useState("");
 
 const [restauranteId, setRestauranteId] =
   useState<string | null>(null);
@@ -105,7 +107,7 @@ if (!restauranteId) {
   return;
 }
 
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/pagarme/saldo?restauranteId=${restauranteId}`
     );
 
@@ -140,7 +142,7 @@ if (!restauranteId) {
   return;
 }
 
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/saques?restauranteId=${restauranteId}`
     );
 
@@ -162,15 +164,13 @@ async function carregarDadosBancarios() {
 
   if (!restauranteId) return;
 
-  const response = await fetch(
-    `/api/restaurante?restauranteId=${restauranteId}`
+  const response = await apiFetch(
+    `/api/restaurante`
   );
 
-  console.log("STATUS:", response.status);
 
   const json = await response.json();
 
-  console.log("RESPOSTA API:", json);
 
   if (!json.success) {
     console.error(json.error);
@@ -418,6 +418,11 @@ async function solicitarSaque() {
     return;
   }
 
+  if (!senhaSaque) {
+    alert("Digite sua senha de acesso para confirmar o saque.");
+    return;
+  }
+
 if (saldoConsumido > saldoDisponivel) {
     alert("Saldo insuficiente para realizar o saque.");
     return;
@@ -430,7 +435,7 @@ if (!restauranteId) {
   return;
 }
 
-    const response = await fetch(
+    const response = await apiFetch(
       "/api/pagarme/saque",
       {
         method: "POST",
@@ -438,23 +443,25 @@ if (!restauranteId) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          restauranteId,
           valor: valorReceber,
+          senha: senhaSaque,
         }),
       }
     );
 
     const json = await response.json();
 
-    console.log(json);
+    
 
     if (!json.success) {
       alert(
-        json.error?.message ??
+        (typeof json.error === "string" ? json.error : json.error?.message) ??
         "Erro ao solicitar saque."
       );
       return;
     }
+
+setSenhaSaque("");
 
 alert("Saque solicitado com sucesso!");
 
@@ -813,8 +820,20 @@ setValor(
 
             </Card>
 
+<label className="block mt-8">
+  <span className="block text-sm font-semibold text-zinc-700 mb-2">Confirme com a sua senha de acesso</span>
+  <input
+    type="password"
+    value={senhaSaque}
+    onChange={(e) => setSenhaSaque(e.target.value)}
+    autoComplete="current-password"
+    placeholder="Sua senha do painel"
+    className="w-full h-12 rounded-xl border px-4 text-base outline-none"
+  />
+</label>
+
 <Button
-  className="w-full mt-8 h-14 text-lg bg-[#6D1F2F] hover:bg-[#531723]"
+  className="w-full mt-4 h-14 text-lg bg-[#6D1F2F] hover:bg-[#531723]"
   onClick={solicitarSaque}
 >
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/utils/apiFetch";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -29,6 +30,13 @@ export default function DadosBancariosPage() {
 
   const [loading, setLoading] =
     useState(false);
+
+  // Conta já cadastrada (só o final dos números, por segurança).
+  const [contaAtual, setContaAtual] = useState<{
+    cpf: string; banco: string; agencia: string; conta: string; tipo: string;
+  } | null>(null);
+
+  const [senha, setSenha] = useState("");
 
     function formatarCpfCnpj(valor: string) {
   const numeros = valor.replace(/\D/g, "");
@@ -64,7 +72,7 @@ async function carregarDados() {
       return;
     }
 
-    const response = await fetch("/api/restaurante", {
+    const response = await apiFetch("/api/restaurante", {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
       },
@@ -80,11 +88,19 @@ async function carregarDados() {
     const restaurante = resultado.restaurante;
 
     setRestauranteId(restaurante.id || "");
-    setCpfCnpj(restaurante.cpf_cnpj || "");
-    setBanco(restaurante.banco || "");
-    setAgencia(restaurante.agencia || "");
-    setConta(restaurante.conta || "");
     setTipoConta(restaurante.tipo_conta || "corrente");
+
+    // Os números completos não voltam do servidor: para trocar a conta,
+    // digite os dados novos inteiros.
+    if (restaurante.conta) {
+      setContaAtual({
+        cpf: restaurante.cpf_cnpj || "",
+        banco: restaurante.banco || "",
+        agencia: restaurante.agencia || "",
+        conta: restaurante.conta || "",
+        tipo: restaurante.tipo_conta === "poupanca" ? "Poupança" : "Corrente",
+      });
+    }
 
     if (restaurante.banco) {
       const bancoEncontrado = bancos.find(
@@ -107,6 +123,12 @@ async function carregarDados() {
 const documentoLimpo =
   cpfCnpj.replace(/\D/g, "");
 
+if (!senha) {
+  alert("Digite sua senha de acesso para confirmar.");
+  setLoading(false);
+  return;
+}
+
 if (
   documentoLimpo.length !== 11 &&
   documentoLimpo.length !== 14
@@ -119,7 +141,7 @@ if (
 }
 
       const response =
-        await fetch(
+        await apiFetch(
           "/api/pagarme/criar-recebedor",
           {
             method: "POST",
@@ -128,12 +150,12 @@ if (
                 "application/json",
             },
             body: JSON.stringify({
-              restauranteId,
               cpfCnpj,
               banco,
               agencia,
               conta,
               tipoConta,
+              senha,
             }),
           }
         );
@@ -149,8 +171,9 @@ if (
         return;
       }
 
+      setSenha("");
       alert(
-        "Dados bancários salvos com sucesso!"
+        "Dados bancários salvos com sucesso! Por segurança, saques ficam liberados 24 horas depois da troca de conta."
       );
 
       window.dispatchEvent(
@@ -158,7 +181,7 @@ if (
 );
 
     } catch (error) {
-      console.log(error);
+      
 
       alert(
         "Erro ao salvar dados"
@@ -231,6 +254,24 @@ if (
         Configure a conta onde deseja
         receber suas vendas.
       </p>
+
+      <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 p-4 text-sm text-blue-900">
+        Opcional. Você já pode vender com dinheiro e cartão na entrega sem preencher
+        isto. Os dados bancários servem para ativar o <strong>Pix online automático</strong>:
+        o cliente paga no cardápio e o valor cai na sua conta (taxa de 1% por Pix recebido).
+      </div>
+
+      {contaAtual && (
+        <div className="mt-6 rounded-2xl border bg-white p-4 text-sm">
+          <p className="font-bold text-zinc-900">Conta cadastrada</p>
+          <p className="mt-1 text-zinc-600">
+            Banco {contaAtual.banco} · Agência {contaAtual.agencia} · Conta {contaAtual.conta} ({contaAtual.tipo}) · Documento {contaAtual.cpf}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Para trocar, preencha abaixo os dados completos da conta nova.
+          </p>
+        </div>
+      )}
 
       <div
         className="
@@ -465,6 +506,23 @@ if (
                 Conta Poupança
               </option>
             </select>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <label className="mb-2 block font-medium text-amber-900">
+              Confirme com a sua senha de acesso
+            </label>
+            <input
+              type="password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              autoComplete="current-password"
+              placeholder="Sua senha do painel"
+              className="w-full rounded-xl border p-4 outline-none bg-white"
+            />
+            <p className="mt-2 text-xs text-amber-800">
+              Proteção contra golpe: mesmo com o celular desbloqueado, ninguém troca a conta que recebe seu dinheiro sem a senha.
+            </p>
           </div>
 
           <button

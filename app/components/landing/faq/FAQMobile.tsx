@@ -17,9 +17,9 @@ import {
 const perguntas = [
   {
     icon: BadgeDollarSign,
-    pergunta: "Tem mensalidade?",
+    pergunta: "Quanto custa?",
     resposta:
-      "Não. Você pode criar seu cardápio gratuitamente e começar a vender em poucos minutos.",
+      "Você testa grátis por 15 dias, sem cartão. Depois são R$ 79,90 por mês, com tudo incluído e sem taxa por pedido. No Pix online automático há 1% por Pix recebido.",
   },
   {
     icon: CreditCard,

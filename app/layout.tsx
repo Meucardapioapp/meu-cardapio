@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { headers } from "next/headers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -95,11 +96,15 @@ export const viewport = {
   themeColor: "#6D1F2F",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Ler os cabeçalhos deixa as páginas dinâmicas, o que permite ao Next.js
+  // colocar o "nonce" da Política de Segurança (proxy.ts) em todos os scripts.
+  await headers();
+
   return (
     <html
       lang="pt-BR"

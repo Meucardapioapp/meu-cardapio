@@ -1,58 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { erroInterno, getDonoAutenticado, naoAutenticado } from "@/lib/server/auth";
 
 export async function GET(req: NextRequest) {
   try {
-    const restauranteId =
-      req.nextUrl.searchParams.get("restauranteId");
+    const dono = await getDonoAutenticado(req);
+    if (!dono) return naoAutenticado();
 
-    if (!restauranteId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Restaurante não informado",
-        },
-        { status: 400 }
-      );
-    }
+    const { data, error } = await supabaseAdmin
+      .from("saques")
+      .select("*")
+      .eq("restaurante_id", dono.restaurante.id)
+      .order("created_at", { ascending: false });
 
-    const { data, error } =
-      await supabaseAdmin
-        .from("saques")
-        .select("*")
-        .eq("restaurante_id", restauranteId)
-        .order("created_at", {
-          ascending: false,
-        });
+    if (error) throw error;
 
-    if (error) {
-      return NextResponse.json(
-        {
-          success: false,
-          error,
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      saques: data,
-    });
-
-  } catch (error: any) {
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-      },
-      {
-        status: 500,
-      }
-    );
-
+    return NextResponse.json({ success: true, saques: data });
+  } catch (error) {
+    return erroInterno("saques", error);
   }
 }

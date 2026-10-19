@@ -14,6 +14,7 @@ type Adicional = {
 }
 
 import type { ProdutoFormatado } from "../types"
+import { normalizarRegra, precosEfetivos } from "@/lib/precos"
 
 
 type ObrigatorioSelecionado = {
@@ -50,7 +51,6 @@ export default function ProductModal({
 
  
 
-  console.log("COR MODAL:", corPrincipal)
 
   const lightMode = true
 
@@ -109,6 +109,19 @@ useEffect(() => {
 
   async function carregarGrupos() {
 
+// O cardápio já traz os grupos e opções de cada produto: abre na hora, sem esperar a internet.
+const preCarregados = (product as any)?.gruposObrigatorios as any[] | undefined
+if (Array.isArray(preCarregados)) {
+  const grupos = [...preCarregados].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+  setGruposObrigatorios(grupos.map(({ grupo_obrigatorio_opcoes: _o, ...g }) => g))
+  setOpcoesObrigatorias(
+    grupos
+      .flatMap((g) => g.grupo_obrigatorio_opcoes ?? [])
+      .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
+  )
+  return
+}
+
 const { data: grupos, error } = await supabase
   .from("grupos_obrigatorios")
   .select("*")
@@ -116,9 +129,7 @@ const { data: grupos, error } = await supabase
   .order("ordem")
   
 
-console.log("PRODUTO ID:", product!.id)
-console.log("GRUPOS:", grupos)
-console.log("ERRO:", error)
+if (error) console.error("Erro ao carregar opções:", error)
 
     setGruposObrigatorios(grupos || [])
 
@@ -138,18 +149,16 @@ console.log("ERRO:", error)
       .in("grupo_id", ids)
       .order("ordem")
 
-      console.log("IDS:", ids)
-console.log("OPCOES:", opcoes)
 
     setOpcoesObrigatorias(opcoes || [])
 
   }
 
-  carregarGrupos()
+carregarGrupos()
 
-  setObservation("")
-
-  setAdicionaisSelecionados([])
+setObservation("")
+setAdicionaisSelecionados([])
+setObrigatoriosSelecionados({})
 
 }, [open, product])
 
@@ -192,17 +201,17 @@ console.log("OPCOES:", opcoes)
     0
   )
 
-const totalObrigatorios =
-  opcoesObrigatorias
-    .filter(opcao =>
-     Object.values(obrigatoriosSelecionados)
-  .flat()
-  .includes(opcao.id)
-    )
-    .reduce(
-      (acc, opcao) => acc + Number(opcao.preco),
-      0
-    )
+// Preço de cada opção escolhida já pela regra do grupo (ex.: meio a meio pelo mais caro).
+const precoEfetivoPorOpcao = new Map<string, number>()
+for (const grupo of gruposObrigatorios) {
+  const escolhidas = opcoesObrigatorias.filter(
+    (opcao) => opcao.grupo_id === grupo.id && (obrigatoriosSelecionados[grupo.id] || []).includes(opcao.id)
+  )
+  const ajustados = precosEfetivos(escolhidas.map((o) => Number(o.preco)), normalizarRegra(grupo.regra_preco))
+  escolhidas.forEach((o, i) => precoEfetivoPorOpcao.set(String(o.id), ajustados[i]))
+}
+
+const totalObrigatorios = [...precoEfetivoPorOpcao.values()].reduce((acc, v) => acc + v, 0)
 
 const total =
   Number(product.preco) +
@@ -497,11 +506,12 @@ text-zinc-900
 
 <p className="mt-1 text-sm text-zinc-500">
 
-  {grupo.maximo === 999
+  {(grupo.regra_preco === "maior" ? "Cobrado pelo sabor mais caro · " : grupo.regra_preco === "media" ? "Cobrado pela média · " : "") +
+  (grupo.maximo === 999
     ? `Selecione pelo menos ${grupo.minimo} opção${grupo.minimo > 1 ? "ões" : ""}`
     : grupo.minimo === grupo.maximo
       ? `Selecione ${grupo.minimo} opção${grupo.minimo > 1 ? "ões" : ""}`
-      : `Selecione de ${grupo.minimo} até ${grupo.maximo} opções`
+      : `Selecione de ${grupo.minimo} até ${grupo.maximo} opções`)
   }
 
 </p>
@@ -680,8 +690,13 @@ hover:border-zinc-300
                           }
                         >
 
-                          <span className={textPrimary}>
+                          <span className={`${textPrimary} min-w-0 text-left`}>
                             + {adicional.nome}
+                            {(adicional as any).descricao && (
+                              <span className="block mt-0.5 text-xs font-normal text-zinc-500 leading-4">
+                                {(adicional as any).descricao}
+                              </span>
+                            )}
                           </span>
 
                           <span
@@ -803,11 +818,13 @@ const obrigatoriosFormatados = gruposObrigatorios.flatMap((grupo) => {
         opcao.grupo_id === grupo.id &&
         selecionados.includes(opcao.id)
     )
-    .map((opcao) => ({
-      grupo: grupo.nome,
-      nome: opcao.nome,
-      preco: Number(opcao.preco),
-    }));
+.map((opcao) => ({
+  id: opcao.id,
+  grupo: grupo.nome,
+  nome: opcao.nome,
+  descricao: opcao.descricao || "",
+  preco: precoEfetivoPorOpcao.get(String(opcao.id)) ?? Number(opcao.preco),
+}));
 
 });
 

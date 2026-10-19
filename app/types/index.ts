@@ -1,4 +1,5 @@
 export interface Adicional {
+  id?: string
   nome: string
   preco: number
 }
@@ -46,6 +47,13 @@ export interface ProdutoFormatado {
 
   promocao?: boolean
 
+  /** Ex.: "Promoção de terça" (promoção por dia/horário ativa agora). */
+  rotuloPromocao?: string | null
+
+  estoque?: number | null
+
+  sugerirNoCarrinho?: boolean
+
   adicionais?: Adicional[]
 
   gruposObrigatorios?: GrupoObrigatorio[]
@@ -63,6 +71,7 @@ export interface CartItem extends ProdutoFormatado {
   adicionaisSelecionados?: Adicional[]
 
   obrigatoriosSelecionados?: {
+  id?: string;
   grupo: string;
   nome: string;
   preco: number;

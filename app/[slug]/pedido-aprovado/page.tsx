@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 
 import { useRestaurant } from "@/contexts/RestaurantContext";
+import AvaliarPedido from "@/app/components/customer/AvaliarPedido";
+import PixChaveRestaurante from "@/app/components/customer/PixChaveRestaurante";
 
 export default function PedidoAprovadoPage() {
   const params = useParams();
@@ -22,6 +24,7 @@ export default function PedidoAprovadoPage() {
   const slug = params.slug as string;
   const pedidoId =
   searchParams.get("id");
+  const codigoPedido = searchParams.get("c") || "";
 
 const [pedido, setPedido] = useState<any>(null);
 
@@ -41,15 +44,13 @@ const {
     if (!pedidoId) return;
 
     const response = await fetch(
-      `/api/pedido?id=${pedidoId}`
+      `/api/pedido?id=${pedidoId}&c=${codigoPedido}`
     );
 
     const data = await response.json();
 
-console.log("API PEDIDO:", data);
 
 if (data.success) {
-  console.log("PEDIDO RECEBIDO:", data.pedido);
   setPedido(data.pedido);
 }
 
@@ -63,7 +64,7 @@ useEffect(() => {
   if (!pedidoId) return;
 
   const intervalo = setInterval(async () => {
-    const response = await fetch(`/api/pedido?id=${pedidoId}`);
+    const response = await fetch(`/api/pedido?id=${pedidoId}&c=${codigoPedido}`);
     const data = await response.json();
 
     if (data.success) {
@@ -100,11 +101,7 @@ useEffect(() => {
 
     sessionStorage.setItem(chave, "1");
 
-    console.log("META PURCHASE:", {
-      pedido: pedido.id,
-      value: valor,
-      currency: "BRL",
-    });
+    
   }
 }, [pedido]);
 
@@ -112,9 +109,13 @@ useEffect(() => {
     return null;
   }
 
+const aguardandoPix =
+  pedido.payment_method === "pix_chave" && pedido.payment_status !== "approved";
+
 function nomePagamento() {
   switch (pedido.payment_method) {
     case "pix":
+    case "pix_chave":
       return "Pix";
 
     case "credit_card":
@@ -237,7 +238,7 @@ function etapaAtual() {
             mb-2
             "
           >
-            Pedido confirmado!
+            {aguardandoPix ? "Pedido enviado!" : "Pedido confirmado!"}
           </h1>
 
           <p
@@ -245,8 +246,9 @@ function etapaAtual() {
             text-zinc-500
             "
           >
-            Seu pedido foi recebido
-            com sucesso.
+            {aguardandoPix
+              ? "Falta só pagar o Pix abaixo."
+              : "Seu pedido foi recebido com sucesso."}
           </p>
 
           <div
@@ -269,6 +271,15 @@ function etapaAtual() {
            #{pedido.numero_pedido ?? pedido.id} 
           </div>
         </div>
+
+        {aguardandoPix && pedido.pix_chave && (
+          <PixChaveRestaurante
+            pix={pedido.pix_chave}
+            numeroPedido={pedido.numero_pedido ?? pedido.id}
+            telefoneRestaurante={pedido.telefone_restaurante}
+            cor={corPrincipal}
+          />
+        )}
 
         {/* CARD INFO */}
 
@@ -304,12 +315,12 @@ function etapaAtual() {
         icon: "👨‍🍳",
       },
       {
-        titulo: "Entrega",
+        titulo: pedido.tipo_pedido === "entrega" || !pedido.tipo_pedido ? "Saiu" : "Pronto",
         status: "entrega",
-        icon: "🛵",
+        icon: pedido.tipo_pedido === "entrega" || !pedido.tipo_pedido ? "🛵" : "🛎️",
       },
       {
-        titulo: "Entregue",
+        titulo: pedido.tipo_pedido === "entrega" || !pedido.tipo_pedido ? "Entregue" : "Concluído",
         status: "concluido",
         icon: "✓",
       },
@@ -378,6 +389,8 @@ function etapaAtual() {
 
 </div>
 
+<AvaliarPedido pedidoId={String(pedido.id)} codigo={codigoPedido} status={String(pedido.status)} cor={corPrincipal} />
+
          {/* ENDEREÇO / MODALIDADE */}
 
 <div
@@ -406,7 +419,19 @@ function etapaAtual() {
 
   <div>
 
-    {pedido.tipo_pedido === "retirada" ? (
+    {pedido.tipo_pedido === "mesa" ? (
+
+      <>
+        <p className="text-zinc-500">
+          Modalidade
+        </p>
+
+        <p className="font-semibold">
+          🍽️ Mesa {pedido.mesa}
+        </p>
+      </>
+
+    ) : pedido.tipo_pedido === "retirada" ? (
 
       <>
         <p className="text-zinc-500">

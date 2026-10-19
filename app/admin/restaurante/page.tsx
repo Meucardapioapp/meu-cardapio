@@ -66,8 +66,6 @@ async function carregarEndereco() {
     )
   } catch (error) {
 
-  console.log(error)
-
   setEndereco("")
   setBairro("")
   setCidade("")
@@ -101,8 +99,7 @@ async function buscarCEP(cepDigitado: string) {
     setEstado(data.uf || "")
 
   } catch (error) {
-    console.log(error)
-  } finally {
+    } finally {
     setLoadingCep(false)
   }
 }
@@ -161,8 +158,6 @@ async function buscarCEP(cepDigitado: string) {
     }, 5000)
 
   } catch (error) {
-    console.log(error)
-
     setToast({
       tipo: "erro",
       titulo: "Erro ao salvar",

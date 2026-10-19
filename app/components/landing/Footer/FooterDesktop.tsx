@@ -92,15 +92,14 @@ export default function FooterDesktop() {
             <div className="mt-6 space-y-4">
 
               {[
-                "Benefícios",
-                "Dashboard",
-                "Depoimentos",
-                "Preços",
-                "FAQ",
-              ].map((item) => (
+                ["Benefícios", "#beneficios"],
+                ["Dashboard", "#dashboard"],
+                ["Preços", "#precos"],
+                ["FAQ", "#faq"],
+              ].map(([item, link]) => (
                 <a
                   key={item}
-                  href="#"
+                  href={link}
                   className="block text-zinc-400 transition hover:text-white"
                 >
                   {item}

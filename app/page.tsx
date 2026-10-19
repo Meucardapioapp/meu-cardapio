@@ -3,6 +3,7 @@ import Hero from "./components/landing/hero/Hero";
 import Benefits from "./components/landing/Benefits/Benefits";
 import Features from "./components/landing/features/Features";
 import FAQ from "./components/landing/faq/FAQ";
+import Precos from "./components/landing/Precos";
 import Footer from "./components/landing/Footer/Footer";
 import WhatsAppFloating from "./components/WhatsAppFloating";
 
@@ -21,6 +22,9 @@ export default function Home() {
 
       {/* FEATURES */}
       <Features />
+
+      {/* PREÇOS */}
+      <Precos />
 
       {/* FAQ */}
       <FAQ />

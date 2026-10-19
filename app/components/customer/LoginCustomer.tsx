@@ -15,6 +15,7 @@ export default function LoginCustomer({
   onSuccess,
 }: Props) {
   const [telefone, setTelefone] = useState("");
+  const [numeroPedido, setNumeroPedido] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
@@ -46,6 +47,7 @@ export default function LoginCustomer({
       body: JSON.stringify({
         telefone,
         slug,
+        numeroPedido,
       }),
     });
 
@@ -103,7 +105,8 @@ export default function LoginCustomer({
           </h2>
 
           <p className="text-zinc-500 mt-2">
-            Digite o telefone utilizado no seu primeiro pedido.
+            Digite o telefone e o número de um pedido que você já fez aqui
+            (aparece na confirmação do pedido, ex.: #12).
           </p>
 
           <input
@@ -112,7 +115,18 @@ export default function LoginCustomer({
               setTelefone(formatarTelefone(e.target.value))
             }
             placeholder="(99) 99999-9999"
-            className="w-full h-14 rounded-2xl border px-4 mt-6"
+            inputMode="tel"
+            className="w-full h-14 rounded-2xl border px-4 mt-6 text-base"
+          />
+
+          <input
+            value={numeroPedido}
+            onChange={(e) =>
+              setNumeroPedido(e.target.value.replace(/\D/g, "").slice(0, 8))
+            }
+            placeholder="Número do pedido (ex.: 12)"
+            inputMode="numeric"
+            className="w-full h-14 rounded-2xl border px-4 mt-3 text-base"
           />
 
           <button

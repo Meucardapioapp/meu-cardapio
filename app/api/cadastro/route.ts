@@ -1,11 +1,53 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse, after } from "next/server"
+import { emailBoasVindas } from "@/lib/server/notificacoes"
 import { supabaseAdmin } from "@/lib/supabase-admin"
+import { criarTesteGratis } from "@/lib/server/assinatura"
+import { limitar } from "@/lib/server/rate-limit"
+import { senhaValida } from "@/lib/senha"
+import { verificarHumano } from "@/lib/server/turnstile"
+import { ipDaRequisicao } from "@/lib/server/rate-limit"
+import { esquemaCadastro, primeiroErro } from "@/lib/esquemas"
 
 export async function POST(req: NextRequest) {
   let userId: string | null = null
 
   try {
+    if (!await limitar(req, "cadastro", 5, 3600)) {
+      return NextResponse.json(
+        { success: false, error: "Muitos cadastros a partir desta rede. Tente novamente mais tarde." },
+        { status: 429 }
+      )
+    }
+
     const body = await req.json()
+
+    // Armadilha: campo invisível preenchido = robô.
+    if (body?.siteEmpresa) {
+      return NextResponse.json({ success: false, error: "Não foi possível concluir o cadastro." }, { status: 400 })
+    }
+
+    if (!(await verificarHumano(body?.captchaToken, ipDaRequisicao(req)))) {
+      return NextResponse.json(
+        { success: false, error: "Confirme que você não é um robô e tente de novo." },
+        { status: 400 }
+      )
+    }
+
+    if (body?.aceiteTermos !== true) {
+      return NextResponse.json(
+        { success: false, error: "Aceite os Termos de Uso e a Política de Privacidade para continuar." },
+        { status: 400 }
+      )
+    }
+
+    const validacao = esquemaCadastro.safeParse(body)
+
+    if (!validacao.success) {
+      return NextResponse.json(
+        { success: false, error: primeiroErro(validacao.error) },
+        { status: 400 }
+      )
+    }
 
     const {
       nomeResponsavel,
@@ -19,7 +61,7 @@ export async function POST(req: NextRequest) {
       categoria,
       email,
       senha,
-    } = body
+    } = validacao.data
 
     // 1. Verifica os campos obrigatórios
     if (
@@ -36,6 +78,39 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error: "Preencha todos os campos obrigatórios.",
+        },
+        { status: 400 }
+      )
+    }
+
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(slug)) || String(slug).length > 60) {
+      return NextResponse.json(
+        { success: false, error: "O link do cardápio só pode ter letras minúsculas, números e hífen." },
+        { status: 400 }
+      )
+    }
+
+    // Endereços usados pelo próprio sistema não podem virar link de cardápio.
+    const RESERVADOS = ["entregador", "equipe", "garcom", "cozinha", "admin", "api", "login", "cadastro", "pedido", "pix", "termos", "privacidade", "imprimir", "sucesso", "seguranca", "financeiro"]
+    if (RESERVADOS.includes(String(slug))) {
+      return NextResponse.json(
+        { success: false, error: "Esse link já é usado pelo sistema. Escolha outro." },
+        { status: 400 }
+      )
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+      return NextResponse.json(
+        { success: false, error: "Informe um e-mail válido." },
+        { status: 400 }
+      )
+    }
+
+    if (!senhaValida(String(senha))) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "A senha precisa ter 8 ou mais caracteres, com letra maiúscula, minúscula, número e caractere especial.",
         },
         { status: 400 }
       )
@@ -174,7 +249,26 @@ export async function POST(req: NextRequest) {
       )
     }
 
-// 6. Envia notificação de novo restaurante para o Pushcut
+// Registra quando os termos foram aceitos (coluna do SQL 08; se faltar, segue).
+{
+  const { error: erroAceite } = await supabaseAdmin
+    .from("restaurantes")
+    .update({ termos_aceitos_em: new Date().toISOString() })
+    .eq("id", restaurante.id)
+  if (erroAceite) console.error("[cadastro] termos_aceitos_em", erroAceite.message)
+}
+
+// 6. Começa o teste grátis (15 dias)
+try {
+  await criarTesteGratis(String(restaurante.id))
+} catch (erroTeste) {
+  console.error("Erro ao criar teste grátis:", erroTeste)
+}
+
+// E-mail de boas-vindas (depois da resposta, não atrasa o cadastro)
+after(() => emailBoasVindas(String(restaurante.id)).catch(() => {}))
+
+// 7. Envia notificação de novo restaurante para o Pushcut
 try {
   const pushcutUrl =
     process.env.PUSHCUT_NOVO_RESTAURANTE_URL
@@ -213,7 +307,7 @@ WhatsApp: ${whatsapp}`,
   )
 }
 
-// 7. Cadastro concluído
+// 8. Cadastro concluído
 return NextResponse.json({
   success: true,
   restaurante: {

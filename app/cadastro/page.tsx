@@ -2,10 +2,13 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import Turnstile, { type TurnstileRef } from "@/app/components/Turnstile"
 
 import { supabase } from "@/lib/supabase"
 import Toast from "@/app/components/ui/toast"
+import MedidorSenha from "@/app/components/MedidorSenha"
+import { senhaValida } from "@/lib/senha"
 
 
 function gerarSlug(texto: string) {
@@ -14,7 +17,10 @@ function gerarSlug(texto: string) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
+    .trim()
+    .replace(/[\s-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
 }
 
 function formatarTelefone(valor: string) {
@@ -30,6 +36,18 @@ function formatarTelefone(valor: string) {
 
   return `(${numero.slice(0, 2)}) ${numero.slice(2, 7)}-${numero.slice(7)}`;
 }
+
+// Estados do Brasil (lista fixa: o cadastro não depende de nenhum site externo).
+const ESTADOS_BR = [
+  ["AC", "Acre"], ["AL", "Alagoas"], ["AP", "Amapá"], ["AM", "Amazonas"], ["BA", "Bahia"],
+  ["CE", "Ceará"], ["DF", "Distrito Federal"], ["ES", "Espírito Santo"], ["GO", "Goiás"],
+  ["MA", "Maranhão"], ["MT", "Mato Grosso"], ["MS", "Mato Grosso do Sul"], ["MG", "Minas Gerais"],
+  ["PA", "Pará"], ["PB", "Paraíba"], ["PR", "Paraná"], ["PE", "Pernambuco"], ["PI", "Piauí"],
+  ["RJ", "Rio de Janeiro"], ["RN", "Rio Grande do Norte"], ["RS", "Rio Grande do Sul"],
+  ["RO", "Rondônia"], ["RR", "Roraima"], ["SC", "Santa Catarina"], ["SP", "São Paulo"],
+  ["SE", "Sergipe"], ["TO", "Tocantins"],
+].map(([sigla, nome]) => ({ id: sigla, sigla, nome }));
+
 
 export default function CadastroPage() {
   const router = useRouter()
@@ -52,10 +70,11 @@ export default function CadastroPage() {
   const [senha, setSenha] = useState("")
   const [confirmarSenha, setConfirmarSenha] = useState("")
   const [buscaCidade, setBuscaCidade] = useState("");
-const [cidades, setCidades] = useState<any[]>([]);
-const [mostrarLista, setMostrarLista] = useState(false);
 const [estado, setEstado] = useState("");
 const [uf, setUf] = useState("");
+const turnstile = useRef<TurnstileRef>(null);
+const [siteEmpresa, setSiteEmpresa] = useState(""); // armadilha para robôs
+const [aceite, setAceite] = useState(false);
 const [estados, setEstados] = useState<any[]>([]);
 
 useEffect(() => {
@@ -64,52 +83,20 @@ useEffect(() => {
 
 }, []);
 
-async function carregarEstados() {
+function carregarEstados() {
 
-  const response = await fetch(
-    "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
-  );
-
-  const data = await response.json();
-
-  setEstados(data);
+  setEstados(ESTADOS_BR);
 
 }
 
-async function buscarCidade(valor: string) {
+function buscarCidade(valor: string) {
 
-  setBuscaCidade(valor);
+  // Cidade digitada à mão pelo dono do restaurante (sem consultar o IBGE).
+  const texto = valor.replace(/\s+/g, " ").slice(0, 60);
 
-  if (!uf) {
+  setBuscaCidade(texto);
 
-    alert("Escolha primeiro um estado.");
-
-    return;
-
-  }
-
-  if (valor.length < 2) {
-
-    setMostrarLista(false);
-    setCidades([]);
-
-    return;
-
-  }
-
-const resposta = await fetch(
-
-`/api/cidades?uf=${uf}&search=${encodeURIComponent(valor)}`
-
-);
-
-  const dados = await resposta.json();
-
-  console.log(dados);
-
-  setCidades(dados);
-
-  setMostrarLista(true);
+  setCidade(texto.trim());
 
 }
 
@@ -140,6 +127,50 @@ const resposta = await fetch(
       return
     }
 
+    const partesNome = nomeResponsavel.trim().split(/\s+/).filter(Boolean)
+
+    if (partesNome.length < 2 || nomeResponsavel.trim().length > 30) {
+      setToast({
+        tipo: "aviso",
+        titulo: "Confira seu nome",
+        mensagem: "Escreva só seu nome e sobrenome (até 30 letras). Ex.: Maria Silva.",
+      })
+
+      setTimeout(() => {
+        setToast(null)
+      }, 5000)
+
+      return
+    }
+
+    if (!aceite) {
+      setToast({
+        tipo: "aviso",
+        titulo: "Termos de uso",
+        mensagem: "Para criar a conta, marque que leu e aceita os Termos de Uso e a Política de Privacidade.",
+      })
+
+      setTimeout(() => {
+        setToast(null)
+      }, 5000)
+
+      return
+    }
+
+    if (!senhaValida(senha)) {
+      setToast({
+        tipo: "aviso",
+        titulo: "Senha fraca",
+        mensagem: "Use 8 ou mais caracteres com letra maiúscula, minúscula, número e caractere especial.",
+      })
+
+      setTimeout(() => {
+        setToast(null)
+      }, 5000)
+
+      return
+    }
+
     if (senha !== confirmarSenha) {
       setToast({
         tipo: "aviso",
@@ -156,13 +187,15 @@ const resposta = await fetch(
 
     const slugGerado = gerarSlug(nomeRestaurante)
 
+    const captchaToken = await turnstile.current?.obterToken()
+
     const response = await fetch("/api/cadastro", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        nomeResponsavel,
+        nomeResponsavel: nomeResponsavel.trim().replace(/\s+/g, " "),
         nomeRestaurante,
         telefone,
         whatsapp,
@@ -173,6 +206,9 @@ const resposta = await fetch(
         categoria,
         email,
         senha,
+        captchaToken,
+        siteEmpresa,
+        aceiteTermos: aceite,
       }),
     })
 
@@ -230,7 +266,16 @@ const resposta = await fetch(
       resultado.restaurante.id
     )
 
-    router.push("/admin/primeiros-passos")
+    // Já entra logado no painel.
+    const tokenLogin = await turnstile.current?.obterToken()
+    await supabase.auth.signInWithPassword({
+      email,
+      password: senha,
+      options: tokenLogin ? { captchaToken: tokenLogin } : undefined,
+    })
+
+    // O painel guia o próximo passo (o item certo do menu fica piscando).
+    router.push("/admin")
 
   } catch (error) {
 
@@ -281,46 +326,26 @@ const resposta = await fetch(
 </h1>
 
         <p className="mt-6 text-lg leading-relaxed text-white/80">
-  Crie seu cardápio digital profissional, receba pedidos pelo WhatsApp,
-  aceite PIX e cartão e acompanhe tudo em um único painel.
-</p>  
+  Crie seu cardápio digital profissional, receba pedidos com alerta sonoro
+  e acompanhe tudo em um único painel.
+</p>
 
           <div className="mt-10 space-y-5">
-
-            <div className="flex items-center gap-3">
-              <span>✅</span>
-              <span>Cardápio Digital Ilimitado</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span>✅</span>
-              <span>Pedidos Ilimitados</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span>✅</span>
-              <span>PIX e Cartão Integrados</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span>✅</span>
-              <span>Dashboard Financeiro</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span>✅</span>
-              <span>Sem Mensalidade</span>
-            </div>
-
-            <div className="flex items-center gap-3">
- 
-  <span>✅</span>
-  <span>Suporte Premium</span>
-  
-</div>
-
-
-</div>
+            {[
+              "15 dias grátis, sem cartão de crédito",
+              "Cardápio digital com seu link e sua marca",
+              "Pedidos ilimitados, sem taxa por pedido",
+              "Alerta sonoro e impressão de pedidos",
+              "Cupons de desconto e programa de fidelidade",
+              "Depois do teste: R$ 79,90/mês, tudo incluído",
+              "Suporte pelo WhatsApp",
+            ].map((item) => (
+              <div key={item} className="flex items-center gap-3">
+                <span>✅</span>
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
 
         </div>
 
@@ -332,20 +357,27 @@ const resposta = await fetch(
 </h2>
 
           <p className="mt-2 text-zinc-500">
-            Monte seu cardápio digital em menos de 5 minutos.
+            Teste grátis por 15 dias. Monte seu cardápio em menos de 5 minutos.
           </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
 
-            <input
-              type="text"
-              placeholder="Seu nome completo"
-              value={nomeResponsavel}
-              onChange={(e) =>
-                setNomeResponsavel(e.target.value)
-              }
-              className="rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
-            />
+            <div>
+              <input
+                type="text"
+                placeholder="Seu nome e sobrenome"
+                value={nomeResponsavel}
+                maxLength={30}
+                autoComplete="name"
+                onChange={(e) =>
+                  setNomeResponsavel(e.target.value.replace(/\s{2,}/g, " "))
+                }
+                className="w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
+              />
+              <p className="mt-1 px-1 text-xs text-zinc-500">
+                Só nome e sobrenome, ex.: Maria Silva ({nomeResponsavel.length}/30)
+              </p>
+            </div>
 
             <div>
   <input
@@ -402,10 +434,6 @@ const resposta = await fetch(
 
     setEstado(estadoSelecionado?.nome || "");
 
-    setCidade("");
-
-    setBuscaCidade("");
-
   }}
 
   className="w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4"
@@ -441,36 +469,15 @@ value={estado.sigla}
 <div className="relative">
   <input
     type="text"
-    placeholder="Cidade"
+    placeholder="Sua cidade"
+    autoComplete="address-level2"
+    maxLength={60}
     value={buscaCidade}
     onChange={(e) => buscarCidade(e.target.value)}
     className="w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
   />
 
-  {mostrarLista && cidades.length > 0 && (
-    <div className="absolute z-50 mt-2 w-full rounded-2xl border bg-white shadow-xl max-h-64 overflow-auto">
-      {cidades.map((cidadeItem: any) => (
-        <button
-          type="button"
-          key={cidadeItem.id}
-onClick={() => {
-
-  setCidade(cidadeItem.nome);
-
-  setBuscaCidade(
-    `${cidadeItem.nome} - ${uf}`
-  );
-
-  setMostrarLista(false);
-
-}}
-          className="block w-full px-4 py-3 text-left hover:bg-zinc-100"
-        >
-   {cidadeItem.nome} - {uf}
-        </button>
-      ))}
-    </div>
-  )}
+  
 </div>
 
 <select
@@ -512,11 +519,15 @@ onClick={() => {
             onChange={(e) =>
               setSenha(e.target.value)
             }
+            autoComplete="new-password"
             className="mt-4 w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
           />
 
+          <MedidorSenha senha={senha} />
+
           <input
             type="password"
+            autoComplete="new-password"
             placeholder="Confirmar senha"
             value={confirmarSenha}
             onChange={(e) =>
@@ -525,6 +536,40 @@ onClick={() => {
             className="mt-4 w-full rounded-2xl border border-[#E7E5E4] bg-[#F8F6F4] p-4 outline-none focus:border-[#6D1F2F]"
           />
 
+          {confirmarSenha && confirmarSenha !== senha && (
+            <p className="mt-2 text-sm text-red-600">As senhas não são iguais.</p>
+          )}
+
+          {/* Campo invisível: pessoas não veem, robôs preenchem */}
+          <input
+            type="text"
+            name="site_empresa"
+            value={siteEmpresa}
+            onChange={(e) => setSiteEmpresa(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            className="absolute -left-[9999px] h-0 w-0 opacity-0"
+          />
+
+          <label className="mt-5 flex items-start gap-3 text-sm text-zinc-600">
+            <input
+              type="checkbox"
+              checked={aceite}
+              onChange={(e) => setAceite(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-[#6D1F2F]"
+            />
+            <span>
+              Li e aceito os{" "}
+              <a href="/termos" target="_blank" rel="noreferrer" className="font-semibold text-[#6D1F2F] underline">Termos de Uso</a>{" "}
+              e a{" "}
+              <a href="/privacidade" target="_blank" rel="noreferrer" className="font-semibold text-[#6D1F2F] underline">Política de Privacidade</a>.
+              Depois dos 15 dias grátis, o plano custa R$ 79,90/mês.
+            </span>
+          </label>
+
+          <Turnstile ref={turnstile} />
+
           <button
             onClick={cadastrar}
             disabled={loading}
@@ -532,7 +577,7 @@ onClick={() => {
           >
             {loading
               ? "Criando conta..."
-              : "Criar Minha Conta Grátis"}
+              : "Começar meus 15 dias grátis"}
           </button>
 
           <p className="mt-6 text-center text-zinc-500">

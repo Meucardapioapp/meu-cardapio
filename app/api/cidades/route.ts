@@ -1,45 +1,20 @@
+import { limitar } from "@/lib/server/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
+import { listarCidades } from "@/lib/localidades";
 
+/** Cidades de um estado (lista guardada no projeto, sem depender do site do IBGE). */
 export async function GET(req: NextRequest) {
+  if (!(await limitar(req, "cidades", 60, 60))) {
+    return NextResponse.json({ success: false, error: "Muitas tentativas. Aguarde um pouco." }, { status: 429 });
+  }
 
-  const uf =
-    req.nextUrl.searchParams.get("uf");
+  const uf = req.nextUrl.searchParams.get("uf");
+  const search = req.nextUrl.searchParams.get("search");
 
-  const search =
-    req.nextUrl.searchParams.get("search");
-
-  if (!uf) {
+  // Só a sigla do estado (2 letras).
+  if (!uf || !/^[A-Za-z]{2}$/.test(uf)) {
     return NextResponse.json([]);
   }
 
-  const response = await fetch(
-    `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`
-  );
-
-  const cidades = await response.json();
-
-  if (!search) {
-    return NextResponse.json(cidades);
-  }
-
-const textoBusca = search
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .toLowerCase();
-
-const filtradas = cidades
-  .filter((cidade: any) => {
-
-    const nomeCidade = cidade.nome
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
-
-    return nomeCidade.includes(textoBusca);
-
-  })
-  .slice(0, 10);
-
-  return NextResponse.json(filtradas);
-
+  return NextResponse.json(listarCidades(uf, search));
 }

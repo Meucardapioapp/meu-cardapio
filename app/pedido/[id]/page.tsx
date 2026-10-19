@@ -68,7 +68,7 @@ export default function PedidoPage() {
       try {
 
         const response = await fetch(
-          `/api/pedido/${params.id}`
+          `/api/pedido/${params.id}?c=${new URLSearchParams(window.location.search).get("c") || ""}`
         );
 
         const resultado = await response.json();
@@ -492,19 +492,12 @@ async function pedirNovamente() {
 
           </div>
 
-          <div className="flex justify-between">
-
-            <span className="text-zinc-600">
-              Taxa operacional
-            </span>
-
-            <strong>
-
-              R$ {Number(pedido.taxa_operacional || 0).toFixed(2)}
-
-            </strong>
-
-          </div>
+          {Number(pedido.taxa_operacional || 0) > 0 && (
+            <div className="flex justify-between">
+              <span className="text-zinc-600">Taxa operacional</span>
+              <strong>R$ {Number(pedido.taxa_operacional).toFixed(2)}</strong>
+            </div>
+          )}
 
           <div className="border-t pt-4 flex justify-between">
 
@@ -581,11 +574,11 @@ async function pedirNovamente() {
 
                   </p>
 
-                  <p className="text-zinc-600">
-
-                    {endereco.cidade} - {endereco.estado}
-
-                  </p>
+                  {endereco.cidade && (
+                    <p className="text-zinc-600">
+                      {endereco.cidade} - {endereco.estado}
+                    </p>
+                  )}
 
                 </div>
 

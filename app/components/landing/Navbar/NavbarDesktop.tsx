@@ -47,6 +47,13 @@ export default function NavbarDesktop() {
           </a>
 
           <a
+            href="#precos"
+            className="text-base font-semibold text-zinc-700 transition hover:text-[#6D1F2F]"
+          >
+            Preços
+          </a>
+
+          <a
             href="#faq"
             className="text-base font-semibold text-zinc-700 transition hover:text-[#6D1F2F]"
           >

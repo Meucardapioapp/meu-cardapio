@@ -22,7 +22,7 @@ export default function RestaurantSchema({
 
     hasMenu: `https://meucardapioapp.com/${restaurante.slug}`,
 
-    telephone: restaurante.telefone,
+    telephone: restaurante.whatsapp || restaurante.telefone,
 
     servesCuisine: restaurante.categoria,
 
@@ -40,7 +40,7 @@ export default function RestaurantSchema({
 
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: restaurante.telefone,
+      telephone: restaurante.whatsapp || restaurante.telefone,
       contactType: "customer service",
       areaServed: "BR",
       availableLanguage: "Portuguese",
@@ -65,7 +65,8 @@ export default function RestaurantSchema({
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(schema),
+        // Escapa "<" para um nome com "</script>" não virar código.
+        __html: JSON.stringify(schema).replace(/</g, "\\u003c"),
       }}
     />
   );

@@ -1,7 +1,8 @@
 import { Metadata } from "next";
-import { supabase } from "@/lib/supabase";
+import { preload } from "react-dom";
 import CardapioClient from "./CardapioClient";
 import RestaurantSchema from "../components/seo/RestaurantSchema";
+import { carregarCardapio } from "@/lib/server/cardapio";
 
 type Props = {
   params: Promise<{
@@ -14,11 +15,9 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params;
 
-  const { data: restaurante } = await supabase
-    .from("restaurantes")
-    .select("*")
-    .eq("slug", slug)
-    .single();
+  const dados = await carregarCardapio(slug);
+  const restaurante = dados?.restaurante;
+  const aparencia = dados?.aparencia;
 
   if (!restaurante) {
     return {
@@ -26,12 +25,6 @@ export async function generateMetadata(
       description: "Cardápio Online",
     };
   }
-
-  const { data: aparencia } = await supabase
-    .from("aparencia")
-    .select("*")
-    .eq("restaurante_id", restaurante.id)
-    .single();
 
   const categoria =
     restaurante.categoria || "Restaurante";
@@ -124,17 +117,14 @@ export async function generateMetadata(
 export default async function Page({ params }: Props) {
   const { slug } = await params;
 
-  const { data: restaurante } = await supabase
-    .from("restaurantes")
-    .select("*")
-    .eq("slug", slug)
-    .single();
+  // Busca tudo no servidor: o cardápio chega pronto, sem tela de carregamento.
+  const dados = await carregarCardapio(slug);
+  const restaurante = dados?.restaurante;
+  const aparencia = dados?.aparencia;
 
-  const { data: aparencia } = await supabase
-    .from("aparencia")
-    .select("*")
-    .eq("restaurante_id", restaurante?.id)
-    .single();
+  // Começa a baixar o banner e a logo junto com a página.
+  if (aparencia?.banner_url) preload(aparencia.banner_url, { as: "image", fetchPriority: "high" });
+  if (aparencia?.logo_url) preload(aparencia.logo_url, { as: "image" });
 
   return (
     <>
@@ -145,7 +135,7 @@ export default async function Page({ params }: Props) {
         />
       )}
 
-      <CardapioClient />
+      <CardapioClient inicial={dados ?? undefined} />
     </>
   );
 }

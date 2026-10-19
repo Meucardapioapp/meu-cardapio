@@ -30,8 +30,8 @@ export default function HeroMobile() {
       Icone: Bike,
     },
     {
-      titulo: "Sem mensalidade",
-      descricao: "e sem complicação",
+      titulo: "15 dias grátis",
+      descricao: "sem cartão de crédito",
       Icone: CircleDollarSign,
     },
   ];
@@ -353,9 +353,9 @@ export default function HeroMobile() {
           <div className="text-center">
 
             <p className="text-[20px] font-bold tracking-[-0.02em] text-white">
-              Crie seu cardápio{" "}
+              Teste{" "}
               <span className="text-[#C62E50]">
-                grátis
+                grátis por 15 dias
               </span>
             </p>
 
@@ -430,7 +430,7 @@ export default function HeroMobile() {
             />
 
             <span>
-              Criar meu cardápio grátis
+              Testar grátis por 15 dias
             </span>
 
             <ArrowRight
@@ -467,7 +467,7 @@ export default function HeroMobile() {
                 className="text-[#C62E50]"
               />
 
-              Sem mensalidade
+              Sem taxa por pedido
             </span>
 
             <span className="h-1 w-1 rounded-full bg-[#8F263D]" />

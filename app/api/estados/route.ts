@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
+import { listarEstados } from "@/lib/localidades";
 
+/** Estados do Brasil (lista guardada no projeto, sem depender do site do IBGE). */
 export async function GET() {
-
-  const response = await fetch(
-    "https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome"
-  );
-
-  const estados = await response.json();
-
-  return NextResponse.json(estados);
-
+  return NextResponse.json(listarEstados(), {
+    headers: { "Cache-Control": "public, max-age=86400, s-maxage=86400" },
+  });
 }

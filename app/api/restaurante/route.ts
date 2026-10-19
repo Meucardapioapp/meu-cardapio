@@ -1,86 +1,85 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { erroInterno, getEquipeAutenticada, naoAutenticado } from "@/lib/server/auth";
+import { dadosBancariosCompletos, getDadosFinanceiros } from "@/lib/server/recebedor";
+import { getEstadoAssinatura } from "@/lib/server/assinatura";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { TERMOS_VERSAO } from "@/lib/legal";
 
-const supabaseAuth = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+/** Mostra só o final do dado (ex.: •••456). O dado completo nunca volta ao navegador. */
+function mascarar(valor: string | null | undefined, visiveis = 3) {
+  const limpo = String(valor ?? "").trim();
+  if (!limpo) return null;
+  if (limpo.length <= visiveis) return "•".repeat(limpo.length);
+  return "•".repeat(Math.min(limpo.length - visiveis, 6)) + limpo.slice(-visiveis);
+}
 
+/** Dados do restaurante do dono logado (dados bancários mascarados). */
 export async function GET(req: NextRequest) {
   try {
-    const authorization = req.headers.get("authorization");
+    const dono = await getEquipeAutenticada(req);
+    if (!dono) return naoAutenticado();
 
-    if (!authorization?.startsWith("Bearer ")) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Não autenticado",
+    // Atendente: só o básico para a tela de pedidos (nada de plano ou banco).
+    if (dono.papel === "atendente") {
+      let ativo = true;
+      try {
+        ativo = Boolean((await getEstadoAssinatura(dono.restaurante.id))?.ativo);
+      } catch {}
+      return NextResponse.json({
+        success: true,
+        papel: "atendente",
+        nomeMembro: dono.nomeMembro,
+        restaurante: {
+          id: dono.restaurante.id,
+          slug: dono.restaurante.slug,
+          nome_restaurante: dono.restaurante.nome_restaurante,
         },
-        { status: 401 }
-      );
+        assinatura: null,
+        lojaAtiva: ativo,
+      });
     }
 
-    const token = authorization.slice(7).trim();
+    const financeiro = await getDadosFinanceiros(dono.restaurante.id);
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAuth.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Sessão inválida ou expirada",
-        },
-        { status: 401 }
-      );
+    let assinatura = null;
+    try {
+      assinatura = await getEstadoAssinatura(dono.restaurante.id);
+    } catch (e) {
+      console.error("[api/restaurante] assinatura", e);
     }
 
-    const {
-      data: restaurante,
-      error: restauranteError,
-    } = await supabaseAdmin
+    // Termos atualizados: o dono aceita de novo (uma vez por versão).
+    const { data: aceite } = await supabaseAdmin
       .from("restaurantes")
-      .select(
-        `
-        id,
-        nome_restaurante,
-        cpf_cnpj,
-        banco,
-        agencia,
-        conta,
-        tipo_conta,
-        pagarme_recipient_id
-        `
-      )
-      .eq("auth_user_id", user.id)
-      .single();
-
-    if (restauranteError || !restaurante) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Restaurante não encontrado para este usuário",
-        },
-        { status: 404 }
-      );
-    }
+      .select("termos_aceitos_em")
+      .eq("id", dono.restaurante.id)
+      .maybeSingle();
+    const aceitoEm = aceite?.termos_aceitos_em ? new Date(aceite.termos_aceitos_em).getTime() : 0;
+    const termosPendentes = aceitoEm < new Date(`${TERMOS_VERSAO}T00:00:00-03:00`).getTime();
 
     return NextResponse.json({
       success: true,
-      restaurante,
+      papel: "dono",
+      termosPendentes,
+      restaurante: {
+        id: dono.restaurante.id,
+        slug: dono.restaurante.slug,
+        nome_restaurante: dono.restaurante.nome_restaurante,
+        nome_responsavel: dono.restaurante.nome_responsavel,
+        email: dono.restaurante.email,
+        whatsapp: dono.restaurante.whatsapp,
+        criado_em: dono.restaurante.created_at,
+        cpf_cnpj: mascarar(financeiro?.cpf_cnpj, 2),
+        banco: financeiro?.banco ?? null,
+        agencia: mascarar(financeiro?.agencia, 2),
+        conta: mascarar(financeiro?.conta, 3),
+        tipo_conta: financeiro?.tipo_conta ?? null,
+        pix_online_ativo: Boolean(financeiro?.pagarme_recipient_id),
+        dados_bancarios_ok: dadosBancariosCompletos(financeiro),
+      },
+      assinatura,
     });
   } catch (error) {
-    console.error("Erro /api/restaurante:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Erro interno do servidor",
-      },
-      { status: 500 }
-    );
+    return erroInterno("api/restaurante", error);
   }
 }

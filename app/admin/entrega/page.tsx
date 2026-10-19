@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { toast } from "sonner";
+import TemposEntrega from "../components/TemposEntrega";
+import CobrancaEntrega from "../components/CobrancaEntrega";
 import {
   Plus,
   MapPin,
@@ -72,8 +74,7 @@ if (bairrosError) {
 
 
   } catch (error) {
-    console.log(error)
-  } finally {
+    } finally {
     setLoading(false)
   }
 }
@@ -174,35 +175,12 @@ if (loading) {
 return (
   <div className="max-w-7xl mx-auto">
 
-    <div className="bg-[#F5F2F4] rounded-[40px] p-10 shadow-xl border border-[#E6DDE1]">
+    <TemposEntrega />
 
+    <CobrancaEntrega>
+    <div className="bg-[#F5F2F4] rounded-3xl p-3 sm:p-6 border border-[#E6DDE1]">
 
-
-
-<div className="mb-8">
-  <div className="bg-gradient-to-r from-[#7A1F3D] to-[#542129] rounded-3xl p-8 text-white">
-    <div className="flex items-center gap-4">
-      <MapPin size={42} />
-      <div>
-        <h2 className="text-3xl font-black">
-          Cobrança por Bairros
-        </h2>
-
-        <p className="opacity-90 mt-2">
-          Cadastre os bairros atendidos e defina o valor da entrega para cada um deles.
-        </p>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-
-
-
-
-
-      <div className="space-y-6">
+<div className="space-y-6">
 
 
 
@@ -215,12 +193,12 @@ return (
 
 
 <>
-  <div className="bg-white rounded-3xl p-8 border">
+  <div className="bg-white rounded-3xl p-4 sm:p-8 border">
 
-    <div className="flex items-start justify-between mb-8">
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-8">
 
       <div>
-        <h2 className="text-3xl font-black">
+        <h2 className="text-2xl lg:text-3xl font-black">
           Cobrança por Bairros
         </h2>
 
@@ -229,7 +207,7 @@ return (
         </p>
       </div>
 
-<div className="flex gap-3">
+<div className="grid grid-cols-[1fr_7rem] gap-3 sm:flex">
 
   <input
     value={novoBairro}
@@ -237,7 +215,7 @@ return (
       setNovoBairro(e.target.value)
     }
     placeholder="Nome do bairro"
-    className="border rounded-2xl px-4 py-3"
+    className="border rounded-2xl px-4 py-3 min-w-0"
   />
 
   <input
@@ -246,7 +224,8 @@ return (
       setNovoValor(e.target.value)
     }
     placeholder="Valor"
-    className="border rounded-2xl px-4 py-3 w-32"
+    inputMode="decimal"
+    className="border rounded-2xl px-4 py-3 w-full sm:w-32"
   />
 
   <button
@@ -255,7 +234,7 @@ return (
     ? salvarEdicao
     : adicionarBairro
 }
-    className="bg-[#7A1F3D] text-white px-6 py-3 rounded-2xl flex items-center gap-2"
+    className="col-span-2 bg-[#7A1F3D] text-white px-6 py-3 rounded-2xl flex items-center justify-center gap-2"
   >
 <Plus size={18} />
 {bairroEditando ? "Salvar" : "Adicionar"}
@@ -269,6 +248,7 @@ return (
       setNovoValor("");
     }}
     className="
+      col-span-2
       border
       border-zinc-300
       px-6
@@ -382,6 +362,8 @@ return (
 
   <img
     src="/tutorial-bairros.png"
+    loading="lazy"
+    decoding="async"
     alt="Tutorial de cobrança por bairros"
     className="
       w-full
@@ -406,6 +388,7 @@ return (
 
 
     </div>
+    </CobrancaEntrega>
 
 <ConfirmDialog
   open={bairroParaExcluir !== null}

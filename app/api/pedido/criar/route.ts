@@ -1,114 +1,183 @@
-import { NextRequest, NextResponse } from "next/server";
+import { pixChaveAtivo } from "@/lib/server/pixChave";
+import { NextRequest, NextResponse, after } from "next/server";
+import { avisarNovoPedido } from "@/lib/server/notificacoes";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import {
+  PedidoInvalidoError,
+  calcularItens,
+  calcularTaxaEntrega,
+  pedidoMinimo,
+  proximoNumeroPedido,
+} from "@/lib/server/pedido";
+import { contabilizarPedido, getProgramaFidelidade, getSelosCliente } from "@/lib/server/fidelidade";
+import { CupomInvalidoError, aplicarCupom } from "@/lib/server/cupom";
+import { getOperacao } from "@/lib/server/operacao";
+import { agoraNoFuso, lojaAbertaAgora } from "@/lib/horario";
+import { restaurantePodeReceberPedidos } from "@/lib/server/assinatura";
+import { getRecebedorId } from "@/lib/server/recebedor";
+import { limitar, limitarChave } from "@/lib/server/rate-limit";
+import { mensagemDeErroBanco } from "@/lib/server/erros";
+import { lancarPedidoDoQr } from "@/lib/server/salao";
+
+const METODOS = ["pix", "cash", "card_delivery", "pix_chave"] as const;
+type Metodo = (typeof METODOS)[number];
+
+const texto = (v: unknown, max = 200) => String(v ?? "").trim().slice(0, max);
+const soDigitos = (v: unknown) => String(v ?? "").replace(/\D/g, "");
+
+function erro(mensagem: string, status = 400, code?: string) {
+  return NextResponse.json({ success: false, error: mensagem, code }, { status });
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-
-    const {
-      restauranteId,
-      nome,
-      telefone,
-      cpf,
-      tipoPedido,
-      endereco,
-      bairro,
-      rua,
-      numero,
-      complemento,
-      referencia,
-      observacoes,
-      itens,
-      subtotal,
-      taxaEntrega,
-      taxaOperacional,
-      payment_method,
-
-      // NOVO:
-      // o frontend vai mandar true quando o cliente marcar
-      // "Usar meu desconto de fidelidade"
-      usarDescontoFidelidade,
-    } = body;
-
-    console.log("================================");
-    console.log("CRIANDO PEDIDO");
-    console.log("================================");
-
-    console.log("RESTAURANTE:", restauranteId);
-    console.log("CLIENTE:", telefone);
-    console.log("USAR DESCONTO:", usarDescontoFidelidade);
-
-    console.log("ITENS RECEBIDOS:");
-    console.dir(itens, { depth: null });
-
-    // ==========================================
-    // VALORES BASE
-    // ==========================================
-
-    const subtotalNumero = Number(subtotal) || 0;
-    const taxaEntregaNumero = Number(taxaEntrega) || 0;
-    const taxaOperacionalNumero = Number(taxaOperacional) || 0;
-
-    // O desconto NÃO será calculado pelo valor enviado
-    // pelo navegador.
-    //
-    // O backend vai consultar o banco para descobrir
-    // quanto o restaurante realmente configurou.
-
-    let descontoFidelidade = 0;
-
-    // ==========================================
-    // NÚMERO DO PEDIDO
-    // ==========================================
-
-    const {
-      data: ultimoPedido,
-      error: erroUltimo,
-    } = await supabaseAdmin
-      .from("pedidos")
-      .select("numero_pedido")
-      .eq("restaurante_id", restauranteId)
-      .not("numero_pedido", "is", null)
-      .order("numero_pedido", {
-        ascending: false,
-      })
-      .limit(1)
-      .maybeSingle();
-
-    if (erroUltimo) {
-      throw erroUltimo;
+    if (!await limitar(req, "pedido-criar", 20, 60)) {
+      return erro("Muitas tentativas. Aguarde um minuto.", 429);
     }
 
-    const numeroPedido =
-      (ultimoPedido?.numero_pedido ?? 0) + 1;
+    const body = await req.json();
 
-    // ==========================================
-    // PROCURAR CLIENTE
-    // ==========================================
+    const restauranteId = texto(body.restauranteId, 64);
+    const nome = texto(body.nome, 120);
+    const telefone = texto(body.telefone, 30);
+    const tipoPedido: "entrega" | "retirada" =
+      body.tipoPedido === "retirada" || body.tipoPedido === "mesa" ? "retirada" : "entrega";
+    // Pedido feito pelo QR Code da mesa: grava como "retirada" (sem taxa nem
+    // endereço) + número da mesa, assim funciona com qualquer versão do painel.
+    const mesa =
+      body.tipoPedido === "mesa" ? texto(body.mesa, 10).replace(/[^0-9A-Za-z-]/g, "") : "";
+    if (body.tipoPedido === "mesa" && !mesa) return erro("Mesa não informada.");
+    const metodo = body.payment_method as Metodo;
+
+    if (!restauranteId) return erro("Restaurante não informado.");
+    if (!nome) return erro("Informe seu nome.");
+    if (soDigitos(telefone).length < 10) return erro("Informe um telefone válido com DDD.");
+    if (!METODOS.includes(metodo)) return erro("Forma de pagamento inválida.");
+
+    // Contra pedidos falsos em massa: no máximo 8 pedidos por telefone a cada 30 min.
+    if (!(await limitarChave("pedido-criar-tel", `${restauranteId}:${soDigitos(telefone)}`, 8, 1800))) {
+      return erro("Muitos pedidos seguidos com este telefone. Aguarde alguns minutos ou chame o restaurante.", 429);
+    }
+
+    const { data: restaurante } = await supabaseAdmin
+      .from("restaurantes")
+      .select("id, uf")
+      .eq("id", restauranteId)
+      .maybeSingle();
+
+    if (!restaurante) return erro("Restaurante não encontrado.", 404);
+
+    // ---------- plano do restaurante ----------
+    if (!(await restaurantePodeReceberPedidos(restauranteId))) {
+      return erro(
+        "Este restaurante não está recebendo pedidos online no momento. Chame no WhatsApp.",
+        403,
+        "PEDIDOS_PAUSADOS"
+      );
+    }
+
+    // ---------- pausa e horário de funcionamento ----------
+    const operacao = await getOperacao(restauranteId);
+    if (operacao.pausado) {
+      return erro(
+        "O restaurante pausou os pedidos por alguns minutos. Tente de novo em instantes ou chame no WhatsApp.",
+        403,
+        "PEDIDOS_PAUSADOS"
+      );
+    }
+
+    {
+      const { data: aparencia } = await supabaseAdmin
+        .from("aparencia")
+        .select("*")
+        .eq("restaurante_id", restauranteId)
+        .limit(1)
+        .maybeSingle();
+
+      // Tolerância de 15 min para diferença de relógio do celular.
+      const agora = new Date();
+      const aberto = [0, -15, 15].some((min) =>
+        lojaAbertaAgora(aparencia, agoraNoFuso(restaurante.uf, new Date(agora.getTime() + min * 60000)))
+      );
+      if (!aberto) {
+        return erro("O restaurante está fechado agora. Confira o horário de funcionamento.", 403, "LOJA_FECHADA");
+      }
+    }
+
+    // ---------- forma de pagamento permitida ----------
+    if (metodo === "pix") {
+      if (!(await getRecebedorId(restauranteId))) {
+        return erro("Pix online indisponível neste restaurante.");
+      }
+    } else if (metodo === "pix_chave") {
+      if (!(await pixChaveAtivo(restauranteId))) {
+        return erro("Pix na chave do restaurante indisponível.");
+      }
+    } else {
+      const { data: config } = await supabaseAdmin
+        .from("configuracoes_pagamento")
+        .select("dinheiro, cartao_entrega")
+        .eq("restaurante_id", restauranteId)
+        .maybeSingle();
+
+      const aceitaDinheiro = config ? Boolean(config.dinheiro) : true;
+      const aceitaCartao = config ? Boolean(config.cartao_entrega) : true;
+
+      if (metodo === "cash" && !aceitaDinheiro) {
+        return erro("Pagamento em dinheiro indisponível.");
+      }
+
+      if (metodo === "card_delivery" && !aceitaCartao) {
+        return erro("Cartão na entrega indisponível.");
+      }
+    }
+
+    // ---------- valores calculados no servidor ----------
+    const bairro = texto(body.bairro, 120);
+
+    if (tipoPedido === "entrega" && (!bairro || !texto(body.rua) || !texto(body.numero, 20))) {
+      return erro("Informe o endereço completo.");
+    }
+
+    const { itens, subtotal } = await calcularItens(restauranteId, body.itens, { uf: restaurante.uf });
+    const frete = mesa
+      ? { valor: 0, km: null }
+      : await calcularTaxaEntrega(restauranteId, tipoPedido, bairro, {
+          rua: texto(body.rua),
+          numero: texto(body.numero, 20),
+          cep: texto(body.cep, 12),
+        });
+    const taxaEntrega = frete.valor;
+    const minimo = await pedidoMinimo(restauranteId);
+
+    if (!mesa && minimo > 0 && subtotal < minimo) {
+      return erro(
+        `O pedido mínimo é de R$ ${minimo.toFixed(2).replace(".", ",")}.`
+      );
+    }
+
+    // ---------- cliente ----------
+    const tokenRecebido = texto(body.clienteToken, 200);
 
     let { data: cliente } = await supabaseAdmin
       .from("clientes")
       .select("*")
       .eq("telefone", telefone)
       .eq("restaurante_id", restauranteId)
+      .order("id", { ascending: true })
+      .limit(1)
       .maybeSingle();
 
-    // ==========================================
-    // CRIAR CLIENTE SE NÃO EXISTIR
-    // ==========================================
+    let clienteNovo = false;
 
     if (!cliente) {
-      const {
-        data: novoCliente,
-        error: erroCliente,
-      } = await supabaseAdmin
+      const { data: novo, error: erroCliente } = await supabaseAdmin
         .from("clientes")
         .insert({
           restaurante_id: restauranteId,
           nome,
           telefone,
           email: null,
-          cpf,
           total_pedidos: 0,
           total_gasto: 0,
           ultimo_acesso: new Date(),
@@ -116,387 +185,199 @@ export async function POST(req: NextRequest) {
         .select()
         .single();
 
-      if (erroCliente) {
-        throw erroCliente;
-      }
+      if (erroCliente) throw erroCliente;
 
-      cliente = novoCliente;
-    } else {
-      // ==========================================
-      // ATUALIZAR CLIENTE
-      // ==========================================
+      cliente = novo;
+      clienteNovo = true;
+    }
 
-      const {
-        data: clienteAtualizado,
-        error: erroAtualizar,
-      } = await supabaseAdmin
+    // Só quem já tem o token deste cliente (mesmo aparelho) é tratado
+    // como dono da conta. Quem só sabe o telefone não recebe o token.
+    const donoDaConta =
+      clienteNovo || (tokenRecebido !== "" && tokenRecebido === cliente.token_acesso);
+
+    if (donoDaConta && !clienteNovo) {
+      await supabaseAdmin
         .from("clientes")
-        .update({
-          nome,
-          telefone,
-          cpf,
-          ultimo_acesso: new Date(),
-        })
-        .eq("id", cliente.id)
-        .select()
-        .single();
-
-      if (erroAtualizar) {
-        throw erroAtualizar;
-      }
-
-      cliente = clienteAtualizado;
+        .update({ nome, ultimo_acesso: new Date() })
+        .eq("id", cliente.id);
     }
 
-    // ==========================================
-    // FIDELIDADE
-    // ==========================================
+    // ---------- cupom de desconto (sobre os produtos) ----------
+    let descontoCupom = 0;
+    let cupomAplicado: { id: string; codigo: string } | null = null;
 
-    if (usarDescontoFidelidade === true) {
-      console.log("================================");
-      console.log("VERIFICANDO DESCONTO FIDELIDADE");
-      console.log("CLIENTE:", cliente.id);
-      console.log("RESTAURANTE:", restauranteId);
-      console.log("================================");
+    if (texto(body.cupom, 40)) {
+      const { cupom, desconto } = await aplicarCupom({
+        restauranteId,
+        codigo: body.cupom,
+        subtotal,
+        clienteId: cliente.id,
+      });
+      descontoCupom = desconto;
+      cupomAplicado = { id: cupom.id, codigo: cupom.codigo };
+    }
 
-      // Configuração do restaurante
-      const {
-        data: configuracaoFidelidade,
-        error: erroConfiguracao,
-      } = await supabaseAdmin
-        .from("fidelidade")
-        .select(
-          "id, ativo, pedidos_necessarios, valor_desconto"
-        )
-        .eq("restaurante_id", restauranteId)
-        .maybeSingle();
+    // ---------- prêmio do cliente fiel ----------
+    let descontoFidelidade = 0;
+    let premioFidelidade: string | null = null;
+    let usouPremio = false;
 
-      if (erroConfiguracao) {
-        console.error(
-          "ERRO AO BUSCAR CONFIGURAÇÃO DE FIDELIDADE:",
-          erroConfiguracao
-        );
-      }
+    const querPremio = body.usarPremioFidelidade === true || body.usarDescontoFidelidade === true;
 
-      // Fidelidade específica deste cliente
-      const {
-        data: fidelidadeCliente,
-        error: erroFidelidadeCliente,
-      } = await supabaseAdmin
-        .from("cliente_fidelidade")
-        .select("*")
-        .eq("cliente_id", cliente.id)
-        .eq("restaurante_id", restauranteId)
-        .maybeSingle();
+    if (querPremio && donoDaConta && !clienteNovo) {
+      const programa = await getProgramaFidelidade(restauranteId);
+      const { selos } = await getSelosCliente(cliente.id, restauranteId);
 
-      if (erroFidelidadeCliente) {
-        console.error(
-          "ERRO AO BUSCAR FIDELIDADE DO CLIENTE:",
-          erroFidelidadeCliente
-        );
-      }
+      if (programa && selos >= programa.pedidosNecessarios) {
+        // Evita usar o mesmo prêmio em dois Pix abertos ao mesmo tempo.
+        const { count: emAberto } = await supabaseAdmin
+          .from("pedidos")
+          .select("id", { count: "exact", head: true })
+          .eq("cliente_id", cliente.id)
+          .eq("usou_premio_fidelidade", true)
+          .eq("contabilizado", false)
+          .eq("payment_method", "pix")
+          .eq("payment_status", "pending")
+          .gte("created_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
 
-      console.log(
-        "CONFIGURAÇÃO FIDELIDADE:",
-        configuracaoFidelidade
-      );
+        if ((emAberto ?? 0) === 0) {
+          usouPremio = true;
 
-      console.log(
-        "FIDELIDADE CLIENTE:",
-        fidelidadeCliente
-      );
-
-      // ==========================================
-      // VALIDAR SE PODE USAR
-      // ==========================================
-
-      if (
-        configuracaoFidelidade &&
-        configuracaoFidelidade.ativo === true &&
-        fidelidadeCliente &&
-        fidelidadeCliente.desconto_disponivel === true
-      ) {
-        const valorConfigurado = Number(
-          configuracaoFidelidade.valor_desconto
-        ) || 0;
-
-        if (valorConfigurado > 0) {
-          // O desconto é aplicado sobre:
-          // produtos + taxa de entrega.
-          //
-          // A taxa operacional de R$0,99 permanece separada.
-
-          const valorAntesDoDesconto =
-            subtotalNumero + taxaEntregaNumero;
-
-          // Nunca deixa o desconto gerar total negativo.
-          descontoFidelidade = Math.min(
-            valorConfigurado,
-            Math.max(valorAntesDoDesconto, 0)
-          );
-
-          console.log(
-            "DESCONTO FIDELIDADE APLICADO:",
-            descontoFidelidade
-          );
+          if (programa.tipoPremio === "produto") {
+            premioFidelidade = programa.textoPremio;
+          } else {
+            descontoFidelidade = Math.min(
+              programa.valorDesconto,
+              Math.max(subtotal + taxaEntrega - descontoCupom, 0)
+            );
+            descontoFidelidade = Math.round(descontoFidelidade * 100) / 100;
+          }
         }
-      } else {
-        console.log(
-          "CLIENTE NÃO POSSUI DESCONTO DISPONÍVEL."
-        );
       }
     }
 
-    // ==========================================
-    // CALCULAR TOTAL REAL NO SERVIDOR
-    // ==========================================
+    const total =
+      Math.round(Math.max(subtotal + taxaEntrega - descontoCupom - descontoFidelidade, 0) * 100) / 100;
 
-    const totalCalculado =
-      Math.max(
-        subtotalNumero +
-          taxaEntregaNumero -
-          descontoFidelidade,
-        0
-      ) + taxaOperacionalNumero;
+    if (metodo === "pix" && total < 1) {
+      return erro("Para pedidos abaixo de R$ 1,00, escolha pagar na entrega.");
+    }
 
-    // Arredondamento para evitar problemas de centavos
-    const totalFinal =
-      Math.round(totalCalculado * 100) / 100;
+    let trocoPara: number | null = null;
 
-    console.log("================================");
-    console.log("CÁLCULO FINAL");
-    console.log("SUBTOTAL:", subtotalNumero);
-    console.log("TAXA ENTREGA:", taxaEntregaNumero);
-    console.log(
-      "DESCONTO FIDELIDADE:",
-      descontoFidelidade
-    );
-    console.log(
-      "TAXA OPERACIONAL:",
-      taxaOperacionalNumero
-    );
-    console.log("TOTAL FINAL:", totalFinal);
-    console.log("================================");
+    if (metodo === "cash" && body.trocoPara != null && body.trocoPara !== "") {
+      const valor = Number(String(body.trocoPara).replace(",", "."));
+      if (Number.isFinite(valor) && valor > total) trocoPara = Math.round(valor * 100) / 100;
+    }
 
-    // ==========================================
-    // CRIAR PEDIDO
-    // ==========================================
+    // ---------- grava o pedido ----------
+    const numeroPedido = await proximoNumeroPedido(restauranteId);
+    const rua = tipoPedido === "retirada" ? "" : texto(body.rua);
+    const numero = tipoPedido === "retirada" ? "" : texto(body.numero, 20);
 
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
+    const { data: pedido, error } = await supabaseAdmin
       .from("pedidos")
       .insert({
         restaurante_id: restauranteId,
-
         cliente_id: cliente.id,
-
         numero_pedido: numeroPedido,
-
         cliente: nome,
-
         nome,
-
         telefone,
-
-        cpf,
-
         tipo_pedido: tipoPedido,
-
-        endereco,
-
-        bairro,
-
+        endereco: mesa ? `Mesa ${mesa}` : tipoPedido === "retirada" ? "Retirada no local" : `${rua}, ${numero}`,
+        bairro: tipoPedido === "retirada" ? "" : bairro,
         rua,
-
         numero,
-
-        complemento,
-
-        referencia,
-
-        observacoes,
-
+        complemento: tipoPedido === "retirada" ? "" : texto(body.complemento),
+        referencia: texto(body.referencia),
+        observacoes: texto(body.observacoes, 500),
         itens,
-
-        subtotal: subtotalNumero,
-
-        taxa_entrega: taxaEntregaNumero,
-
-        taxa_operacional: taxaOperacionalNumero,
-
-        // TOTAL JÁ COM DESCONTO
-        total: totalFinal,
-
-        // IMPORTANTE:
-        // O valor real que será pago também precisa
-        // ser o valor com desconto.
-        total_pago: totalFinal,
-
-        payment_method,
-
-        payment_status:
-          payment_method === "pix"
-            ? "pending"
-            : "paid",
-
+        subtotal,
+        taxa_entrega: taxaEntrega,
+        taxa_operacional: 0,
+        total,
+        total_pago: total,
+        payment_method: metodo,
+        payment_status: "pending",
         status: "pendente",
-
-        confirmado:
-          payment_method === "pix"
-            ? false
-            : true,
-
-        // NOVO
-        desconto_fidelidade:
-          descontoFidelidade,
+        confirmado: metodo !== "pix",
+        desconto_fidelidade: descontoFidelidade,
+        troco_para: trocoPara,
+        // Campos novos só vão quando usados (funciona mesmo antes do SQL 04).
+        ...(mesa ? { mesa } : {}),
+        ...(frete.km != null ? { distancia_km: frete.km } : {}),
+        ...(usouPremio ? { usou_premio_fidelidade: true, premio_fidelidade: premioFidelidade } : {}),
+        ...(cupomAplicado
+          ? { cupom_id: cupomAplicado.id, cupom_codigo: cupomAplicado.codigo, desconto_cupom: descontoCupom }
+          : {}),
       })
-      .select()
+      .select("id, numero_pedido, codigo_acesso, total")
       .single();
 
-    if (error) {
-      throw error;
+    if (error) throw error;
+
+    // Pix só conta (histórico, selo e cupom) quando for pago (webhook).
+    if (metodo !== "pix") {
+      await contabilizarPedido(pedido.id, true, { pedidoNovo: true });
+      // QR Code da mesa: o pedido entra direto na comanda da mesa (área Restaurante).
+      if (mesa) await lancarPedidoDoQr(pedido.id);
+      // Notificação no celular do restaurante (Pix avisa quando for pago).
+      after(() => avisarNovoPedido(pedido.id).catch(() => {}));
     }
 
-    // ==========================================
-    // ATUALIZAR CLIENTE
-    // ==========================================
-
-    await supabaseAdmin
-      .from("clientes")
-      .update({
-        total_pedidos:
-          (cliente.total_pedidos ?? 0) + 1,
-
-        total_gasto:
-          (cliente.total_gasto ?? 0) +
-          Number(totalFinal),
-
-        ultimo_pedido: new Date(),
-
-        ultimo_acesso: new Date(),
-      })
-      .eq("id", cliente.id);
-
-    // ==========================================
-    // ENDEREÇO DO CLIENTE
-    // ==========================================
-
-    const {
-      data: enderecoExistente,
-    } = await supabaseAdmin
-      .from("enderecos_cliente")
-      .select("id")
-      .eq("cliente_id", cliente.id)
-      .eq("principal", true)
-      .maybeSingle();
-
-    if (!enderecoExistente) {
-      await supabaseAdmin
+    // Endereço salvo só para o dono da conta.
+    if (donoDaConta && tipoPedido === "entrega") {
+      const { data: principal } = await supabaseAdmin
         .from("enderecos_cliente")
-        .insert({
-          cliente_id: cliente.id,
+        .select("id")
+        .eq("cliente_id", cliente.id)
+        .eq("principal", true)
+        .maybeSingle();
 
-          apelido: "Casa",
+      const dadosEndereco = {
+        rua,
+        numero,
+        bairro,
+        complemento: texto(body.complemento),
+        referencia: texto(body.referencia),
+      };
 
-          cep: endereco?.cep ?? null,
-
-          rua,
-
-          numero,
-
-          bairro,
-
-          cidade:
-            endereco?.cidade ?? null,
-
-          estado:
-            endereco?.estado ?? null,
-
-          complemento,
-
-          referencia,
-
-          principal: true,
-        });
-    } else {
-      await supabaseAdmin
-        .from("enderecos_cliente")
-        .update({
-          cep:
-            endereco?.cep ?? null,
-
-          rua,
-
-          numero,
-
-          bairro,
-
-          cidade:
-            endereco?.cidade ?? null,
-
-          estado:
-            endereco?.estado ?? null,
-
-          complemento,
-
-          referencia,
-        })
-        .eq(
-          "id",
-          enderecoExistente.id
-        );
+      if (principal) {
+        await supabaseAdmin.from("enderecos_cliente").update(dadosEndereco).eq("id", principal.id);
+      } else {
+        await supabaseAdmin
+          .from("enderecos_cliente")
+          .insert({ ...dadosEndereco, cliente_id: cliente.id, apelido: "Casa", principal: true });
+      }
     }
-
-    // ==========================================
-    // LOG FINAL
-    // ==========================================
-
-    console.log("================================");
-    console.log("PEDIDO CRIADO COM SUCESSO");
-    console.log("PEDIDO:", data.id);
-    console.log(
-      "DESCONTO FIDELIDADE:",
-      descontoFidelidade
-    );
-    console.log("TOTAL:", totalFinal);
-    console.log("================================");
 
     return NextResponse.json({
       success: true,
-
-      pedido: data,
-
-      cliente: {
-        id: cliente.id,
-        token_acesso:
-          cliente.token_acesso,
-      },
-
-      // Devolvemos para o frontend
-      // saber o que realmente foi aplicado.
+      pedido,
+      cliente: donoDaConta ? { token_acesso: cliente.token_acesso } : null,
       descontoFidelidade,
-
-      totalFinal,
+      descontoCupom,
+      premioFidelidade,
+      totalFinal: total,
     });
-
   } catch (error: any) {
-    console.error(
-      "ERRO AO CRIAR PEDIDO:",
-      error
+    if (error instanceof PedidoInvalidoError) {
+      return erro(error.message);
+    }
+
+    if (error instanceof CupomInvalidoError) {
+      return erro(error.message, 400, "CUPOM_INVALIDO");
+    }
+
+    console.error("[pedido/criar]", error);
+
+    const { status, mensagem } = mensagemDeErroBanco(
+      error,
+      "Não foi possível criar o pedido. Tente novamente."
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error?.message ||
-          "Erro interno do servidor",
-      },
-      {
-        status: 500,
-      }
-    );
+    return erro(mensagem, status);
   }
 }

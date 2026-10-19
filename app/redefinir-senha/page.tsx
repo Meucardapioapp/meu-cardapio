@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import MedidorSenha from "@/app/components/MedidorSenha"
+import { senhaValida } from "@/lib/senha"
 
 export default function RedefinirSenhaPage() {
   const [senha, setSenha] = useState("")
@@ -77,9 +79,9 @@ export default function RedefinirSenhaPage() {
       return
     }
 
-    if (senha.length < 6) {
+    if (!senhaValida(senha)) {
       alert(
-        "A senha deve ter pelo menos 6 caracteres."
+        "A senha precisa ter 8 ou mais caracteres, com letra maiúscula, minúscula, número e caractere especial."
       )
       return
     }
@@ -114,7 +116,7 @@ export default function RedefinirSenhaPage() {
   return (
     <main className="min-h-screen bg-[#F8F6F4] flex items-center justify-center p-6">
 
-      <div className="w-full max-w-xl rounded-[36px] bg-white border border-[#ECE7E3] shadow-[0_20px_60px_rgba(0,0,0,0.08)] p-12">
+      <div className="w-full max-w-xl rounded-[36px] bg-white border border-[#ECE7E3] shadow-[0_20px_60px_rgba(0,0,0,0.08)] p-6 sm:p-12">
 
         <div className="mb-6">
           <span className="inline-flex rounded-full bg-[#F8F0F2] px-4 py-2 text-xs font-bold uppercase tracking-[0.15em] text-[#6D1F2F]">
@@ -139,8 +141,11 @@ export default function RedefinirSenhaPage() {
             onChange={(e) =>
               setSenha(e.target.value)
             }
+            autoComplete="new-password"
             className="w-full rounded-3xl border border-[#E7E5E4] bg-[#F8F6F4] px-7 py-6 text-black outline-none transition-all duration-300 focus:border-[#6D1F2F] focus:bg-white"
           />
+
+          <MedidorSenha senha={senha} />
 
           <input
             type="password"

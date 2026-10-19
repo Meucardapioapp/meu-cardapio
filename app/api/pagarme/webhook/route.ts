@@ -1,416 +1,182 @@
+import { limitar } from "@/lib/server/rate-limit";
+import { lancarPedidoDoQr } from "@/lib/server/salao";
 import { NextRequest, NextResponse } from "next/server";
+import { avisarNovoPedido } from "@/lib/server/notificacoes";
+import { timingSafeEqual } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { pagarme } from "@/lib/server/pagarme";
+import { contabilizarPedido } from "@/lib/server/fidelidade";
+import {
+  confirmarPixAssinatura,
+  sincronizarAssinaturaCartao,
+  sincronizarFaturaCartao,
+} from "@/lib/server/assinatura";
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
+/**
+ * Webhook da Pagar.me.
+ *
+ * Segurança em duas camadas:
+ * 1. Se PAGARME_WEBHOOK_USER/PASSWORD estiverem configurados, exige
+ *    o mesmo usuário e senha (Basic Auth) cadastrados no painel da Pagar.me.
+ * 2. Nunca confia no conteúdo do evento: busca o pedido, a fatura ou a
+ *    assinatura direto na API da Pagar.me antes de mudar qualquer coisa.
+ */
 
-    const eventType = body?.type;
+function autenticado(req: NextRequest) {
+  const usuario = process.env.PAGARME_WEBHOOK_USER;
+  const senha = process.env.PAGARME_WEBHOOK_PASSWORD;
 
-    const orderId =
-      body?.data?.order?.id ??
-      body?.data?.id;
-
-    const paymentStatus =
-      body?.data?.order?.status ??
-      body?.data?.status;
-
-    console.log("EVENT:", eventType);
-    console.log("ORDER ID:", orderId);
-    console.log("STATUS:", paymentStatus);
-
-    console.log("========== WEBHOOK PAGAR.ME ==========");
-    console.log(JSON.stringify(body, null, 2));
-    console.log("======================================");
-
-    if (orderId) {
-      let payment_status = "pending";
-      let status = "pendente";
-
-      if (paymentStatus === "paid") {
-        payment_status = "approved";
-        status = "aceito";
-      } else if (paymentStatus === "failed") {
-        payment_status = "failed";
-        status = "recusado";
-      } else if (paymentStatus === "processing") {
-        payment_status = "processing";
-        status = "pendente";
-      }
-
-      // Busca o pedido
-      const { data: pedido, error: pedidoError } =
-        await supabaseAdmin
-          .from("pedidos")
-.select(`id,
-total,
-payment_method,
-payment_status,
-pushcut_pix_enviado,
-cliente_id,
-restaurante_id`)
-          .eq("pagarme_order_id", orderId)
-          .maybeSingle();
-
-      if (pedidoError) {
-        console.error(
-          "Erro ao buscar pedido:",
-          pedidoError
-        );
-      }
-
-// Atualiza status do pedido
-const { data: pedidoAtualizado, error } =
-  await supabaseAdmin
-    .from("pedidos")
-    .update({
-      payment_status,
-
-      status:
-        paymentStatus === "paid"
-          ? "aceito"
-          : status,
-
-      ...(paymentStatus === "paid"
-        ? { confirmado: true }
-        : {}),
-    })
-    .eq("pagarme_order_id", orderId)
-    .neq("payment_status", "approved")
-    .select("id")
-    .maybeSingle();
-
-if (error) {
-  console.error(
-    "Erro ao atualizar pedido:",
-    error
-  );
-} else {
-  console.log(
-    "Pedido atualizado com sucesso!"
-  );
-
-  if (
-    paymentStatus === "paid" &&
-    pedido?.cliente_id
-  ) {
-    await supabaseAdmin
-      .from("clientes")
-      .update({
-        ultimo_pedido: new Date(),
-        ultimo_acesso: new Date(),
-      })
-      .eq("id", pedido.cliente_id);
+  if (!usuario || !senha) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn("[webhook] PAGARME_WEBHOOK_USER/PASSWORD não configurados: configure na Vercel e na Pagar.me.");
+    }
+    return true;
   }
 
-// ==========================================
-// FIDELIDADE - 1 SELO PARA PIX PAGO
-// ==========================================
+  const header = req.headers.get("authorization") || "";
+  const esperado = "Basic " + Buffer.from(`${usuario}:${senha}`).toString("base64");
 
-if (
-  paymentStatus === "paid" &&
-  pedidoAtualizado &&
-  pedido?.cliente_id &&
-  String(pedido.payment_method ?? "").toLowerCase() === "pix"
-) {
-  const clienteId = pedido.cliente_id;
-  const restauranteId = pedido.restaurante_id;
+  const a = Buffer.from(header);
+  const b = Buffer.from(esperado);
 
-  console.log("========== FIDELIDADE ==========");
-  console.log("CLIENTE:", clienteId);
-  console.log("RESTAURANTE:", restauranteId);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
-  // Procura o registro de fidelidade
-  const {
-    data: fidelidade,
-    error: buscarFidelidadeError,
-  } = await supabaseAdmin
-    .from("cliente_fidelidade")
-    .select("*")
-    .eq("cliente_id", clienteId)
-    .eq("restaurante_id", restauranteId)
+async function processarPedido(orderId: string) {
+  // Fonte da verdade: a própria Pagar.me.
+  const order = await pagarme<any>(`/orders/${orderId}`);
+
+  if (order?.metadata?.tipo === "assinatura") {
+    await confirmarPixAssinatura(order);
+    return;
+  }
+
+  const { data: pedido } = await supabaseAdmin
+    .from("pedidos")
+    .select("id, total, payment_method, payment_status, pushcut_pix_enviado, cliente_id, restaurante_id, desconto_fidelidade")
+    .eq("pagarme_order_id", orderId)
     .maybeSingle();
 
-  if (buscarFidelidadeError) {
-    console.error(
-      "Erro ao buscar fidelidade:",
-      buscarFidelidadeError
-    );
-  } else if (fidelidade) {
-    // ==========================================
-    // CLIENTE JÁ POSSUI FIDELIDADE
-    // ==========================================
+  if (!pedido) return;
 
-    const selosAtuais = Number(
-      fidelidade.selos ?? 0
-    );
+  const status: string = order?.status;
 
-    const novosSelos = selosAtuais + 1;
+  if (status === "paid") {
+    const pagoCentavos = Number(order?.amount ?? 0);
+    const esperadoCentavos = Math.round(Number(pedido.total) * 100);
 
-    const { error: atualizarFidelidadeError } =
-      await supabaseAdmin
-        .from("cliente_fidelidade")
-        .update({
-          selos: novosSelos,
-          desconto_disponivel:
-            novosSelos >= 10
-              ? true
-              : fidelidade.desconto_disponivel,
-          updated_at: new Date(),
-        })
-        .eq("id", fidelidade.id);
-
-    if (atualizarFidelidadeError) {
-      console.error(
-        "Erro ao atualizar fidelidade:",
-        atualizarFidelidadeError
-      );
-    } else {
-      console.log(
-        `FIDELIDADE: +1 selo. Total atual: ${novosSelos}`
-      );
+    if (pagoCentavos < esperadoCentavos) {
+      console.warn("[webhook] valor pago menor que o pedido", pedido.id);
+      return;
     }
-  } else {
-    // ==========================================
-    // PRIMEIRO PIX DO CLIENTE
-    // CRIA A FIDELIDADE COM 1 SELO
-    // ==========================================
 
-    const { data: novaFidelidade, error: criarFidelidadeError } =
-      await supabaseAdmin
-        .from("cliente_fidelidade")
-        .insert({
-          cliente_id: clienteId,
-          restaurante_id: restauranteId,
-          selos: 1,
-          desconto_disponivel: false,
-          updated_at: new Date(),
-        })
-        .select("*")
-        .single();
+    // Só o primeiro evento "pago" faz efeito (evita selo em dobro).
+    const { data: atualizado } = await supabaseAdmin
+      .from("pedidos")
+      .update({
+        // Fica "pendente" para o restaurante aceitar no painel (toca o alerta).
+        payment_status: "approved",
+        confirmado: true,
+      })
+      .eq("id", pedido.id)
+      .neq("payment_status", "approved")
+      .select("id")
+      .maybeSingle();
 
-    if (criarFidelidadeError) {
-      console.error(
-        "Erro ao criar fidelidade:",
-        criarFidelidadeError
-      );
-    } else {
-      console.log(
-        "FIDELIDADE: primeiro PIX do cliente."
-      );
+    if (!atualizado) return;
 
-      console.log(
-        "FIDELIDADE CRIADA:",
-        novaFidelidade
-      );
-    }
+    // Histórico do cliente, selo de fidelidade e uso do cupom.
+    await contabilizarPedido(pedido.id, true, { pedidoNovo: true });
+    // Pix pago pelo QR Code da mesa: entra na comanda como valor já pago.
+    await lancarPedidoDoQr(pedido.id);
+
+    await Promise.all([notificarVendaPix(pedido), avisarNovoPedido(pedido.id).catch(() => {})]);
+    return;
+  }
+
+  if (status === "failed" || status === "canceled") {
+    await supabaseAdmin
+      .from("pedidos")
+      .update({ payment_status: "failed", status: "recusado" })
+      .eq("id", pedido.id)
+      .neq("payment_status", "approved");
   }
 }
 
-      // ==========================================
-      // PUSHCUT - PIX PAGO
-      // ==========================================
+async function notificarVendaPix(pedido: { id: string; total: number }) {
+  const url = process.env.PUSHCUT_NOVA_VENDA_PIX_URL;
+  if (!url) return;
 
-      const metodoPagamento =
-        String(
-          pedido?.payment_method ?? ""
-        ).toLowerCase();
+  const { data: reservado } = await supabaseAdmin
+    .from("pedidos")
+    .update({ pushcut_pix_enviado: true })
+    .eq("id", pedido.id)
+    .eq("pushcut_pix_enviado", false)
+    .select("id")
+    .maybeSingle();
 
-      if (
-        paymentStatus === "paid" &&
-        metodoPagamento === "pix" &&
-        pedido
-      ) {
-        /*
-         * Tenta "reservar" a notificação.
-         *
-         * Só consegue alterar false -> true.
-         * Se outro webhook já fez isso,
-         * nenhum registro será retornado.
-         */
-        const {
-          data: pedidoReservado,
-          error: reservaError,
-        } = await supabaseAdmin
-          .from("pedidos")
-          .update({
-            pushcut_pix_enviado: true,
-          })
-          .eq("id", pedido.id)
-          .eq("pushcut_pix_enviado", false)
-          .select("id")
-          .maybeSingle();
+  if (!reservado) return;
 
-        if (reservaError) {
-          console.error(
-            "Erro ao reservar notificação Pushcut:",
-            reservaError
-          );
-        }
+  const comissao = (Number(pedido.total ?? 0) * 0.01).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
-        // Somente o webhook que conseguiu
-        // alterar false -> true envia a notificação.
-        if (pedidoReservado) {
-          try {
-            const valorPedido =
-              Number(pedido.total ?? 0);
+  try {
+    const resposta = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: `Pix - R$ ${comissao}`, text: `Pix - R$ ${comissao}` }),
+    });
 
-            const comissao =
-              valorPedido * 0.01 + 0.99;
+    if (!resposta.ok) throw new Error(`Pushcut ${resposta.status}`);
+  } catch (e) {
+    console.error("[webhook] pushcut", e);
+    await supabaseAdmin.from("pedidos").update({ pushcut_pix_enviado: false }).eq("id", pedido.id);
+  }
+}
 
-            const comissaoFormatada =
-              comissao.toLocaleString("pt-BR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              });
+async function processarTransferencia(transferId: string) {
+  const transferencia = await pagarme<any>(`/transfers/${transferId}`);
 
-            const pushcutUrl =
-              process.env
-                .PUSHCUT_NOVA_VENDA_PIX_URL;
+  if (!transferencia?.status) return;
 
-            if (pushcutUrl) {
-              const pushcutResponse =
-                await fetch(pushcutUrl, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type":
-                      "application/json",
-                  },
-                  body: JSON.stringify({
-                    title: `Pix - R$ ${comissaoFormatada}`,
-                    text: `Pix - R$ ${comissaoFormatada}`,
-                  }),
-                });
+  await supabaseAdmin
+    .from("saques")
+    .update({ status: transferencia.status })
+    .eq("pagarme_withdrawal_id", transferId);
+}
 
-              if (!pushcutResponse.ok) {
-                console.error(
-                  "Erro Pushcut:",
-                  pushcutResponse.status
-                );
-
-                // Libera para uma futura
-                // tentativa caso o Pushcut falhe.
-                await supabaseAdmin
-                  .from("pedidos")
-                  .update({
-                    pushcut_pix_enviado: false,
-                  })
-                  .eq("id", pedido.id);
-              } else {
-                console.log(
-                  `Notificação enviada: Pix - R$ ${comissaoFormatada}`
-                );
-              }
-            } else {
-              console.warn(
-                "PUSHCUT_NOVA_VENDA_PIX_URL não configurada."
-              );
-
-              await supabaseAdmin
-                .from("pedidos")
-                .update({
-                  pushcut_pix_enviado: false,
-                })
-                .eq("id", pedido.id);
-            }
-          } catch (pushcutError) {
-            console.error(
-              "Erro ao enviar notificação PIX:",
-              pushcutError
-            );
-
-            await supabaseAdmin
-              .from("pedidos")
-              .update({
-                pushcut_pix_enviado: false,
-              })
-              .eq("id", pedido.id);
-          }
-        } else {
-          console.log(
-            "Notificação deste PIX já foi processada. Ignorando duplicata."
-          );
-        }
-      }
+export async function POST(req: NextRequest) {
+    if (!(await limitar(req, "webhook-pagarme", 300, 60))) {
+      return NextResponse.json({ success: false, error: "Muitas tentativas. Aguarde um pouco." }, { status: 429 });
     }
 
-    // ======================================================
-    // ATUALIZAÇÃO DE SAQUES / TRANSFERÊNCIAS PAGAR.ME
-    // ======================================================
-
-    if (
-      eventType === "transfer.created" ||
-      eventType === "transfer.updated" ||
-      eventType === "transfer.paid" ||
-      eventType === "transfer.failed" ||
-      eventType === "transfer.canceled"
-    ) {
-      const transferId =
-        body?.data?.id ??
-        body?.data?.transfer?.id;
-
-      const transferStatus =
-        body?.data?.status ??
-        body?.data?.transfer?.status;
-
-      console.log(
-        "TRANSFER ID:",
-        transferId
-      );
-
-      console.log(
-        "TRANSFER STATUS:",
-        transferStatus
-      );
-
-      if (transferId && transferStatus) {
-        const { error: saqueError } =
-          await supabaseAdmin
-            .from("saques")
-            .update({
-              status: transferStatus,
-            })
-            .eq(
-              "pagarme_withdrawal_id",
-              transferId
-            );
-
-        if (saqueError) {
-          console.error(
-            "Erro ao atualizar saque:",
-            saqueError
-          );
-        } else {
-          console.log(
-            "Saque atualizado com sucesso!"
-          );
-        }
-      }
-    }
-
+  if (!autenticado(req)) {
+    return NextResponse.json({ received: false }, { status: 401 });
   }
 
-    return NextResponse.json(
-      {
-        received: true,
-      },
-      {
-        status: 200,
-      }
-    );
-  } catch (error) {
-    console.error(
-      "Erro no webhook:",
-      error
-    );
+  try {
+    const body = await req.json();
+    const tipo: string = body?.type ?? "";
+    const data = body?.data ?? {};
 
-    return NextResponse.json(
-      {
-        received: false,
-      },
-      {
-        status: 500,
-      }
-    );
+    if (tipo.startsWith("order.") || tipo.startsWith("charge.")) {
+      const orderId: string | undefined = tipo.startsWith("order.") ? data?.id : data?.order?.id;
+      if (orderId) await processarPedido(orderId);
+    } else if (tipo.startsWith("invoice.")) {
+      if (data?.id) await sincronizarFaturaCartao(data.id);
+    } else if (tipo.startsWith("subscription.")) {
+      if (data?.id) await sincronizarAssinaturaCartao(data.id);
+    } else if (tipo.startsWith("transfer.")) {
+      const transferId = data?.id ?? data?.transfer?.id;
+      if (transferId) await processarTransferencia(transferId);
+    }
+
+    return NextResponse.json({ received: true });
+  } catch (error: any) {
+    console.error("[webhook]", error?.message ?? error);
+    // 500 faz a Pagar.me tentar de novo mais tarde.
+    return NextResponse.json({ received: false }, { status: 500 });
   }
 }

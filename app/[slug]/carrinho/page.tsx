@@ -7,6 +7,8 @@ import { ShoppingCart } from "lucide-react";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { ArrowLeft } from "lucide-react";
 import ProductModal from "../../components/ProductModal";
+import { lerRestaurantePublico } from "@/lib/restaurantePublico";
+import { agoraLocal, lojaAbertaAgora } from "@/lib/horario";
 
 export default function CarrinhoPage() {
   const params = useParams();
@@ -15,6 +17,16 @@ export default function CarrinhoPage() {
   const [cart, setCart] = useState<any[]>([]);
   const [tipoPedido, setTipoPedido] =
   useState<"entrega" | "retirada">("entrega");
+
+  // Pedido pela mesa (QR Code): sem entrega, sem taxa e sem pedido mínimo.
+  const [mesa, setMesa] = useState("");
+  useEffect(() => {
+    try {
+      const m = sessionStorage.getItem(`mesa-${slug}`) || "";
+      setMesa(m);
+      if (m) setTipoPedido("retirada");
+    } catch {}
+  }, [slug]);
 
 const [nomeRetirada, setNomeRetirada] =
   useState("");
@@ -133,6 +145,11 @@ const [produtoSelecionado, setProdutoSelecionado] =
         `cart-${slug}`
       );
 
+    let itensDoCarrinho: any[] = [];
+    try {
+      itensDoCarrinho = cartStorage ? JSON.parse(cartStorage) : [];
+    } catch {}
+
     if (cartStorage) {
       const itens =
         JSON.parse(cartStorage);
@@ -148,76 +165,22 @@ const [produtoSelecionado, setProdutoSelecionado] =
       );
     }
 
-    const { data: restaurante } =
-      await supabase
-        .from("restaurantes")
-        .select("*")
-        .eq("slug", slug)
-        .single();
+    // Tudo numa chamada só (mesmos dados do cardápio, já com promoções e estoque).
+    let dados: any = null;
+    try {
+      const resposta = await fetch(`/api/cardapio/${encodeURIComponent(slug)}`);
+      const json = await resposta.json();
+      dados = json?.success ? json.cardapio : null;
+    } catch {}
 
-        const { data: aparencia } =
-  await supabase
-    .from("aparencia")
-    .select("*")
-    .eq("restaurante_id", restaurante.id)
-    .single();
+    if (!dados) return;
 
-if (aparencia) {
+    const restaurante = dados.restaurante;
+    const aparencia = dados.aparencia;
 
-  const agora = new Date();
+    setLojaAberta(lojaAbertaAgora(aparencia, agoraLocal()) && dados.pedidosAtivos !== false);
 
-  const dias = [
-    "dom",
-    "seg",
-    "ter",
-    "qua",
-    "qui",
-    "sex",
-    "sab",
-  ];
-
-  const dia = dias[agora.getDay()];
-
-  const inicio =
-    aparencia[`horario_${dia}_inicio`];
-
-  const fim =
-    aparencia[`horario_${dia}_fim`];
-
-  if (inicio && fim) {
-
-    const [hi, mi] =
-      inicio.split(":").map(Number);
-
-    const [hf, mf] =
-      fim.split(":").map(Number);
-
-    const agoraMin =
-      agora.getHours() * 60 +
-      agora.getMinutes();
-
-    const inicioMin =
-      hi * 60 + mi;
-
-    const fimMin =
-      hf * 60 + mf;
-
-    setLojaAberta(
-      agoraMin >= inicioMin &&
-      agoraMin <= fimMin
-    );
-
-  } else {
-
-    setLojaAberta(false);
-
-  }
-
-}
-
-    if (!restaurante) return;
-
-setRestauranteNome(restaurante.nome);
+setRestauranteNome(restaurante.nome_restaurante || restaurante.nome || "");
 
 setRuaRestaurante(restaurante.endereco || "");
 
@@ -229,49 +192,14 @@ setCidadeRestaurante(restaurante.cidade || "");
 
 setEstadoRestaurante(restaurante.estado || "");
 
+setPedidoMinimo(Number(aparencia?.pedido_minimo || 0));
 
-const minimo = Number(aparencia?.pedido_minimo || 0);
-
-console.log("Pedido mínimo:", minimo);
-
-setPedidoMinimo(minimo);
-
-    const { data: produtos } =
-  await supabase
-    .from("produtos")
-    .select("*")
-    .eq(
-      "restaurante_id",
-      restaurante.id
-    );
-
-if (produtos) {
-
-  const sugestoesFiltradas =
-    produtos.filter((produto) => {
-
-      const categoria =
-        (
-          produto.categoria || ""
-        ).toLowerCase();
-
-      return (
-        categoria.includes(
-          "bebida"
-        ) ||
-        categoria.includes(
-          "sobremesa"
-        )
-      );
-    });
-
-  setSugestoes(
-    sugestoesFiltradas.slice(
-      0,
-      3
-    )
-  );
-}
+    // "Peça também": primeiro os marcados pelo dono; senão bebidas e sobremesas.
+    const noCarrinho = new Set(itensDoCarrinho.map((item: any) => String(item.id)));
+    const produtos: any[] = (dados.produtos || []).filter((p: any) => !noCarrinho.has(String(p.id)));
+    const marcados = produtos.filter((p) => p.sugerirNoCarrinho);
+    const porCategoria = produtos.filter((p) => /bebida|refri|suco|sobremesa|doce/i.test(p.categoria || ""));
+    setSugestoes((marcados.length ? marcados : porCategoria).slice(0, 6));
   }
 
   carregarDados();
@@ -286,13 +214,13 @@ useEffect(() => {
 const token = localStorage.getItem(
   `cliente_token-${slug}`
 );
-console.log("TOKEN:", token);
+
     if (!token) return;
 
     try {
-      const response = await fetch(`/api/cliente/me?token=${token}`);
+      const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
       const resultado = await response.json();
-      console.log("RESPOSTA API:", resultado);
+      
 
       if (!resultado.success) return;
 
@@ -417,11 +345,7 @@ const total = cart.reduce(
   0
 );
 
-  console.log({
-  total,
-  pedidoMinimo,
-  bloqueado: total < pedidoMinimo,
-});
+  
 
 return (
   <>
@@ -839,24 +763,13 @@ style={{
       </div>
 
 <h2
-  className="
-    text-xl
-    font-black
-    mt-6
-    mb-4
-  "
+  className={`text-xl font-black mt-6 mb-4 ${sugestoes.length ? "" : "hidden"}`}
 >
-  Complete seu pedido
+  Peça também
 </h2>
 
 <div
-  className="
-    flex
-    gap-3
-    overflow-x-auto
-    pb-2
-    mb-6
-  "
+  className={`flex gap-3 overflow-x-auto pb-2 mb-6 ${sugestoes.length ? "" : "hidden"}`}
 >
   {sugestoes.map((produto) => (
 
@@ -896,6 +809,7 @@ style={{
 >
 
 <img
+  loading="lazy"
   src={produto.imagem}
   alt={produto.nome}
   className="
@@ -964,7 +878,14 @@ style={{
 </div>
 
 
-<div className="bg-white rounded-2xl p-5 mb-6 shadow-sm">
+{mesa && (
+  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 mb-6">
+    <p className="text-lg font-black">🍽️ Pedido na Mesa {mesa}</p>
+    <p className="text-sm text-zinc-600 mt-1">O pedido vai direto para a cozinha e chega na sua mesa.</p>
+  </div>
+)}
+
+<div className={`bg-white rounded-2xl p-5 mb-6 shadow-sm ${mesa ? "hidden" : ""}`}>
 
   <h2 className="text-lg font-black mb-5">
     Como deseja receber seu pedido?
@@ -1014,7 +935,7 @@ style={{
 
   <div className="mt-5 border-t pt-5">
 
-    <div className="bg-zinc-50 rounded-xl p-4 mb-5">
+    <div className={`bg-zinc-50 rounded-xl p-4 mb-5 ${mesa ? "hidden" : ""}`}>
 
       <p className="font-bold">
         📍 Endereço para retirada
@@ -1049,41 +970,6 @@ style={{
         placeholder="Seu nome"
         className="w-full border rounded-xl p-4"
       />
-
-<div className="relative">
-
-  <input
-    value={cpfRetirada}
-    onChange={(e) =>
-      setCpfRetirada(
-        formatarCPF(e.target.value)
-      )
-    }
-    placeholder="CPF"
-    inputMode="numeric"
-    className="w-full border rounded-xl p-4 pr-12"
-  />
-
-  {cpfRetirada !== "" && (
-    <div
-      className={`
-        absolute
-        right-4
-        top-1/2
-        -translate-y-1/2
-        w-3
-        h-3
-        rounded-full
-        ${
-          cpfValido
-            ? "bg-green-500"
-            : "bg-red-500"
-        }
-      `}
-    />
-  )}
-
-</div>
 
 <div className="relative">
 
@@ -1148,7 +1034,7 @@ style={{
 
 <div className="space-y-3">
 
-  {total < pedidoMinimo && (
+  {!mesa && total < pedidoMinimo && (
 
     <div
       className="
@@ -1202,28 +1088,24 @@ style={{
     <button
       disabled={
         carregando ||
-        total < pedidoMinimo
+        (!mesa && total < pedidoMinimo)
       }
       onClick={() => {
 
         if (!lojaAberta) {
-
-          alert(
-            "O restaurante está fechado e não está recebendo pedidos."
-          );
-
+          setAlerta({
+            titulo: "Restaurante fechado",
+            mensagem: "O restaurante está fechado e não está recebendo pedidos agora.",
+          });
           return;
-
         }
 
-        if (total < pedidoMinimo) {
-
-          alert(
-            `O pedido mínimo é de R$ ${pedidoMinimo.toFixed(2)}.`
-          );
-
+        if (!mesa && total < pedidoMinimo) {
+          setAlerta({
+            titulo: "Pedido mínimo",
+            mensagem: `O pedido mínimo é de R$ ${pedidoMinimo.toFixed(2).replace(".", ",")}.`,
+          });
           return;
-
         }
 
 if (tipoPedido === "retirada") {
@@ -1237,14 +1119,6 @@ if (tipoPedido === "retirada") {
   return;
 }
 
-if (!cpfValido) {
-  setAlerta({
-    titulo: "CPF inválido",
-    mensagem:
-      "Informe um CPF válido para continuar.",
-  });
-  return;
-}
 
 if (!telefoneValido) {
   setAlerta({
@@ -1263,7 +1137,7 @@ if (!telefoneValido) {
 
           localStorage.setItem(
             "tipoPedido",
-            tipoPedido
+            mesa ? "mesa" : tipoPedido
           );
 
           if (tipoPedido === "retirada") {

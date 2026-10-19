@@ -60,11 +60,6 @@ async function carregarRestaurante() {
 
   if (!user) return
 
-  console.log(
-  "USER LOGADO:",
-  user.id
-)
-
   const {
     data: restaurante,
     error,
@@ -74,18 +69,7 @@ async function carregarRestaurante() {
     .eq("auth_user_id", user.id)
     .single()
 
-    console.log(
-  "RESTAURANTE ENCONTRADO:",
-  restaurante
-)
-
-console.log(
-  "ERRO RESTAURANTE:",
-  error
-)
-
-  if (error) {
-    console.log(error)
+    if (error) {
     return
   }
 
@@ -97,16 +81,6 @@ console.log(
   .select("*")
   .eq("restaurante_id", restaurante.id)
   .single()
-
-console.log(
-  "RESTAURANTE ID CARREGADO:",
-  restaurante.id
-)
-
-console.log(
-  "APARENCIA CARREGADA:",
-  aparencia
-)
 
 if (aparencia) {
 
@@ -254,8 +228,6 @@ if (!restauranteId) {
     .eq("restaurante_id", restauranteId)
 
 if (error) {
-  console.log(error)
-
   mostrarNotificacao(
     "erro",
     "Erro ao salvar horários",
@@ -475,24 +447,24 @@ return (
     )}
 
 
-    <div className="max-w-7xl mx-auto px-8 py-8">
+    <div className="max-w-5xl mx-auto">
 
-      <div className="mb-8">
-        <h1 className="text-5xl font-black text-zinc-900">
+      <div className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-black text-zinc-900">
           Horários de Funcionamento
         </h1>
 
-        <p className="text-zinc-600 mt-3 text-lg">
+        <p className="text-zinc-600 mt-2">
           Configure os horários que seu restaurante recebe pedidos.
         </p>
       </div>
 
       <div className="space-y-6">
 
-<div className="grid grid-cols-2 gap-6">
+<div className="grid gap-4 sm:gap-6 grid-cols-[repeat(auto-fit,minmax(min(100%,17rem),1fr))]">
 
   {/* STATUS ATUAL */}
-  <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
+  <div className="min-w-0 bg-white rounded-3xl border border-zinc-200 shadow-sm p-5 sm:p-8">
 
     <h2 className="text-xl font-bold text-zinc-900">
       Status Atual
@@ -540,21 +512,21 @@ return (
 
 
   {/* PRÓXIMA ABERTURA */}
-  <div className="bg-white rounded-3xl border border-zinc-200 shadow-sm p-8">
+  <div className="min-w-0 bg-white rounded-3xl border border-zinc-200 shadow-sm p-5 sm:p-8">
 
-    <div className="flex items-center gap-5">
+    <div className="flex items-center gap-4">
 
-      <div className="w-16 h-16 rounded-2xl bg-[#6D1F2F]/10 flex items-center justify-center text-3xl">
+      <div className="w-14 h-14 shrink-0 rounded-2xl bg-[#6D1F2F]/10 flex items-center justify-center text-2xl">
         📅
       </div>
 
-      <div>
+      <div className="min-w-0">
 
         <p className="text-zinc-500 text-sm">
           Próxima abertura
         </p>
 
-        <h2 className="text-3xl font-bold text-zinc-900">
+        <h2 className="text-lg sm:text-2xl font-bold text-zinc-900 break-words">
           {proximaAbertura}
         </h2>
 
@@ -568,7 +540,7 @@ return (
 
         {/* HORÁRIOS */}
 
-        <div className="bg-white border border-zinc-200 rounded-3xl p-8">
+        <div className="bg-white border border-zinc-200 rounded-3xl p-4 sm:p-8">
           <h2 className="text-xl font-bold text-zinc-900">
             Horários Semanais
           </h2>
@@ -764,7 +736,7 @@ return (
 
 <div
   key={dia.id}
-  className="grid grid-cols-[180px_170px_1fr] items-center gap-6 py-3 border-b border-zinc-100"
+  className="grid grid-cols-[1fr_auto] xl:grid-cols-[minmax(6rem,10rem)_9rem_minmax(0,1fr)] items-center gap-3 xl:gap-6 py-3 border-b border-zinc-100"
 >
 
   {/* DIA */}
@@ -820,7 +792,7 @@ return (
 
   {diasAtivos[dia.id as keyof typeof diasAtivos] ? (
 
-    <div className="flex items-center gap-3">
+    <div className="col-span-2 xl:col-span-1 flex items-center gap-3 min-w-0">
 
       <input
         type="time"
@@ -831,7 +803,7 @@ return (
             [dia.inicio]: e.target.value,
           })
         }
-        className="w-44 h-14 rounded-2xl border border-zinc-300 bg-white px-5 text-lg font-semibold text-zinc-900 shadow-sm"
+        className="flex-1 min-w-0 max-w-44 h-12 rounded-2xl border border-zinc-300 bg-white px-3 text-base font-semibold text-zinc-900 shadow-sm"
       />
 
       <span className="text-zinc-400">
@@ -847,14 +819,14 @@ return (
             [dia.fim]: e.target.value,
           })
         }
-        className="w-44 h-14 rounded-2xl border border-zinc-300 bg-white px-5 text-lg font-semibold text-zinc-900 shadow-sm"
+        className="flex-1 min-w-0 max-w-44 h-12 rounded-2xl border border-zinc-300 bg-white px-3 text-base font-semibold text-zinc-900 shadow-sm"
       />
 
     </div>
 
   ) : (
 
-    <div className="h-14 rounded-2xl border border-zinc-200 bg-zinc-100 flex items-center px-5 text-zinc-500">
+    <div className="col-span-2 xl:col-span-1 min-h-12 rounded-2xl border border-zinc-200 bg-zinc-100 flex items-center px-4 text-sm text-zinc-500">
 
       Restaurante fechado neste dia
 

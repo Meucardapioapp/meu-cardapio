@@ -1,476 +1,167 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { erroInterno, getDonoAutenticado, naoAutenticado } from "@/lib/server/auth";
+import { getDadosFinanceiros, salvarDadosFinanceiros } from "@/lib/server/recebedor";
+import { PagarmeError, pagarme } from "@/lib/server/pagarme";
+import { limitar } from "@/lib/server/rate-limit";
+import { validarCpfOuCnpj } from "@/lib/validacoes";
+import { SenhaInvalidaError, confirmarSenhaDoDono } from "@/lib/server/confirmar-senha";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
+/** "Maria Aparecida da Silva Santos Oliveira" → "Maria Oliveira" (máx. 30 letras). */
+function nomeCurto(nome: string, limite = 30) {
+  const limpo = nome.replace(/\s+/g, " ").trim();
+  if (limpo.length <= limite) return limpo;
 
-    const {
-      restauranteId,
-      cpfCnpj,
+  const partes = limpo.split(" ");
+  const curto = partes.length > 1 ? `${partes[0]} ${partes[partes.length - 1]}` : limpo;
+
+  return curto.slice(0, limite).trim();
+}
+
+/**
+ * Cria (ou atualiza a conta bancária do) recebedor Pagar.me
+ * do restaurante LOGADO. Nunca aceita o ID do restaurante do navegador.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const dono = await getDonoAutenticado(request);
+    if (!dono) return naoAutenticado();
+
+    if (!await limitar(request, "criar-recebedor", 10, 600)) {
+      return NextResponse.json(
+        { success: false, error: "Muitas tentativas. Aguarde alguns minutos." },
+        { status: 429 }
+      );
+    }
+
+    const { cpfCnpj, banco, agencia, conta, tipoConta, titular, senha } = await request.json();
+
+    // Trocar a conta que recebe o dinheiro exige a senha de novo.
+    try {
+      await confirmarSenhaDoDono(dono, senha);
+    } catch (e) {
+      if (e instanceof SenhaInvalidaError) {
+        return NextResponse.json({ success: false, error: e.message }, { status: e.status });
+      }
+      throw e;
+    }
+
+    const documento = String(cpfCnpj ?? "").replace(/\D/g, "");
+
+    if (!validarCpfOuCnpj(documento)) {
+      return NextResponse.json(
+        { success: false, error: "CPF ou CNPJ inválido." },
+        { status: 400 }
+      );
+    }
+
+    if (!banco || !agencia || !conta) {
+      return NextResponse.json(
+        { success: false, error: "Preencha banco, agência e conta." },
+        { status: 400 }
+      );
+    }
+
+    const [agenciaNumero, agenciaDv = ""] = String(agencia).split("-");
+    const [contaNumero, contaDv = "0"] = String(conta).split("-");
+    const tipoPessoa = documento.length === 11 ? "individual" : "company";
+    // A Pagar.me aceita no máximo 30 letras no nome: usa nome e sobrenome.
+    const nomeTitular = nomeCurto(
+      String(titular || dono.restaurante.nome_responsavel || dono.restaurante.nome_restaurante || "")
+    );
+
+    const contaBancaria = {
+      holder_name: nomeTitular,
+      holder_type: tipoPessoa,
+      holder_document: documento,
+      bank: String(banco).replace(/\D/g, "").padStart(3, "0"),
+      branch_number: agenciaNumero.replace(/\D/g, ""),
+      ...(agenciaDv ? { branch_check_digit: agenciaDv.replace(/\D/g, "") } : {}),
+      account_number: contaNumero.replace(/\D/g, ""),
+      account_check_digit: contaDv.replace(/\D/g, "") || "0",
+      type: tipoConta === "poupanca" ? "savings" : "checking",
+    };
+
+    const atual = await getDadosFinanceiros(dono.restaurante.id);
+    const soDigitos = (v: unknown) => String(v ?? "").replace(/\D/g, "");
+    const contaMudou =
+      !atual ||
+      soDigitos(atual.cpf_cnpj) !== documento ||
+      soDigitos(atual.banco) !== soDigitos(banco) ||
+      soDigitos(atual.agencia) !== soDigitos(agencia) ||
+      soDigitos(atual.conta) !== soDigitos(conta);
+    let recipientId = atual?.pagarme_recipient_id || "";
+    let recipientStatus = atual?.pagarme_status || "";
+
+    try {
+      if (recipientId) {
+        await pagarme(`/recipients/${recipientId}/default-bank-account`, {
+          method: "PATCH",
+          body: { bank_account: contaBancaria },
+        });
+      } else {
+        const novo = await pagarme<any>("/recipients", {
+          method: "POST",
+          idempotencyKey: `recebedor-${dono.restaurante.id}`,
+          body: {
+            name: nomeTitular,
+            email: dono.restaurante.email || dono.email,
+            document: documento,
+            type: tipoPessoa,
+            default_bank_account: contaBancaria,
+            metadata: { restaurante_id: dono.restaurante.id },
+          },
+        });
+
+        recipientId = novo.id;
+        recipientStatus = novo.status || "";
+      }
+    } catch (e) {
+      if (e instanceof PagarmeError) {
+        return NextResponse.json(
+          { success: false, error: e.message || "A Pagar.me recusou os dados bancários." },
+          { status: 400 }
+        );
+      }
+      throw e;
+    }
+
+    try {
+      await pagarme(`/recipients/${recipientId}/transfer-settings`, {
+        method: "PATCH",
+        body: { transfer_enabled: true, transfer_interval: "daily", transfer_day: 0 },
+      });
+    } catch (e) {
+      console.error("[criar-recebedor] transfer-settings", e);
+    }
+
+    await salvarDadosFinanceiros(dono.restaurante.id, {
+      cpf_cnpj: cpfCnpj,
       banco,
       agencia,
       conta,
-      tipoConta,
-    } = body;
+      tipo_conta: tipoConta,
+      digito_agencia: agenciaDv || null,
+      digito_conta: contaDv || null,
+      pagarme_recipient_id: recipientId,
+      pagarme_status: recipientStatus,
+    });
 
-    // =====================================================
-    // SEPARAR AGÊNCIA E DÍGITO
-    // =====================================================
-
-    const agenciaPartes = agencia.split("-");
-
-    const agenciaNumero =
-      agenciaPartes[0] || "";
-
-    const agenciaDv =
-      agenciaPartes[1] || "0";
-
-    // =====================================================
-    // SEPARAR CONTA E DÍGITO
-    // =====================================================
-
-    const contaPartes = conta.split("-");
-
-    const contaNumero =
-      contaPartes[0] || "";
-
-    const contaDv =
-      contaPartes[1] || "0";
-
-    // =====================================================
-    // DOCUMENTO
-    // =====================================================
-
-    const documentoLimpo =
-      cpfCnpj.replace(/\D/g, "");
-
-    const tipoPessoa =
-      documentoLimpo.length === 11
-        ? "individual"
-        : "company";
-
-    // =====================================================
-    // VALIDAR RESTAURANTE
-    // =====================================================
-
-    if (!restauranteId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Restaurante não informado",
-        },
-        {
-          status: 400,
-        }
-      );
+    // Saques ficam travados por 24 h depois de trocar a conta (anti-fraude).
+    if (contaMudou) {
+      const { error: erroTrava } = await supabaseAdmin
+        .from("restaurantes_financeiro")
+        .update({ conta_alterada_em: new Date().toISOString() })
+        .eq("restaurante_id", dono.restaurante.id);
+      if (erroTrava) console.error("[criar-recebedor] trava de saque", erroTrava.message);
+      console.warn(`[seguranca] conta bancária alterada: restaurante ${dono.restaurante.id}`);
     }
-
-    // =====================================================
-    // BUSCAR RESTAURANTE NO SUPABASE
-    // =====================================================
-
-    const {
-      data: restaurante,
-      error: restauranteError,
-    } = await supabaseAdmin
-      .from("restaurantes")
-      .select("*")
-      .eq("id", restauranteId)
-      .single();
-
-    if (
-      restauranteError ||
-      !restaurante
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Restaurante não encontrado",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    if (!process.env.PAGARME_SECRET_KEY) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Chave da Pagar.me não configurada",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    const authorization =
-      "Basic " +
-      Buffer.from(
-        process.env.PAGARME_SECRET_KEY + ":"
-      ).toString("base64");
-
-    // =====================================================
-    // VARIÁVEIS QUE SERÃO UTILIZADAS DEPOIS
-    // =====================================================
-
-    let recipientId =
-      restaurante.pagarme_recipient_id || "";
-
-    let recipientStatus =
-      restaurante.pagarme_status || "";
-
-    // =====================================================
-    // CASO 1:
-    // RESTAURANTE JÁ POSSUI RECIPIENT
-    //
-    // NÃO CRIA OUTRO.
-    // SOMENTE ATUALIZA A CONTA BANCÁRIA.
-    // =====================================================
-
-    if (recipientId) {
-      console.log(
-        "RECIPIENT JÁ EXISTE:",
-        recipientId
-      );
-
-      console.log(
-        "ATUALIZANDO CONTA BANCÁRIA..."
-      );
-
-      const responseAtualizarConta =
-        await fetch(
-          `https://api.pagar.me/core/v5/recipients/${recipientId}/default-bank-account`,
-          {
-            method: "PATCH",
-
-            headers: {
-              Authorization:
-                authorization,
-
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              bank_account: {
-                holder_name:
-                  restaurante.nome_responsavel,
-
-                holder_type:
-                  tipoPessoa,
-
-                holder_document:
-                  documentoLimpo,
-
-                bank:
-                  banco,
-
-                branch_number:
-                  agenciaNumero,
-
-                branch_check_digit:
-                  agenciaDv,
-
-                account_number:
-                  contaNumero,
-
-                account_check_digit:
-                  contaDv,
-
-                type:
-                  tipoConta === "poupanca"
-                    ? "savings"
-                    : "checking",
-              },
-            }),
-          }
-        );
-
-      const resultadoAtualizacao =
-        await responseAtualizarConta.json();
-
-      console.log(
-        "RESPOSTA ATUALIZAÇÃO CONTA:",
-        resultadoAtualizacao
-      );
-
-      if (!responseAtualizarConta.ok) {
-        return NextResponse.json(
-          {
-            success: false,
-
-            error:
-              resultadoAtualizacao?.message ||
-              "Erro ao atualizar conta bancária",
-
-            details:
-              resultadoAtualizacao,
-          },
-          {
-            status:
-              responseAtualizarConta.status,
-          }
-        );
-      }
-
-      // IMPORTANTE:
-      // recipientId NÃO É ALTERADO.
-      //
-      // O restaurante continua usando
-      // exatamente o mesmo recipient.
-    }
-
-    // =====================================================
-    // CASO 2:
-    // RESTAURANTE AINDA NÃO POSSUI RECIPIENT
-    //
-    // SOMENTE NESSE CASO CRIA UM NOVO.
-    // =====================================================
-
-    else {
-      console.log(
-        "RESTAURANTE SEM RECIPIENT."
-      );
-
-      console.log(
-        "CRIANDO NOVO RECIPIENT..."
-      );
-
-      const responseCriarRecipient =
-        await fetch(
-          "https://api.pagar.me/core/v5/recipients",
-          {
-            method: "POST",
-
-            headers: {
-              Authorization:
-                authorization,
-
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              name:
-                restaurante.nome_responsavel,
-
-              email:
-                restaurante.email,
-
-              document:
-                documentoLimpo,
-
-              type:
-                tipoPessoa,
-
-              default_bank_account: {
-                holder_name:
-                  restaurante.nome_responsavel,
-
-                holder_type:
-                  tipoPessoa,
-
-                holder_document:
-                  documentoLimpo,
-
-                bank:
-                  banco,
-
-                branch_number:
-                  agenciaNumero,
-
-                branch_check_digit:
-                  agenciaDv,
-
-                account_number:
-                  contaNumero,
-
-                account_check_digit:
-                  contaDv,
-
-                type:
-                  tipoConta === "poupanca"
-                    ? "savings"
-                    : "checking",
-              },
-            }),
-          }
-        );
-
-      const novoRecipient =
-        await responseCriarRecipient.json();
-
-      console.log(
-        "NOVO RECIPIENT:",
-        novoRecipient
-      );
-
-      if (!responseCriarRecipient.ok) {
-        return NextResponse.json(
-          {
-            success: false,
-
-            error:
-              novoRecipient?.message ||
-              "Erro ao criar recipient",
-
-            details:
-              novoRecipient,
-          },
-          {
-            status:
-              responseCriarRecipient.status,
-          }
-        );
-      }
-
-      // SOMENTE AQUI O ID MUDA,
-      // POIS O RESTAURANTE NÃO POSSUÍA RECIPIENT.
-
-      recipientId =
-        novoRecipient.id;
-
-      recipientStatus =
-        novoRecipient.status || "";
-    }
-
-    // =====================================================
-    // CONFIGURAR TRANSFERÊNCIAS
-    // =====================================================
-
-    const responseTransferSettings =
-      await fetch(
-        `https://api.pagar.me/core/v5/recipients/${recipientId}/transfer-settings`,
-        {
-          method: "PATCH",
-
-          headers: {
-            Authorization:
-              authorization,
-
-            "Content-Type":
-              "application/json",
-          },
-
-          body: JSON.stringify({
-            transfer_enabled: true,
-            transfer_interval: "daily",
-            transfer_day: 0,
-          }),
-        }
-      );
-
-    const transferSettings =
-      await responseTransferSettings.json();
-
-    console.log(
-      "TRANSFER SETTINGS:",
-      transferSettings
-    );
-
-    if (!responseTransferSettings.ok) {
-      console.error(
-        "Erro ao configurar transferência:",
-        transferSettings
-      );
-    }
-
-    // =====================================================
-    // SALVAR DADOS NO SUPABASE
-    // =====================================================
-
-    const {
-      error: updateError,
-    } = await supabaseAdmin
-      .from("restaurantes")
-      .update({
-        cpf_cnpj:
-          cpfCnpj,
-
-        banco:
-          banco,
-
-        agencia:
-          agencia,
-
-        conta:
-          conta,
-
-        tipo_conta:
-          tipoConta,
-
-        // IMPORTANTE:
-        //
-        // Se já existia recipient,
-        // este ID continua exatamente igual.
-
-        pagarme_recipient_id:
-          recipientId,
-
-        pagarme_status:
-          recipientStatus,
-
-        digito_agencia:
-          agenciaDv,
-
-        digito_conta:
-          contaDv,
-      })
-      .eq(
-        "id",
-        restauranteId
-      );
-
-    if (updateError) {
-      console.error(
-        "ERRO AO ATUALIZAR SUPABASE:",
-        updateError
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Erro ao salvar dados bancários",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    // =====================================================
-    // SUCESSO
-    // =====================================================
 
     return NextResponse.json({
       success: true,
-
-      recipientId,
-
-      recipientNovo:
-        !restaurante.pagarme_recipient_id,
+      recipientNovo: !atual?.pagarme_recipient_id,
     });
-
-  } catch (error: any) {
-    console.error(
-      "ERRO CRIAR/ATUALIZAR RECEBEDOR:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          error.message,
-      },
-      {
-        status: 500,
-      }
-    );
+  } catch (error) {
+    return erroInterno("criar-recebedor", error);
   }
 }

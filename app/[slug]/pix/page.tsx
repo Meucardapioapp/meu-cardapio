@@ -31,6 +31,7 @@ import {
 import { QRCodeCanvas } from "qrcode.react";
 
 import { supabase } from "@/lib/supabase";
+import { lerRestaurantePublico } from "@/lib/restaurantePublico";
 
 function PixContent() {
   const params = useParams();
@@ -40,6 +41,7 @@ function PixContent() {
 
   const qrCode = searchParams.get("qr");
   const pedidoId = searchParams.get("id");
+  const codigoPedido = searchParams.get("c") || "";
 
   const codigoPix = useMemo(() => {
     if (!qrCode) return "";
@@ -73,11 +75,7 @@ const [nomeRestaurante, setNomeRestaurante] =
     try {
       const {
         data: restaurante,
-      } = await supabase
-        .from("restaurantes")
-        .select("*")
-        .eq("slug", slug)
-        .single();
+      } = await lerRestaurantePublico((tabela) => supabase.from(tabela).select("*").eq("slug", slug).single());
 
       if (!restaurante) return;
 
@@ -133,7 +131,7 @@ const [nomeRestaurante, setNomeRestaurante] =
     const intervalo = setInterval(async () => {
       try {
         const response = await fetch(
-          `/api/pedido-status?id=${pedidoId}`
+          `/api/pedido-status?id=${pedidoId}&c=${codigoPedido}`
         );
 
         const data =
@@ -155,7 +153,7 @@ if (
 
   setTimeout(() => {
     window.location.href =
-      `/${slug}/pedido-aprovado?id=${pedidoId}`;
+      `/${slug}/pedido-aprovado?id=${pedidoId}&c=${codigoPedido}`;
   }, 1000);
 }
       } catch {}

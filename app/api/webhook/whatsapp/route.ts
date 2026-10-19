@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const VERIFY_TOKEN = "meucardapioapp";
+const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+  if (VERIFY_TOKEN && mode === "subscribe" && token === VERIFY_TOKEN) {
     return new NextResponse(challenge, { status: 200 });
   }
 
@@ -20,10 +20,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-
-  console.log("Webhook WhatsApp:");
-  console.log(JSON.stringify(body, null, 2));
+  // Integração do WhatsApp ainda não implementada: apenas confirma o recebimento.
+  await req.text();
 
   return NextResponse.json({ received: true });
 }

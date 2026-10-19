@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { esquemaEndereco, primeiroErro } from "@/lib/esquemas";
+import { tokenDoCliente } from "@/lib/server/cliente-token";
+import { limitar } from "@/lib/server/rate-limit";
 
 export async function GET(req: Request) {
   try {
+    if (!(await limitar(req, "cliente-enderecos", 60, 60))) {
+      return NextResponse.json({ success: false, error: "Muitas tentativas. Aguarde um pouco." }, { status: 429 });
+    }
+
     const { searchParams } = new URL(req.url);
 
-    const token = searchParams.get("token");
+    const token = tokenDoCliente(req);
 
     if (!token) {
       return NextResponse.json({
@@ -37,7 +44,7 @@ export async function GET(req: Request) {
     if (error) {
       return NextResponse.json({
         success: false,
-        error: error.message,
+        error: "Erro ao salvar. Tente novamente.",
       });
     }
 
@@ -48,14 +55,24 @@ export async function GET(req: Request) {
   } catch (err: any) {
     return NextResponse.json({
       success: false,
-      error: err.message,
+      error: "Erro ao salvar. Tente novamente.",
     });
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    if (!(await limitar(req, "cliente-enderecos", 60, 60))) {
+      return NextResponse.json({ success: false, error: "Muitas tentativas. Aguarde um pouco." }, { status: 429 });
+    }
+
+    const validacao = esquemaEndereco.safeParse(await req.json());
+
+    if (!validacao.success) {
+      return NextResponse.json({ success: false, error: primeiroErro(validacao.error) }, { status: 400 });
+    }
+
+    const body = validacao.data;
 
     const {
       token,
@@ -119,7 +136,7 @@ export async function POST(req: Request) {
     if (error) {
       return NextResponse.json({
         success: false,
-        error: error.message,
+        error: "Erro ao salvar. Tente novamente.",
       });
     }
 
@@ -130,7 +147,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     return NextResponse.json({
       success: false,
-      error: err.message,
+      error: "Erro ao salvar. Tente novamente.",
     });
   }
 
@@ -138,7 +155,17 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const body = await req.json();
+    if (!(await limitar(req, "cliente-enderecos", 60, 60))) {
+      return NextResponse.json({ success: false, error: "Muitas tentativas. Aguarde um pouco." }, { status: 429 });
+    }
+
+    const validacao = esquemaEndereco.safeParse(await req.json());
+
+    if (!validacao.success) {
+      return NextResponse.json({ success: false, error: primeiroErro(validacao.error) }, { status: 400 });
+    }
+
+    const body = validacao.data;
 
     const {
       token,
@@ -204,7 +231,7 @@ export async function PUT(req: Request) {
     if (error) {
       return NextResponse.json({
         success: false,
-        error: error.message,
+        error: "Erro ao salvar. Tente novamente.",
       });
     }
 
@@ -215,16 +242,20 @@ export async function PUT(req: Request) {
   } catch (err: any) {
     return NextResponse.json({
       success: false,
-      error: err.message,
+      error: "Erro ao salvar. Tente novamente.",
     });
   }
 }
 
 export async function DELETE(req: Request) {
   try {
+    if (!(await limitar(req, "cliente-enderecos", 60, 60))) {
+      return NextResponse.json({ success: false, error: "Muitas tentativas. Aguarde um pouco." }, { status: 429 });
+    }
+
     const { searchParams } = new URL(req.url);
 
-    const token = searchParams.get("token");
+    const token = tokenDoCliente(req);
     const id = searchParams.get("id");
 
     if (!token || !id) {
@@ -256,7 +287,7 @@ export async function DELETE(req: Request) {
     if (error) {
       return NextResponse.json({
         success: false,
-        error: error.message,
+        error: "Erro ao salvar. Tente novamente.",
       });
     }
 
@@ -266,7 +297,7 @@ export async function DELETE(req: Request) {
   } catch (err: any) {
     return NextResponse.json({
       success: false,
-      error: err.message,
+      error: "Erro ao salvar. Tente novamente.",
     });
   }
 }

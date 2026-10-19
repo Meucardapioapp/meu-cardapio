@@ -58,7 +58,12 @@ export default function FAQDesktop() {
             {
               question: "Posso cancelar quando eu quiser?",
               answer:
-                "Sim, Você pode cancelar quando quiser.",
+                "Sim. Você cancela pelo painel, sem multa, e continua usando até o fim do período pago.",
+            },
+            {
+              question: "Quanto custa?",
+              answer:
+                "15 dias grátis, sem cartão. Depois R$ 79,90 por mês, tudo incluído e sem taxa por pedido. No Pix online automático há 1% por Pix recebido.",
             },
           ].map((item) => (
             <div
