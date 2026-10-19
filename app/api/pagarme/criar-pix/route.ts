@@ -178,8 +178,32 @@ export async function POST(request: NextRequest) {
     const transacao = order?.charges?.[0]?.last_transaction;
 
     if (!transacao?.qr_code) {
+      // A Pagar.me criou o pedido mas recusou a cobrança: registra o motivo
+      // (sem dados do cliente) para aparecer nos Logs da Vercel.
+      const cobranca = order?.charges?.[0];
+      const motivos = (transacao?.gateway_response?.errors ?? [])
+        .map((e: any) => String(e?.message ?? "").slice(0, 200))
+        .filter(Boolean);
+      console.error(
+        "[criar-pix] cobrança recusada",
+        JSON.stringify({
+          pedido: pedido.id,
+          order_status: order?.status,
+          charge_status: cobranca?.status,
+          transacao_status: transacao?.status,
+          gateway_code: transacao?.gateway_response?.code,
+          motivos,
+          recebedor: recipientId,
+        })
+      );
+
       return NextResponse.json(
-        { success: false, error: "Não foi possível gerar o Pix. Tente novamente." },
+        {
+          success: false,
+          error: motivos.length
+            ? `A Pagar.me recusou o Pix: ${motivos[0]}`
+            : "Não foi possível gerar o Pix. Tente novamente.",
+        },
         { status: 502 }
       );
     }

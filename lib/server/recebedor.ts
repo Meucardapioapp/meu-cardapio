@@ -57,8 +57,39 @@ export async function getDadosFinanceiros(
 }
 
 export async function getRecebedorId(restauranteId: string) {
-  const dados = await getDadosFinanceiros(restauranteId);
-  return dados?.pagarme_recipient_id || null;
+  const dados = await getDadosFinanceiros(restauranteId).catch((e) => {
+    console.error("[recebedor] falha ao ler restaurantes_financeiro", e?.message ?? e);
+    return null;
+  });
+  const novo = dados?.pagarme_recipient_id || null;
+
+  // A versão antiga do painel gravava o recebedor na tabela restaurantes.
+  // Se lá existir um recebedor diferente (mais recente), ele vale e é copiado
+  // para a tabela protegida.
+  const antigo = await recebedorDaVersaoAntiga(restauranteId);
+  if (antigo && antigo !== novo) {
+    salvarDadosFinanceiros(restauranteId, { pagarme_recipient_id: antigo }).catch((e) =>
+      console.error("[recebedor] falha ao copiar recebedor da versão antiga", e?.message ?? e)
+    );
+    return antigo;
+  }
+
+  return novo;
+}
+
+async function recebedorDaVersaoAntiga(restauranteId: string) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("restaurantes")
+      .select("pagarme_recipient_id")
+      .eq("id", restauranteId)
+      .maybeSingle();
+    if (error || !data) return null; // coluna já removida: ok
+    const id = String((data as any).pagarme_recipient_id || "").trim();
+    return /^re_[A-Za-z0-9]+$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function salvarDadosFinanceiros(
