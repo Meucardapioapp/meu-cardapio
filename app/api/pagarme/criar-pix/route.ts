@@ -197,12 +197,23 @@ export async function POST(request: NextRequest) {
         })
       );
 
+      // "Recipient not found": descobre qual dos dois recebedores está errado (vai para os Logs).
+      if (motivos.some((m: string) => /recipient/i.test(m))) {
+        const conferir = async (nome: string, id: string) => {
+          try {
+            await pagarme(`/recipients/${id}`);
+          } catch (e: any) {
+            console.error(`[criar-pix] recebedor ${nome} não existe nesta conta Pagar.me: ${id} (${e?.status ?? "?"})`);
+          }
+        };
+        await Promise.all([conferir("do restaurante", recipientId), conferir("da plataforma (PAGARME_PLATFORM_RECIPIENT_ID)", recebedorPlataforma())]);
+      }
+
       return NextResponse.json(
         {
           success: false,
-          error: motivos.length
-            ? `A Pagar.me recusou o Pix: ${motivos[0]}`
-            : "Não foi possível gerar o Pix. Tente novamente.",
+          // O cliente não precisa ver o erro técnico: ele está nos Logs.
+          error: "O Pix online deste restaurante está indisponível agora. Escolha outra forma de pagamento.",
         },
         { status: 502 }
       );

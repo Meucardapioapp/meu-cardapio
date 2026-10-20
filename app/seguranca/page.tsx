@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/utils/apiFetch";
+import { comprimirImagem } from "@/lib/imagem";
 
 type Item = { grupo: string; nome: string; ok: boolean; detalhe: string; acao?: "criptografar" };
 
@@ -114,7 +115,96 @@ export default function SegurancaPage() {
             </button>
           </>
         )}
+
+        {itens && <OtimizarFotos />}
       </div>
     </main>
+  );
+}
+
+/** Deixa leves as fotos que os restaurantes já tinham enviado (cardápio abre mais rápido). */
+function OtimizarFotos() {
+  const [estado, setEstado] = useState<"parado" | "rodando" | "fim">("parado");
+  const [progresso, setProgresso] = useState({ feitas: 0, total: 0, trocadas: 0, economia: 0, falhas: 0 });
+
+  async function rodar() {
+    setEstado("rodando");
+    const d = await apiFetch("/api/plataforma/fotos").then((r) => r.json()).catch(() => null);
+    const fotos: { tabela: string; campo: string; chave: string; url: string }[] = d?.fotos ?? [];
+    const p = { feitas: 0, total: fotos.length, trocadas: 0, economia: 0, falhas: 0 };
+    setProgresso({ ...p });
+
+    let i = 0;
+    async function trabalhar() {
+      while (i < fotos.length) {
+        const f = fotos[i++];
+        try {
+          const original = await fetch(f.url, { mode: "cors", cache: "no-store" }).then((r) => {
+            if (!r.ok) throw new Error(String(r.status));
+            return r.blob();
+          });
+          // Já está leve: deixa como está.
+          if (original.size > 180 * 1024) {
+            const leve = await comprimirImagem(original, {
+              maxLado: f.campo === "banner_url" ? 1600 : f.campo === "logo_url" ? 512 : 1200,
+              qualidade: f.campo === "logo_url" ? 0.85 : 0.78,
+            });
+            if (leve.size < original.size * 0.8 && /webp|jpeg/.test(leve.type)) {
+              const form = new FormData();
+              form.set("tabela", f.tabela);
+              form.set("campo", f.campo);
+              form.set("chave", f.chave);
+              form.set("url", f.url);
+              form.set("arquivo", leve);
+              const r = await apiFetch("/api/plataforma/fotos", { method: "POST", body: form }).then((x) => x.json());
+              if (r?.success && !r.pulada) {
+                p.trocadas++;
+                p.economia += original.size - leve.size;
+              } else if (!r?.success) p.falhas++;
+            }
+          }
+        } catch {
+          p.falhas++;
+        }
+        p.feitas++;
+        setProgresso({ ...p });
+      }
+    }
+    await Promise.all([trabalhar(), trabalhar(), trabalhar()]);
+    setEstado("fim");
+  }
+
+  const mb = (b: number) => (b / 1024 / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+
+  return (
+    <section className="mt-10 rounded-2xl bg-white border p-5">
+      <h2 className="text-lg font-bold text-zinc-900">Fotos dos cardápios</h2>
+      <p className="mt-1 text-sm text-zinc-500">
+        Diminui as fotos de produtos, logos e banners que já foram enviadas sem compressão. O cardápio abre bem mais rápido no 4G.
+        As fotos originais continuam guardadas. Deixe esta aba aberta até terminar.
+      </p>
+      {estado !== "parado" && (
+        <div className="mt-4">
+          <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
+            <div
+              className="h-full rounded-full bg-[#6D1F2F] transition-all"
+              style={{ width: `${progresso.total ? (progresso.feitas / progresso.total) * 100 : 0}%` }}
+            />
+          </div>
+          <p className="mt-2 text-sm text-zinc-600">
+            {progresso.feitas} de {progresso.total} conferidas · {progresso.trocadas} otimizadas · {mb(progresso.economia)} MB a menos
+            {progresso.falhas ? ` · ${progresso.falhas} com erro` : ""}
+          </p>
+        </div>
+      )}
+      <button
+        onClick={rodar}
+        disabled={estado === "rodando"}
+        className="mt-4 h-11 px-5 rounded-xl bg-[#6D1F2F] text-white text-sm font-bold disabled:opacity-60 inline-flex items-center gap-2"
+      >
+        {estado === "rodando" && <Loader2 size={16} className="animate-spin" />}
+        {estado === "rodando" ? "Otimizando..." : estado === "fim" ? "Rodar de novo" : "Deixar fotos leves"}
+      </button>
+    </section>
   );
 }

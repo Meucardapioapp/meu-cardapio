@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import EditProfile from "./customer/EditProfile";
 import EditAddresses from "./customer/EditAddresses";
 import LoginCustomer from "./customer/LoginCustomer";
+import { reais } from "@/lib/dinheiro";
 import {
   User,
   Phone,
@@ -22,11 +23,32 @@ import {
 type Props = {
   open: boolean;
   onClose: () => void;
+  /** Abre já rolado até "Últimos pedidos". */
+  foco?: "pedidos";
+  /** Monta o carrinho com os itens de um pedido antigo. */
+  onPedirDeNovo?: (pedido: any) => void;
+  /** "Conta": esconde a lista de pedidos (ela tem a aba própria). */
+  semPedidos?: boolean;
+  onVerPedidos?: () => void;
+};
+
+const NOME_STATUS: Record<string, string> = {
+  pendente: "Recebido",
+  aceito: "Em preparo",
+  entrega: "Saiu para entrega",
+  pronto: "Pronto",
+  concluido: "Entregue",
+  recusado: "Recusado",
+  cancelado: "Cancelado",
 };
 
 export default function CustomerArea({
   open,
   onClose,
+  foco,
+  onPedirDeNovo,
+  semPedidos = false,
+  onVerPedidos,
 }: Props) {
     const router = useRouter();
     const pathname = usePathname();
@@ -126,8 +148,13 @@ localStorage.removeItem(
     });
   }, [dados]);
 
-  if (!open) return null;
+  useEffect(() => {
+    if (!open || foco !== "pedidos" || loading || !dados) return;
+    const t = setTimeout(() => document.getElementById("meus-pedidos")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    return () => clearTimeout(t);
+  }, [open, foco, loading, dados]);
 
+  if (!open) return null;
   return (
     <>
       {/* Overlay */}
@@ -184,7 +211,7 @@ localStorage.removeItem(
               </h1>
 
               <p className="text-sm text-zinc-500 mt-1">
-                Seus pedidos, endereços e informações.
+                Seus dados, endereços e fidelidade.
               </p>
 
             </div>
@@ -570,11 +597,27 @@ a cada quantidade de pedidos.
 
 </div>
 
+{semPedidos ? (
+  onVerPedidos && (
+    <button
+      type="button"
+      onClick={onVerPedidos}
+      className="mt-8 flex w-full items-center justify-between rounded-2xl border border-zinc-200 bg-white px-5 py-4 text-left"
+    >
+      <span>
+        <span className="block font-bold">Meus pedidos</span>
+        <span className="block text-sm text-zinc-500">{totalPedidos} {totalPedidos === 1 ? "pedido" : "pedidos"} · acompanhar e pedir de novo</span>
+      </span>
+      <span className="text-xl text-zinc-400">›</span>
+    </button>
+  )
+) : (
+<>
 {/* ===========================
       ÚLTIMOS PEDIDOS
 =========================== */}
 
-<div className="mt-8">
+<div className="mt-8 scroll-mt-24" id="meus-pedidos">
 
   <div className="flex items-center justify-between mb-5">
 
@@ -615,7 +658,7 @@ a cada quantidade de pedidos.
       {dados.pedidos.map((pedido: any) => {
 
         const status =
-          pedido.status || "Recebido";
+          NOME_STATUS[String(pedido.status)] || pedido.status || "Recebido";
 
         const statusColor =
           status === "Entregue"
@@ -649,7 +692,7 @@ a cada quantidade de pedidos.
                 </p>
 
                 <h3 className="text-xl font-black">
-                  #{pedido.id}
+                  #{pedido.numero_pedido ?? pedido.id}
                 </h3>
 
               </div>
@@ -702,13 +745,7 @@ a cada quantidade de pedidos.
 
                 <p className="font-black text-lg mt-1">
 
-                  R${" "}
-
-                  {Number(
-                    pedido.total_pago ||
-                    pedido.total ||
-                    0
-                  ).toFixed(2)}
+                  {reais(pedido.total_pago || pedido.total || 0)}
 
                 </p>
 
@@ -716,6 +753,16 @@ a cada quantidade de pedidos.
 
             </div>
 
+{onPedirDeNovo && Array.isArray(pedido.itens) && pedido.itens.length > 0 && (
+  <button
+    type="button"
+    onClick={() => onPedirDeNovo(pedido)}
+    className="mt-6 w-full h-12 rounded-2xl text-white font-semibold"
+    style={{ backgroundColor: "var(--primary-color, #18181b)" }}
+  >
+    Pedir de novo
+  </button>
+)}
 <button
   onClick={() => {
 
@@ -755,6 +802,9 @@ a cada quantidade de pedidos.
   )}
 
 </div>
+
+</>
+)}
 
 {/* ===========================
       ENDEREÇOS

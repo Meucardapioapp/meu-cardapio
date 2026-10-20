@@ -67,3 +67,50 @@ export function lojaAbertaAgora(aparencia: Record<string, any> | null | undefine
 
   return false;
 }
+
+const NOMES_DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+
+function hhmm(minutos: number) {
+  const m = ((minutos % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Situação da loja para mostrar ao cliente, sempre no fuso do restaurante
+ * (o celular do cliente pode estar em outro fuso).
+ */
+export function statusDaLoja(aparencia: Record<string, any> | null | undefined, agora: Agora) {
+  if (!aparencia) return { aberta: false, texto: "", fechaAs: "", proximaAbertura: "" };
+
+  const aberta = lojaAbertaAgora(aparencia, agora);
+  let fechaAs = "";
+  if (aberta) {
+    const hoje = janela(aparencia, agora.dia);
+    const ontem = janela(aparencia, (agora.dia + 6) % 7);
+    if (hoje && (hoje.fim > hoje.inicio ? agora.minutos <= hoje.fim : agora.minutos >= hoje.inicio)) fechaAs = hhmm(hoje.fim);
+    else if (ontem) fechaAs = hhmm(ontem.fim);
+  }
+
+  let proximaAbertura = "";
+  if (!aberta) {
+    const hoje = janela(aparencia, agora.dia);
+    if (hoje && agora.minutos < hoje.inicio) proximaAbertura = `hoje às ${hhmm(hoje.inicio)}`;
+    else {
+      for (let i = 1; i <= 7; i++) {
+        const dia = (agora.dia + i) % 7;
+        const j = janela(aparencia, dia);
+        if (j) {
+          proximaAbertura = i === 1 ? `amanhã às ${hhmm(j.inicio)}` : `${NOMES_DIAS[dia]} às ${hhmm(j.inicio)}`;
+          break;
+        }
+      }
+    }
+  }
+
+  return {
+    aberta,
+    texto: aberta ? "Aberto agora" : proximaAbertura ? `Fechado · abre ${proximaAbertura}` : "Fechado",
+    fechaAs,
+    proximaAbertura,
+  };
+}

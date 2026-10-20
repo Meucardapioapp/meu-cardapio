@@ -1,44 +1,44 @@
-"use client"
+"use client";
 
-import {
-  useEffect,
-  useState,
-} from "react"
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Minus, Plus, X } from "lucide-react";
+import type { ProdutoFormatado } from "../types";
+import { normalizarRegra, precosEfetivos } from "@/lib/precos";
+import { precoAPartirDe, reais } from "@/lib/dinheiro";
 
-import { supabase } from "../../lib/supabase"
-
-
-type Adicional = {
-  nome: string
-  preco: number
-}
-
-import type { ProdutoFormatado } from "../types"
-import { normalizarRegra, precosEfetivos } from "@/lib/precos"
-
+type Adicional = { id?: string; nome: string; preco: number };
 
 type ObrigatorioSelecionado = {
+  id?: string;
   grupo: string;
   nome: string;
+  descricao?: string;
   preco: number;
 };
 
 type Props = {
-  open: boolean
+  open: boolean;
+  onClose: () => void;
+  product: ProdutoFormatado | null;
+  corPrincipal: string;
+  onAdd: (
+    produto: ProdutoFormatado,
+    observation?: string,
+    adicionaisSelecionados?: Adicional[],
+    obrigatoriosSelecionados?: ObrigatorioSelecionado[],
+    quantidade?: number
+  ) => void;
+  /** Loja fechada: o cliente vê o produto, mas não adiciona. */
+  bloqueado?: string;
+  /** "Combina com": outros produtos para levar junto. */
+  sugestoes?: ProdutoFormatado[];
+  onEscolherSugestao?: (produto: ProdutoFormatado) => void;
+};
 
-  onClose: () => void
-
-  product: ProdutoFormatado | null
-
-  corPrincipal: string
-
-
-onAdd: (
-  produto: ProdutoFormatado,
-  observation?: string,
-  adicionaisSelecionados?: Adicional[],
-  obrigatoriosSelecionados?: ObrigatorioSelecionado[]
-) => void
+/** Produto que vai direto para o carrinho (sem nada para escolher). */
+export function semEscolhas(produto: any) {
+  const grupos = (produto?.gruposObrigatorios ?? []).filter((g: any) => (g?.grupo_obrigatorio_opcoes ?? []).length > 0);
+  return grupos.length === 0 && (produto?.adicionais ?? []).length === 0;
 }
 
 export default function ProductModal({
@@ -47,834 +47,434 @@ export default function ProductModal({
   product,
   onAdd,
   corPrincipal,
+  bloqueado,
+  sugestoes = [],
+  onEscolherSugestao,
 }: Props) {
+  const [observacao, setObservacao] = useState("");
+  const [adicionais, setAdicionais] = useState<Adicional[]>([]);
+  const [escolhas, setEscolhas] = useState<Record<string, string[]>>({});
+  const [quantidade, setQuantidade] = useState(1);
+  const [faltando, setFaltando] = useState<string | null>(null);
+  // "Combina com": itens marcados entram junto no carrinho (e no total).
+  const [extras, setExtras] = useState<Record<string, number>>({});
+  const corpoRef = useRef<HTMLDivElement>(null);
+  const grupoRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const fecharRef = useRef(onClose);
+  fecharRef.current = onClose;
 
- 
+  // Trava a rolagem da página por trás.
+  useEffect(() => {
+    if (!open) return;
+    const y = window.scrollY;
+    const s = document.body.style;
+    s.position = "fixed";
+    s.top = `-${y}px`;
+    s.left = "0";
+    s.right = "0";
+    s.width = "100%";
+    const fecharNoEsc = (e: KeyboardEvent) => e.key === "Escape" && fecharRef.current();
+    window.addEventListener("keydown", fecharNoEsc);
+    return () => {
+      s.position = "";
+      s.top = "";
+      s.left = "";
+      s.right = "";
+      s.width = "";
+      window.removeEventListener("keydown", fecharNoEsc);
+      window.scrollTo(0, y);
+    };
+  }, [open]);
 
+  // Produto novo: zera as escolhas.
+  useEffect(() => {
+    if (!open || !product) return;
+    setObservacao("");
+    setAdicionais([]);
+    setEscolhas({});
+    setQuantidade(1);
+    setFaltando(null);
+    setExtras({});
+    corpoRef.current?.scrollTo({ top: 0 });
+  }, [open, product]);
 
-  const lightMode = true
+  const grupos = useMemo(
+    () =>
+      [...((product as any)?.gruposObrigatorios ?? [])]
+        .filter((g: any) => (g?.grupo_obrigatorio_opcoes ?? []).length > 0)
+        .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
+        .map((g: any) => ({
+          ...g,
+          minimo: Number(g.minimo ?? 0),
+          maximo: Number(g.maximo ?? 999),
+          opcoes: [...(g.grupo_obrigatorio_opcoes ?? [])].sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0)),
+        })),
+    [product]
+  );
 
-  const [observation, setObservation] =
-    useState("")
+  // Preço de cada opção escolhida pela regra do grupo (ex.: meio a meio pelo mais caro).
+  const precoPorOpcao = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const g of grupos) {
+      const marcadas = g.opcoes.filter((o: any) => (escolhas[g.id] || []).includes(o.id));
+      const ajustados = precosEfetivos(marcadas.map((o: any) => Number(o.preco)), normalizarRegra(g.regra_preco));
+      marcadas.forEach((o: any, i: number) => mapa.set(String(o.id), ajustados[i]));
+    }
+    return mapa;
+  }, [grupos, escolhas]);
 
-    const [avisoObrigatorio, setAvisoObrigatorio] =
-  useState<{
-    titulo: string
-    mensagem: string
-  } | null>(null)
+  if (!open || !product) return null;
 
-  const [
-    adicionaisSelecionados,
-    setAdicionaisSelecionados,
-  ] = useState<Adicional[]>([])
+  const totalAdicionais = adicionais.reduce((t, a) => t + Number(a.preco || 0), 0);
+  const totalOpcoes = [...precoPorOpcao.values()].reduce((t, v) => t + v, 0);
+  const unitario = Number(product.preco || 0) + totalAdicionais + totalOpcoes;
+  const outras = sugestoes.filter((s) => String(s.id) !== String(product.id)).slice(0, 6);
+  const totalExtras = outras.reduce((t, x) => t + Number(x.preco || 0) * (extras[String(x.id)] || 0), 0);
+  const total = unitario * quantidade + totalExtras;
+  const aPartir = precoAPartirDe(product);
+  const temPromocao = Number(product.precoAntigo) > Number(product.preco) && Number(product.preco) > 0;
+  const descricao = String(product.descricao ?? "").trim();
 
-  const [gruposObrigatorios, setGruposObrigatorios] = useState<any[]>([])
+  const completo = (g: any) => (escolhas[g.id] || []).length >= g.minimo;
 
-const [opcoesObrigatorias, setOpcoesObrigatorias] = useState<any[]>([])
+  function escolher(g: any, opcaoId: string) {
+    setFaltando(null);
+    const atuais = escolhas[g.id] || [];
+    let novos: string[];
+    if (atuais.includes(opcaoId)) novos = atuais.filter((id) => id !== opcaoId);
+    else if (g.maximo === 1) novos = [opcaoId]; // escolha única: troca na hora
+    else if (g.maximo !== 999 && atuais.length >= g.maximo) return;
+    else novos = [...atuais, opcaoId];
 
-const [obrigatoriosSelecionados, setObrigatoriosSelecionados] =
-useState<Record<string,string[]>>({})
+    const proximas: Record<string, string[]> = { ...escolhas, [g.id]: novos };
+    setEscolhas(proximas);
 
-useEffect(() => {
+    // Completou este grupo: leva até o próximo que falta.
+    const ficouCompleto = novos.length >= Math.max(g.minimo, 1) && (g.maximo === 1 || novos.length === g.maximo);
+    if (ficouCompleto) {
+      const proximo = grupos.find((x: any) => x.id !== g.id && (proximas[x.id] || []).length < x.minimo);
+      if (proximo) setTimeout(() => grupoRefs.current[proximo.id]?.scrollIntoView({ behavior: "smooth", block: "start" }), 180);
+    }
+  }
 
-  if (!open) return;
+  function alternarAdicional(a: Adicional) {
+    setAdicionais((lista) => (lista.some((x) => x.nome === a.nome) ? lista.filter((x) => x.nome !== a.nome) : [...lista, a]));
+  }
 
-  const scrollY = window.scrollY;
+  /** Confere as escolhas obrigatórias; se faltar algo, leva até lá. */
+  function escolhasOk() {
+    const pendente = grupos.find((g: any) => !completo(g));
+    if (pendente) {
+      setFaltando(pendente.id);
+      grupoRefs.current[pendente.id]?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return false;
+    }
+    return true;
+  }
 
-  document.body.style.position = "fixed";
-  document.body.style.top = `-${scrollY}px`;
-  document.body.style.left = "0";
-  document.body.style.right = "0";
-  document.body.style.width = "100%";
-  document.body.style.overflow = "hidden";
+  function adicionar(depois?: () => void) {
+    if (bloqueado || !product) return;
+    if (!escolhasOk()) return;
 
-  return () => {
+    const obrigatorios = grupos.flatMap((g: any) =>
+      g.opcoes
+        .filter((o: any) => (escolhas[g.id] || []).includes(o.id))
+        .map((o: any) => ({
+          id: o.id,
+          grupo: g.nome,
+          nome: o.nome,
+          descricao: o.descricao || "",
+          preco: precoPorOpcao.get(String(o.id)) ?? Number(o.preco),
+        }))
+    );
 
-    document.body.style.position = "";
-    document.body.style.top = "";
-    document.body.style.left = "";
-    document.body.style.right = "";
-    document.body.style.width = "";
-    document.body.style.overflow = "";
+    if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
+      (window as any).fbq("track", "AddToCart", {
+        content_name: product.nome,
+        content_ids: [String(product.id)],
+        content_type: "product",
+        value: total,
+        currency: "BRL",
+      });
+    }
 
-    window.scrollTo(0, scrollY);
+    onAdd(product, observacao.trim(), adicionais, obrigatorios, quantidade);
+    for (const x of outras) {
+      const qtd = extras[String(x.id)] || 0;
+      if (qtd > 0) onAdd(x, "", [], [], qtd);
+    }
+    if (depois) depois();
+    else onClose();
+  }
 
+  function tocarSugestao(x: ProdutoFormatado) {
+    if (semEscolhas(x)) {
+      const id = String(x.id);
+      setExtras((e) => ({ ...e, [id]: e[id] ? 0 : 1 }));
+      return;
+    }
+    // Tem opções (ex.: sabor do suco): guarda este produto e abre o outro.
+    if (bloqueado) return onEscolherSugestao?.(x);
+    adicionar(() => onEscolherSugestao?.(x));
+  }
+
+  const textoRegra = (g: any) => {
+    const regra = g.regra_preco === "maior" ? "Cobrado pelo mais caro · " : g.regra_preco === "media" ? "Cobrado pela média · " : "";
+    if (g.maximo === 1) return `${regra}Escolha 1`;
+    if (g.maximo === 999) return `${regra}Escolha pelo menos ${g.minimo}`;
+    if (g.minimo === g.maximo) return `${regra}Escolha ${g.minimo}`;
+    if (g.minimo === 0) return `${regra}Escolha até ${g.maximo}`;
+    return `${regra}Escolha de ${g.minimo} a ${g.maximo}`;
   };
 
-}, [open]);
-
-useEffect(() => {
-
-  if (!open || !product) return
-
-  async function carregarGrupos() {
-
-// O cardápio já traz os grupos e opções de cada produto: abre na hora, sem esperar a internet.
-const preCarregados = (product as any)?.gruposObrigatorios as any[] | undefined
-if (Array.isArray(preCarregados)) {
-  const grupos = [...preCarregados].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
-  setGruposObrigatorios(grupos.map(({ grupo_obrigatorio_opcoes: _o, ...g }) => g))
-  setOpcoesObrigatorias(
-    grupos
-      .flatMap((g) => g.grupo_obrigatorio_opcoes ?? [])
-      .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
-  )
-  return
-}
-
-const { data: grupos, error } = await supabase
-  .from("grupos_obrigatorios")
-  .select("*")
-  .eq("produto_id", product!.id)
-  .order("ordem")
-  
-
-if (error) console.error("Erro ao carregar opções:", error)
-
-    setGruposObrigatorios(grupos || [])
-
-    if (!grupos || grupos.length === 0) {
-
-      setOpcoesObrigatorias([])
-
-      return
-
-    }
-
-    const ids = grupos.map(grupo => grupo.id)
-
-    const { data: opcoes } = await supabase
-      .from("grupo_obrigatorio_opcoes")
-      .select("*")
-      .in("grupo_id", ids)
-      .order("ordem")
-
-
-    setOpcoesObrigatorias(opcoes || [])
-
-  }
-
-carregarGrupos()
-
-setObservation("")
-setAdicionaisSelecionados([])
-setObrigatoriosSelecionados({})
-
-}, [open, product])
-
-  if (!open || !product)
-    return null
-
-  function toggleAdicional(
-    adicional: Adicional
-  ) {
-
-    const existe =
-      adicionaisSelecionados.find(
-        (item) =>
-          item.nome === adicional.nome
-      )
-
-    if (existe) {
-
-      setAdicionaisSelecionados(
-
-        adicionaisSelecionados.filter(
-          (item) =>
-            item.nome !==
-            adicional.nome
-        )
-      )
-
-      return
-    }
-
-    setAdicionaisSelecionados([
-      ...adicionaisSelecionados,
-      adicional,
-    ])
-  }
-
- const totalAdicionais =
-  adicionaisSelecionados.reduce(
-    (acc, item) => acc + Number(item.preco),
-    0
-  )
-
-// Preço de cada opção escolhida já pela regra do grupo (ex.: meio a meio pelo mais caro).
-const precoEfetivoPorOpcao = new Map<string, number>()
-for (const grupo of gruposObrigatorios) {
-  const escolhidas = opcoesObrigatorias.filter(
-    (opcao) => opcao.grupo_id === grupo.id && (obrigatoriosSelecionados[grupo.id] || []).includes(opcao.id)
-  )
-  const ajustados = precosEfetivos(escolhidas.map((o) => Number(o.preco)), normalizarRegra(grupo.regra_preco))
-  escolhidas.forEach((o, i) => precoEfetivoPorOpcao.set(String(o.id), ajustados[i]))
-}
-
-const totalObrigatorios = [...precoEfetivoPorOpcao.values()].reduce((acc, v) => acc + v, 0)
-
-const total =
-  Number(product.preco) +
-  totalAdicionais +
-  totalObrigatorios
-
-  const bgMain = lightMode
-    ? "bg-white border border-zinc-200"
-    : "bg-zinc-950 border border-zinc-800"
-
-  const textPrimary = lightMode
-    ? "text-zinc-900"
-    : "text-white"
-
-  const textSecondary = lightMode
-    ? "text-zinc-500"
-    : "text-zinc-400"
-
-  const inputBg = lightMode
-    ? "bg-zinc-100 border border-zinc-200"
-    : "bg-zinc-900 border border-zinc-800"
-
   return (
-
-
-    <>
-  {avisoObrigatorio && (
     <div
-      className="
-        fixed inset-0
-        z-[9999]
-        bg-black/60
-        backdrop-blur-[2px]
-        flex
-        items-center
-        justify-center
-        px-5
-      "
+      className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/60 md:items-center md:p-6"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={product.nome}
     >
       <div
-        className="
-          w-full
-          max-w-[380px]
-          bg-white
-          rounded-3xl
-          shadow-2xl
-          overflow-hidden
-          animate-in
-          zoom-in-95
-          duration-200
-        "
+        className="relative flex h-[94dvh] w-full max-w-[560px] flex-col overflow-hidden rounded-t-[28px] bg-white text-zinc-900 shadow-2xl md:h-auto md:max-h-[90dvh] md:rounded-[28px]"
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* Faixa com a cor do restaurante */}
-        <div
-          className="h-2 w-full"
-          style={{
-            backgroundColor: corPrincipal,
-          }}
-        />
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fechar"
+          className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-zinc-800 shadow-md"
+        >
+          <X size={20} strokeWidth={2.5} />
+        </button>
 
-        <div className="px-7 pt-8 pb-7 text-center">
+        <div ref={corpoRef} className="flex-1 overflow-y-auto overscroll-contain">
+          {product.imagem ? (
+            <div className="relative aspect-[4/3] w-full bg-zinc-100">
+              <img src={product.imagem} alt={product.nome} className="h-full w-full object-cover" decoding="async" />
+            </div>
+          ) : (
+            <div className="h-14" />
+          )}
 
-          {/* Ícone */}
-          <div
-            className="
-              w-16 h-16
-              rounded-full
-              mx-auto
-              flex
-              items-center
-              justify-center
-              mb-5
-            "
-            style={{
-              backgroundColor: `${corPrincipal}15`,
-              color: corPrincipal,
-            }}
-          >
-            <svg
-              width="30"
-              height="30"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
+          <div className="px-5 pb-4 pt-5">
+            <h2 className="pr-10 text-[22px] font-extrabold leading-tight">{product.nome}</h2>
+            {descricao && descricao !== "0" && (
+              <p className="mt-2 whitespace-pre-line text-[14px] leading-6 text-zinc-500">{descricao}</p>
+            )}
+            <div className="mt-3 flex items-baseline gap-2">
+              {Number(product.preco) > 0 || aPartir.valor > 0 ? (
+                <p className="text-xl font-extrabold" style={{ color: corPrincipal }}>
+                  {aPartir.variavel && <span className="mr-1 text-sm font-semibold text-zinc-500">a partir de</span>}
+                  {reais(aPartir.valor)}
+                </p>
+              ) : null}
+              {temPromocao && <p className="text-sm text-zinc-400 line-through">{reais(product.precoAntigo)}</p>}
+            </div>
           </div>
 
-          {/* Título */}
-          <h3
-            className="
-              text-[22px]
-              font-black
-              text-zinc-900
-              leading-tight
-            "
-          >
-            {avisoObrigatorio.titulo}
-          </h3>
-
-          {/* Mensagem */}
-          <p
-            className="
-              mt-3
-              text-[15px]
-              text-zinc-500
-              leading-6
-            "
-          >
-            {avisoObrigatorio.mensagem}
-          </p>
-
-          {/* Botão */}
-          <button
-            type="button"
-            onClick={() =>
-              setAvisoObrigatorio(null)
-            }
-            className="
-              w-full
-              mt-7
-              py-4
-              rounded-2xl
-              text-white
-              font-bold
-              text-base
-              transition
-              active:scale-[0.98]
-            "
-            style={{
-              backgroundColor: corPrincipal,
-            }}
-          >
-            Entendi
-          </button>
-        </div>
-      </div>
-    </div>
-  )}
-
- <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center px-3 pt-3 pb-0">
-
-      <div
-  className={`
-    ${bgMain}
-    rounded-3xl
-    w-full
-    max-w-[520px]
-h-[96dvh]
-max-h-[96dvh]
-flex
-flex-col
-  `}
->
-
-<div className="relative">
-
-  <button
-    onClick={onClose}
-    aria-label="Fechar"
-    className="
-      absolute
-      top-5
-      right-5
-      w-11
-      h-11
-      rounded-full
-      bg-white
-      border
-      border-zinc-200
-      shadow-md
-      flex
-      items-center
-      justify-center
-      z-20
-    "
-  >
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 6L6 18" />
-      <path d="M6 6l12 12" />
-    </svg>
-  </button>
-
-</div>
-
-<div className="flex-1 overflow-y-auto p-6 pb-32">
-
-  {product.imagem && (
-
-    <div className="flex justify-center">
-
-      <img
-        src={product.imagem}
-        alt={product.nome}
-        className="
-          w-44
-          h-44
-          rounded-3xl
-          object-cover
-          shadow-lg
-        "
-      />
-
-    </div>
-
-  )}
-
-  <div className="text-center mt-6">
-
-    <h2
-      className="
-        text-4xl
-        font-black
-        text-zinc-900
-      "
-    >
-      {product.nome}
-    </h2>
-
-    <p
-      className="
-        mt-3
-        text-zinc-500
-        leading-7
-        max-w-sm
-        mx-auto
-      "
-    >
-      {product.descricao}
-    </p>
-
-    <h3
-      className="text-4xl font-black mt-5"
-      style={{
-        color: corPrincipal,
-      }}
-    >
-      R$ {Number(product.preco).toFixed(2)}
-    </h3>
-
-  </div>
-
-  <div className="border-t border-zinc-200 my-8" />
-
-          {gruposObrigatorios.map((grupo) => {
-
-  const opcoes = opcoesObrigatorias.filter(
-    op => op.grupo_id === grupo.id
-  )
-
-  return (
-
-<div
-  key={grupo.id}
-  className="
-  mt-8
-"
->
-
-<div className="flex items-start justify-between mb-5">
-
-        <div>
-
-<h3
-className="
-text-[22px]
-font-black
-leading-none
-text-zinc-900
-"
->
-
-            {grupo.nome}
-
-          </h3>
-
-<p className="mt-1 text-sm text-zinc-500">
-
-  {(grupo.regra_preco === "maior" ? "Cobrado pelo sabor mais caro · " : grupo.regra_preco === "media" ? "Cobrado pela média · " : "") +
-  (grupo.maximo === 999
-    ? `Selecione pelo menos ${grupo.minimo} opção${grupo.minimo > 1 ? "ões" : ""}`
-    : grupo.minimo === grupo.maximo
-      ? `Selecione ${grupo.minimo} opção${grupo.minimo > 1 ? "ões" : ""}`
-      : `Selecione de ${grupo.minimo} até ${grupo.maximo} opções`)
-  }
-
-</p>
-        </div>
-
-<span
-className="
-text-[11px]
-font-semibold
-bg-red-50
-text-red-500
-px-3
-py-1
-rounded-full
-"
->
-          Obrigatório
-        </span>
-
-      </div>
-
-      <div className="space-y-3 mt-4">
-
-        {opcoes.map(opcao => (
-
-          <label
-            key={opcao.id}
-className={`
-flex
-items-center
-justify-between
-rounded-2xl
-border
-border-zinc-200
-bg-white
-px-4
-py-4
-cursor-pointer
-transition-all
-duration-200
-hover:border-zinc-300
-`}
-          >
-
-            <div className="flex items-center gap-4">
-
-<input
-  type="checkbox"
-  checked={
-    (obrigatoriosSelecionados[grupo.id] || []).includes(opcao.id)
-  }
- onChange={() => {
-
-  const atuais =
-    obrigatoriosSelecionados[grupo.id] || []
-
-  let novos: string[]
-
-  if (atuais.includes(opcao.id)) {
-
-    novos = atuais.filter(
-      (id: string) => id !== opcao.id
-    )
-
-  } else {
-
-    if (
-      grupo.maximo !== 999 &&
-      atuais.length >= grupo.maximo
-    ) {
-      return
-    }
-
-    novos = [...atuais, opcao.id]
-
-  }
-
-  setObrigatoriosSelecionados({
-    ...obrigatoriosSelecionados,
-    [grupo.id]: novos,
-  })
-
-}}
-/>
-
-<div className="min-w-0">
-  <p className="font-semibold">
-    {opcao.nome}
-  </p>
-
-  {opcao.descricao && (
-    <p className="mt-1 text-xs text-zinc-500 leading-4">
-      {opcao.descricao}
-    </p>
-  )}
-</div>
-
-            </div>
-
-            <span>
-
-              + R$ {Number(opcao.preco).toFixed(2)}
-
-            </span>
-
-          </label>
-
-        ))}
-
-      </div>
-
-    </div>
-
-  )
-
-})}
-
-          {product.adicionais &&
-            product.adicionais.length > 0 && (
-
-              <div className="mt-6">
-
-                <h3 className={`font-bold text-lg mb-3 ${textPrimary}`}>
-                  Adicionais
-                </h3>
-
-                <div className="space-y-2">
-
-                  {product.adicionais.map(
-                    (
-                      adicional,
-                      index
-                    ) => {
-
-                      const ativo =
-                        adicionaisSelecionados.find(
-                          (item) =>
-                            item.nome ===
-                            adicional.nome
-                        )
-
-                      return (
-
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() =>
-                            toggleAdicional(
-                              adicional
-                            )
-                          }
-                          className={`
-                            w-full
-                            flex
-                            items-center
-                            justify-between
-                            py-2 
-                            px-3 
-                            rounded-lg
-                            border
-                            transition
-                            ${ativo
-                              ? ""
-                              : inputBg
-                            }
-                          `}
-                          style={
-                            ativo
-                              ? {
-                                  borderColor:
-                                    corPrincipal,
-                                  backgroundColor:
-                                    `${corPrincipal}15`,
-                                }
-                              : {}
-                          }
-                        >
-
-                          <span className={`${textPrimary} min-w-0 text-left`}>
-                            + {adicional.nome}
-                            {(adicional as any).descricao && (
-                              <span className="block mt-0.5 text-xs font-normal text-zinc-500 leading-4">
-                                {(adicional as any).descricao}
-                              </span>
-                            )}
-                          </span>
-
-                          <span
-                            className="font-bold"
-                            style={{
-                              color:
-                                corPrincipal,
-                            }}
-                          >
-                            R${" "}
-                            {Number(
-                              adicional.preco || 0
-                            ).toFixed(2)}
-                          </span>
-
-                        </button>
-
-                      )
-                    }
-                  )}
-
+          {grupos.map((g: any) => {
+            const marcadas = escolhas[g.id] || [];
+            const ok = completo(g);
+            const cheio = g.maximo !== 999 && g.maximo > 1 && marcadas.length >= g.maximo;
+            const destaque = faltando === g.id;
+            return (
+              <div
+                key={g.id}
+                ref={(el) => {
+                  grupoRefs.current[g.id] = el;
+                }}
+                className="scroll-mt-2"
+              >
+                <div
+                  className={`sticky top-0 z-10 flex items-center justify-between gap-3 py-3 pl-5 pr-16 transition-colors ${
+                    destaque ? "bg-red-50" : "bg-zinc-100"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-bold leading-tight">{g.nome}</p>
+                    <p className={`mt-0.5 text-xs ${destaque ? "font-semibold text-red-600" : "text-zinc-500"}`}>
+                      {destaque ? "Escolha aqui para continuar" : textoRegra(g)}
+                      {g.maximo > 1 && g.maximo !== 999 ? ` · ${marcadas.length}/${g.maximo}` : ""}
+                    </p>
+                  </div>
+                  {g.minimo > 0 &&
+                    (ok ? (
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+                        <Check size={14} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded-md bg-zinc-800 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+                        Obrigatório
+                      </span>
+                    ))}
                 </div>
 
+                <div className="divide-y divide-zinc-100">
+                  {g.opcoes.map((o: any) => {
+                    const marcada = marcadas.includes(o.id);
+                    const desabilitada = !marcada && cheio;
+                    const preco = Number(o.preco || 0);
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => escolher(g, o.id)}
+                        disabled={desabilitada}
+                        aria-pressed={marcada}
+                        className={`flex w-full items-center gap-3 px-5 py-3.5 text-left transition ${desabilitada ? "opacity-40" : "active:bg-zinc-50"}`}
+                      >
+                        {o.imagem && <img src={o.imagem} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-xl object-cover" />}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[15px] font-medium leading-snug">{o.nome}</p>
+                          {o.descricao && <p className="mt-0.5 text-xs leading-4 text-zinc-500">{o.descricao}</p>}
+                          {preco > 0 && <p className="mt-0.5 text-sm font-semibold text-zinc-700">+ {reais(preco)}</p>}
+                        </div>
+                        <span
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center border-2 ${g.maximo === 1 ? "rounded-full" : "rounded-md"}`}
+                          style={{ borderColor: marcada ? corPrincipal : "#D4D4D8", backgroundColor: marcada ? corPrincipal : "white" }}
+                        >
+                          {marcada && <Check size={14} color="white" strokeWidth={3} />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+            );
+          })}
 
-            )}
+          {(product.adicionais ?? []).length > 0 && (
+            <div>
+              <div className="sticky top-0 z-10 bg-zinc-100 py-3 pl-5 pr-16">
+                <p className="text-[15px] font-bold">Adicionais</p>
+                <p className="mt-0.5 text-xs text-zinc-500">Opcional</p>
+              </div>
+              <div className="divide-y divide-zinc-100">
+                {(product.adicionais ?? []).map((a: any, i: number) => {
+                  const marcado = adicionais.some((x) => x.nome === a.nome);
+                  return (
+                    <button
+                      key={a.id ?? i}
+                      type="button"
+                      onClick={() => alternarAdicional(a)}
+                      aria-pressed={marcado}
+                      className="flex w-full items-center gap-3 px-5 py-3.5 text-left active:bg-zinc-50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[15px] font-medium">{a.nome}</p>
+                        {a.descricao && <p className="mt-0.5 text-xs leading-4 text-zinc-500">{a.descricao}</p>}
+                        {Number(a.preco) > 0 && <p className="mt-0.5 text-sm font-semibold text-zinc-700">+ {reais(a.preco)}</p>}
+                      </div>
+                      <span
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2"
+                        style={{ borderColor: marcado ? corPrincipal : "#D4D4D8", backgroundColor: marcado ? corPrincipal : "white" }}
+                      >
+                        {marcado && <Check size={14} color="white" strokeWidth={3} />}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-          <div className="mt-6">
-
-            <h3 className={`font-bold text-lg mb-3 ${textPrimary}`}>
-              Observações
-            </h3>
-
+          <div className="px-5 pb-6 pt-5">
+            <label htmlFor="obs-produto" className="text-[15px] font-bold">
+              Alguma observação?
+            </label>
             <textarea
-              value={observation}
-              onChange={(e) =>
-                setObservation(
-                  e.target.value
-                )
-              }
-              placeholder="Ex: sem cebola, molho separado..."
-              className={`
-                w-full
-                h-16
-                rounded-2xl
-                p-4
-                outline-none
-                resize-none
-                ${inputBg}
-                ${textPrimary}
-              `}
+              id="obs-produto"
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value.slice(0, 140))}
+              placeholder="Ex.: sem cebola, molho à parte..."
+              rows={2}
+              className="mt-2 w-full resize-none rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-base outline-none focus:border-zinc-400"
             />
+            <p className="mt-1 text-right text-[11px] text-zinc-400">{observacao.length}/140</p>
+          </div>
 
-</div> {/* fecha o scroll */}
+          {outras.length > 0 && onEscolherSugestao && (
+            <div className="pb-6">
+              <p className="px-5 text-[15px] font-bold">Combina com</p>
+              <p className="px-5 text-xs text-zinc-500">Toque para levar junto</p>
+              <div className="scrollbar-hide mt-3 flex gap-3 overflow-x-auto px-5">
+                {outras.map((x) => {
+                  const marcado = (extras[String(x.id)] || 0) > 0;
+                  const comOpcoes = !semEscolhas(x);
+                  const preco = precoAPartirDe(x);
+                  return (
+                    <button
+                      key={x.id}
+                      type="button"
+                      onClick={() => tocarSugestao(x)}
+                      aria-pressed={marcado}
+                      className="relative w-28 shrink-0 overflow-hidden rounded-2xl border-2 text-left transition"
+                      style={{ borderColor: marcado ? corPrincipal : "#E4E4E7" }}
+                    >
+                      {x.imagem ? (
+                        <img src={x.imagem} alt="" loading="lazy" className="h-20 w-full object-cover" />
+                      ) : (
+                        <div className="h-20 w-full" style={{ backgroundColor: `${corPrincipal}12` }} />
+                      )}
+                      <span
+                        className="absolute right-1.5 top-[3.6rem] flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-white shadow"
+                        style={{ backgroundColor: marcado ? "#059669" : corPrincipal }}
+                      >
+                        {marcado ? <Check size={14} strokeWidth={3} /> : <Plus size={14} strokeWidth={3} />}
+                      </span>
+                      <span className="line-clamp-2 block px-2 pt-1.5 text-xs font-semibold leading-4">{x.nome}</span>
+                      <span className="block px-2 pb-2 text-xs font-bold" style={{ color: corPrincipal }}>
+                        {comOpcoes ? "Escolher" : `+ ${reais(preco.valor)}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
-<div
-className="
-bg-white
-border-t
-border-zinc-200
-px-6
-py-4
-flex
-items-center
-justify-between
-shrink-0
-"
->
-
-  <div>
-
-    <p className={`${textSecondary} text-sm`}>
-      Total
-    </p>
-
-    <h3
-      className="text-2xl font-black"
-      style={{
-        color: corPrincipal,
-      }}
-    >
-      R$ {total.toFixed(2)}
-    </h3>
-
-  </div>
-
-  <button
-    type="button"
-    onClick={() => {
-
-      for (const grupo of gruposObrigatorios) {
-
-        const selecionados =
-          obrigatoriosSelecionados[grupo.id] || []
-
-if (selecionados.length < grupo.minimo) {
-
-  setAvisoObrigatorio({
-    titulo: `Selecione ${grupo.nome}`,
-    mensagem:
-      grupo.minimo === 1
-        ? `Escolha pelo menos 1 opção para continuar.`
-        : `Escolha pelo menos ${grupo.minimo} opções para continuar.`,
-  })
-
-  return
-}
-
-      }
-
-const obrigatoriosFormatados = gruposObrigatorios.flatMap((grupo) => {
-
-  const selecionados =
-    obrigatoriosSelecionados[grupo.id] || [];
-
-  return opcoesObrigatorias
-    .filter(
-      (opcao) =>
-        opcao.grupo_id === grupo.id &&
-        selecionados.includes(opcao.id)
-    )
-.map((opcao) => ({
-  id: opcao.id,
-  grupo: grupo.nome,
-  nome: opcao.nome,
-  descricao: opcao.descricao || "",
-  preco: precoEfetivoPorOpcao.get(String(opcao.id)) ?? Number(opcao.preco),
-}));
-
-});
-
-
-if (
-  typeof window !== "undefined" &&
-  typeof (window as any).fbq === "function"
-) {
-  (window as any).fbq("track", "AddToCart", {
-    content_name: product.nome,
-    content_ids: [String(product.id)],
-    content_type: "product",
-    value: total,
-    currency: "BRL",
-  });
-}
-
-onAdd(
-  product,
-  observation,
-  adicionaisSelecionados,
-  obrigatoriosFormatados
-);
-
-      onClose()
-
-    }}
-    className="
-      transition
-      px-6
-      py-3
-      rounded-xl
-      font-bold
-      text-base
-      text-white
-      hover:scale-105
-    "
-    style={{
-      backgroundColor: corPrincipal,
-    }}
-  >
-    Adicionar
-  </button>
-
-</div>
-</div>
-
-</div> 
-</div>
-
-</>
-)
+        <div className="flex shrink-0 items-center gap-3 border-t border-zinc-200 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+          {bloqueado ? (
+            <div className="w-full rounded-2xl bg-zinc-100 px-4 py-3 text-center text-sm font-semibold text-zinc-600">{bloqueado}</div>
+          ) : (
+            <>
+              <div className="flex h-12 shrink-0 items-center rounded-2xl border border-zinc-200">
+                <button
+                  type="button"
+                  aria-label="Diminuir"
+                  onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
+                  className="flex h-12 w-11 items-center justify-center disabled:opacity-30"
+                  disabled={quantidade <= 1}
+                  style={{ color: corPrincipal }}
+                >
+                  <Minus size={18} strokeWidth={2.6} />
+                </button>
+                <span className="w-6 text-center text-base font-bold">{quantidade}</span>
+                <button
+                  type="button"
+                  aria-label="Aumentar"
+                  onClick={() => setQuantidade((q) => Math.min(99, q + 1))}
+                  className="flex h-12 w-11 items-center justify-center"
+                  style={{ color: corPrincipal }}
+                >
+                  <Plus size={18} strokeWidth={2.6} />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => adicionar()}
+                className="flex h-12 flex-1 items-center justify-between rounded-2xl px-4 text-[15px] font-bold text-white shadow-md transition active:scale-[0.98]"
+                style={{ backgroundColor: corPrincipal }}
+              >
+                <span>{Object.values(extras).some((q) => q > 0) ? "Adicionar tudo" : "Adicionar"}</span>
+                {total > 0 && <span>{reais(total)}</span>}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

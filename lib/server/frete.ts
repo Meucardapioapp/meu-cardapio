@@ -161,6 +161,40 @@ export async function geocodificar(endereco: EnderecoBusca): Promise<Ponto | nul
   return ponto;
 }
 
+/**
+ * Endereço aproximado de um ponto (botão "Usar minha localização").
+ * Só rua, número aproximado, bairro e CEP: o cliente confere antes de usar.
+ */
+export async function enderecoPorPonto(lat: number, lon: number) {
+  const espera = ultimaBusca + 1100 - Date.now();
+  if (espera > 0) await new Promise((r) => setTimeout(r, espera));
+  ultimaBusca = Date.now();
+
+  const base = (process.env.GEOCODER_URL || "https://nominatim.openstreetmap.org/search").replace(/\/search\/?$/, "");
+  const url = new URL(`${base}/reverse`);
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("lat", String(lat));
+  url.searchParams.set("lon", String(lon));
+  url.searchParams.set("zoom", "18");
+  url.searchParams.set("addressdetails", "1");
+
+  const resposta = await fetch(url, {
+    headers: { "User-Agent": "MeuCardapioApp/1.0 (+https://meucardapioapp.com)", "Accept-Language": "pt-BR" },
+    signal: AbortSignal.timeout(6000),
+    cache: "no-store",
+  });
+  if (!resposta.ok) throw new Error(`Geocoder HTTP ${resposta.status}`);
+  const d = (await resposta.json()) as any;
+  const a = d?.address ?? {};
+  return {
+    rua: limpar(a.road || a.pedestrian || a.residential || a.footway || ""),
+    numero: limpar(a.house_number || "", 20),
+    bairro: limpar(a.suburb || a.neighbourhood || a.quarter || a.city_district || a.village || ""),
+    cep: limpar(a.postcode || "", 12),
+    cidade: limpar(a.city || a.town || a.municipality || "", 80),
+  };
+}
+
 /** Endereço do restaurante (cidade/UF servem de referência para o endereço do cliente). */
 export async function enderecoDoRestaurante(restauranteId: string) {
   const { data } = await supabaseAdmin

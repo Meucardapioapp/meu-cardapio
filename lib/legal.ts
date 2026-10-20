@@ -16,4 +16,4 @@ export const EMPRESA = {
 };
 
 /** Muda esta data quando os Termos ou a Privacidade mudarem: os donos aceitam de novo no painel. */
-export const TERMOS_VERSAO = "2026-10-19";
+export const TERMOS_VERSAO = "2026-10-20";

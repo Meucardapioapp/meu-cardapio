@@ -1,132 +1,82 @@
-"use client"
+"use client";
 
-export const dynamic = "force-dynamic"
-
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { guardarCardapio } from "@/lib/cardapio-cliente";
+import { useParams, useRouter } from "next/navigation";
+import { Bike, Clock3, Search, ShoppingBag, Star, Ticket, X } from "lucide-react";
 
 import SplashScreen from "../components/SplashScreen";
-import {
-  useEffect,
-  useState,
-  useRef,
-} from "react"
-
-import {
-  Bike,
-  Clock3,
-  Wallet,
-  Star,
-  Gift,
-  Ticket,
-} from "lucide-react";
-
-import { useParams } from "next/navigation"
-import { useRestaurant } from "@/contexts/RestaurantContext";
-
-import Header from "../components/Header"
-import Benefits from "../components/Benefits"
-import ProductCard from "../components/ProductCard"
+import ProductCard from "../components/ProductCard";
 import FeaturedProductCard from "../components/FeaturedProductCard";
-import ProductModal from "../components/ProductModal"
-import Cart from "../components/Cart"
+import ProductModal, { semEscolhas } from "../components/ProductModal";
 import BottomNavigation from "../components/BottomNavigation";
 import RestaurantFooter from "../components/RestaurantFooter";
+import { useRestaurant } from "@/contexts/RestaurantContext";
+import type { Adicional, CartItem, ProdutoFormatado } from "../types";
+import { agoraNoFuso, statusDaLoja } from "@/lib/horario";
+import { paraUF } from "@/lib/uf";
+import { reais, semAcento } from "@/lib/dinheiro";
+import {
+  conferirComCardapio,
+  lerCarrinho,
+  precoUnitario,
+  quantidadeCarrinho,
+  salvarCarrinho,
+  totalCarrinho,
+} from "@/lib/carrinho";
 
-import { supabase } from "@/lib/supabase"
-
-import type {
-  Adicional,
-  ProdutoFormatado,
-  CartItem
-} from "../types"
-import { lerRestaurantePublico } from "@/lib/restaurantePublico";
-import { agoraLocal, lojaAbertaAgora } from "@/lib/horario";
-
-type CardapioClientProps = {
-  modoEditor?: boolean;
+type Props = {
   /** Dados já carregados no servidor: o cardápio aparece sem tela de carregamento. */
   inicial?: any;
 };
 
-export default function CardapioClient({
-  modoEditor = false,
-  inicial,
-}: CardapioClientProps) {
+/** Categoria que vira faixa de destaques (rolagem para o lado). */
+const DESTAQUE = /destaque|promo|oferta|mais vendid|recomend|combo do dia|do dia/i;
 
-const params = useParams()
+const idCategoria = (nome: string) =>
+  "categoria-" +
+  semAcento(nome)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
-const slug = params.slug as string
+export default function CardapioClient({ inicial }: Props) {
+  const params = useParams();
+  const router = useRouter();
+  const slug = params.slug as string;
+  const { logo, corPrincipal } = useRestaurant();
 
-const {
-  logo,
-  corPrincipal,
-} = useRestaurant();
+  const [dados, setDados] = useState<any>(inicial ?? null);
+  const [carregando, setCarregando] = useState(!inicial);
+  const restaurante = dados?.restaurante ?? null;
+  const aparencia = dados?.aparencia ?? null;
+  const produtos: ProdutoFormatado[] = dados?.produtos ?? [];
+  const categorias: string[] = dados?.categorias ?? [];
+  const tempos = dados?.operacao ?? null;
+  const avaliacao = dados?.avaliacao ?? null;
+  const taxaMinima: number | null = dados?.taxaMinima ?? null;
+  const pedidosPausados = dados ? dados.pedidosAtivos === false : false;
 
-useEffect(() => {
-  localStorage.setItem(
-    "cardapio-slug",
-    slug
-  )
-}, [slug])
+  // Hora no fuso do restaurante (o celular do cliente pode estar em outro fuso).
+  const [agora, setAgora] = useState<ReturnType<typeof agoraNoFuso> | null>(null);
+  const uf = restaurante?.uf || paraUF(restaurante?.estado);
+  useEffect(() => {
+    const atualizar = () => setAgora(agoraNoFuso(uf));
+    atualizar();
+    const t = setInterval(atualizar, 60000);
+    return () => clearInterval(t);
+  }, [uf]);
+  const status = useMemo(() => (agora ? statusDaLoja(aparencia, agora) : null), [aparencia, agora]);
+  // Antes de montar no celular, não decide (evita piscar "fechado").
+  const lojaAberta = !pedidosPausados && (status ? status.aberta : true);
+  const avisoFechado = pedidosPausados
+    ? "Pedidos online pausados no momento"
+    : status && !status.aberta
+      ? status.proximaAbertura
+        ? `Fechado agora · abre ${status.proximaAbertura}`
+        : "Fechado agora"
+      : undefined;
 
-
-
-useEffect(() => {
-  async function carregarCliente() {
-    const token =
-  localStorage.getItem(`cliente_token-${slug}`) ||
-  localStorage.getItem("cliente_token");
-
-    if (!token) {
-      setCarregandoCliente(false);
-      return;
-    }
-
-    try {
-      const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
-
-      const resultado = await response.json();
-
-if (resultado.success) {
-  setCliente({
-    ...resultado.cliente,
-    selos_pix: resultado.fidelidade?.selos ?? 0,
-  });
-
-  
-
-  
-}
-    } catch (e) {
-      console.error(e);
-    }
-
-    setCarregandoCliente(false);
-  }
-
-  carregarCliente();
-}, []);
-
-
-
-  const [produtos, setProdutos] =
-    useState<ProdutoFormatado[]>(inicial?.produtos ?? [])
-
-    const [produtosCarregados, setProdutosCarregados] =
-  useState(Boolean(inicial));
-
-const [loadingInicial, setLoadingInicial] =
-  useState(!inicial);
-
-  // Horário de abertura depende da hora do celular: só calcula depois de abrir.
-  const [montado, setMontado] = useState(false);
-  useEffect(() => setMontado(true), []);
-
-  const [tempos, setTempos] = useState<any>(inicial?.operacao ?? null);
-  const [avaliacao, setAvaliacao] = useState<any>(inicial?.avaliacao ?? null);
-  const [taxaMinima, setTaxaMinima] = useState<number | null>(inicial?.taxaMinima ?? null);
-  const [verAvaliacoes, setVerAvaliacoes] = useState(false);
-
-  // Pedido pela mesa: o QR Code da mesa abre o cardápio com ?mesa=5.
+  // Mesa (QR Code da mesa abre o cardápio com ?mesa=5).
   const [mesa, setMesa] = useState("");
   useEffect(() => {
     if (!slug) return;
@@ -142,718 +92,304 @@ const [loadingInicial, setLoadingInicial] =
   }, [slug]);
 
   function sairDaMesa() {
-    try { sessionStorage.removeItem(`mesa-${slug}`); } catch {}
+    try {
+      sessionStorage.removeItem(`mesa-${slug}`);
+    } catch {}
     setMesa("");
   }
 
-  const [selectedProduct, setSelectedProduct] =
-    useState<ProdutoFormatado | null>(null)
+  // Sem dados do servidor (raro): busca pela API.
+  useEffect(() => {
+    if (inicial || !slug) return;
+    fetch(`/api/cardapio/${encodeURIComponent(slug)}`)
+      .then((r) => r.json())
+      .then((d) => d?.success && setDados(d.cardapio))
+      .catch(() => {})
+      .finally(() => setCarregando(false));
+  }, [inicial, slug]);
 
-  const [openModal, setOpenModal] =
-    useState(false)
-
-    const [pedidosPausados, setPedidosPausados] =
-  useState(inicial ? inicial.pedidosAtivos === false : false)
-
-    const [modalLojaFechada, setModalLojaFechada] =
-  useState(false)
-
-  const [
-    openCheckout,
-    setOpenCheckout,
-  ] = useState(false)
-
-  const [cart, setCart] =
-    useState<CartItem[]>([])
-
-    const [carregandoCarrinho, setCarregandoCarrinho] =
-  useState(false)
-
-  const [
-  categoriaSelecionada,
-  setCategoriaSelecionada,
-] = useState<string | null>(inicial?.categorias?.[0] ?? null)
-
-
-
-  const [categorias, setCategorias] =
-    useState<string[]>(inicial?.categorias ?? [])
-
-const categoriasRef =
-  useRef<HTMLDivElement>(null)
-
-  const categoriaRefs =
-  useRef<{ [key: string]: HTMLDivElement | null }>({})
-
-  const botoesCategoriaRef =
-  useRef<{ [key: string]: HTMLButtonElement | null }>({})
-
-  const [mostrarEsquerda, setMostrarEsquerda] =
-  useState(false)
-
-const [mostrarDireita, setMostrarDireita] =
-  useState(true)
-
- const [busca, setBusca] =
-  useState("")
-
-const [restaurante, setRestaurante] =
-  useState<any>(inicial?.restaurante ?? null)
-
-const [aparencia, setAparencia] =
-  useState<any>(inicial?.aparencia ?? null)
-
-  const [cliente, setCliente] =
-  useState<any>(null);
-
-const [carregandoCliente, setCarregandoCliente] =
-  useState(true);
-
-  const [fidelidade, setFidelidade] =
-  useState<any>(null);
-
-/* APARÊNCIA */
-
+  // Guarda para o carrinho, endereço e pagamento abrirem na hora.
+  useEffect(() => {
+    if (dados) guardarCardapio(slug, dados);
+  }, [slug, dados]);
 
   useEffect(() => {
-  document.documentElement.style.setProperty(
-    "--primary-color",
-    corPrincipal
-  )
-}, [corPrincipal])
-
-const corTextoBotao = "#FFFFFF"
-
-
-const [banner, setBanner] =
-  useState<string>(inicial?.aparencia?.banner_url ?? "")
-
-const [lightMode, setLightMode] =
-  useState(inicial?.aparencia ? inicial.aparencia.tema !== "escuro" : true)
-
-  useEffect(() => {
-
-  const el = categoriasRef.current
-
-  if (!el) return
-
-  const atualizarSetas = () => {
-
-    setMostrarEsquerda(
-      el.scrollLeft > 10
-    )
-
-    setMostrarDireita(
-      el.scrollLeft <
-      el.scrollWidth -
-      el.clientWidth -
-      10
-    )
-  }
-
-  atualizarSetas()
-
-  el.addEventListener(
-    "scroll",
-    atualizarSetas
-  )
-
-  return () =>
-    el.removeEventListener(
-      "scroll",
-      atualizarSetas
-    )
-
-}, [categorias])
-
-useEffect(() => {
-  let ticking = false;
-
-  const handleScroll = () => {
-    if (ticking) return;
-
-    window.requestAnimationFrame(() => {
-      let categoriaAtual = "";
-
-      categorias.forEach((categoria) => {
-        const elemento = categoriaRefs.current[categoria];
-
-        if (!elemento) return;
-
-        const rect = elemento.getBoundingClientRect();
-
-        if (rect.top <= 150 && rect.bottom >= 150) {
-          categoriaAtual = categoria;
-        }
-      });
-
-      if (
-        categoriaAtual &&
-        categoriaAtual !== categoriaSelecionada
-      ) {
-        setCategoriaSelecionada(categoriaAtual);
-
-// botoesCategoriaRef.current[categoriaAtual]?.scrollIntoView({
-//   behavior: "smooth",
-//   inline: "center",
-//   block: "nearest",
-// });
-      }
-
-      ticking = false;
-    });
-
-    ticking = true;
-  };
-
-  window.addEventListener("scroll", handleScroll, {
-    passive: true,
-  });
-
-  return () =>
-    window.removeEventListener("scroll", handleScroll);
-}, [categorias, categoriaSelecionada]);
-
-  /** Aplica os dados do cardápio na tela (vindos do servidor junto com a página). */
-  function aplicarCardapio(dados: any) {
-    const restauranteData = dados.restaurante
-    setRestaurante(restauranteData)
-    setPedidosPausados(dados.pedidosAtivos === false)
-    setTempos(dados.operacao ?? null)
-    setAvaliacao(dados.avaliacao ?? null)
-    setTaxaMinima(dados.taxaMinima ?? null)
-
-    const aparenciaData = dados.aparencia
-    if (aparenciaData) {
-      setAparencia(aparenciaData)
-      try {
-        localStorage.setItem("logo-restaurante", aparenciaData.logo_url || "")
-        localStorage.setItem("cor-principal", aparenciaData.cor_primaria || "#571f5b")
-      } catch {}
-      setBanner(aparenciaData.banner_url || "")
-      setLightMode(aparenciaData.tema !== "escuro")
-    } else {
-      setBanner("")
-      setLightMode(true)
-    }
-
-    setProdutos(dados.produtos || [])
-    setProdutosCarregados(true)
-
-    const categoriasOrdenadas: string[] = dados.categorias || []
-    setCategorias(categoriasOrdenadas)
-    if (categoriasOrdenadas.length > 0) {
-      setCategoriaSelecionada((atual) => atual ?? categoriasOrdenadas[0])
-    }
-
-    // Programa de fidelidade + selos deste cliente (se o aparelho já pediu aqui).
-    let tokenCliente = ""
     try {
-      tokenCliente =
-        localStorage.getItem(`cliente_token-${slug}`) ||
-        localStorage.getItem("cliente_token") ||
-        ""
+      localStorage.setItem("cardapio-slug", slug);
+      if (aparencia) {
+        localStorage.setItem("logo-restaurante", aparencia.logo_url || "");
+        localStorage.setItem("cor-principal", aparencia.cor_primaria || "#571f5b");
+      }
     } catch {}
-    fetch(`/api/fidelidade?restauranteId=${encodeURIComponent(restauranteData.id)}`, {
-      headers: { "x-cliente-token": tokenCliente },
-    })
+  }, [slug, aparencia]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--primary-color", corPrincipal);
+  }, [corPrincipal]);
+
+  // ---------------- cliente e fidelidade ----------------
+  const [fidelidade, setFidelidade] = useState<any>(null);
+  const [ultimoPedido, setUltimoPedido] = useState<any>(null);
+
+  useEffect(() => {
+    if (!restaurante?.id) return;
+    let token = "";
+    try {
+      token = localStorage.getItem(`cliente_token-${slug}`) || localStorage.getItem("cliente_token") || "";
+    } catch {}
+    fetch(`/api/fidelidade?restauranteId=${encodeURIComponent(restaurante.id)}`, { headers: { "x-cliente-token": token } })
       .then((r) => r.json())
       .then((f) => setFidelidade(f?.programa ? f : null))
-      .catch(() => setFidelidade(null))
+      .catch(() => {});
+    if (!token) return;
+    fetch("/api/cliente/me", { headers: { "x-cliente-token": token } })
+      .then((r) => r.json())
+      .then((r) => {
+        const pedido = (r?.pedidos ?? []).find(
+          (p: any) => Array.isArray(p.itens) && p.itens.length && !["recusado", "cancelado"].includes(String(p.status))
+        );
+        if (r?.success && pedido) setUltimoPedido(pedido);
+      })
+      .catch(() => {});
+  }, [restaurante?.id, slug]);
 
-    setLoadingInicial(false)
-  }
-
-  async function buscarProdutos() {
-    if (!slug) return
-
-    if (inicial) {
-      aplicarCardapio(inicial)
-      return
-    }
-
-    try {
-      const resposta = await fetch(`/api/cardapio/${encodeURIComponent(slug)}`)
-      const dados = await resposta.json()
-      if (dados?.success) aplicarCardapio(dados.cardapio)
-      else setLoadingInicial(false)
-    } catch {
-      setLoadingInicial(false)
-    }
-  }
-
-useEffect(() => {
-
-  buscarProdutos();
-
-  const sessionKey = `sessao-${slug}`;
-  const cartKey = `cart-${slug}`;
-
-  const sessaoExiste =
-    sessionStorage.getItem(sessionKey);
-
-  if (!sessaoExiste) {
-
-    // Nova sessão
-    localStorage.removeItem(cartKey);
-
-    sessionStorage.setItem(
-      sessionKey,
-      "true"
-    );
-
-  }
-
-  const cartStorage =
-    localStorage.getItem(cartKey);
-
-  if (cartStorage) {
-
-    setCart(JSON.parse(cartStorage));
-
-  }
-
-}, [slug]);
+  // ---------------- carrinho ----------------
+  const [cart, setCart] = useState<CartItem[]>([]);
+  // Só grava depois de ler o que estava salvo (senão apagava o carrinho ao voltar para o cardápio).
+  const [carrinhoLido, setCarrinhoLido] = useState(false);
 
   useEffect(() => {
+    if (!slug || !produtos.length) return;
+    // Volta com o que o cliente já tinha escolhido (fica salvo por 24 h).
+    setCart(conferirComCardapio(lerCarrinho(slug), produtos));
+    setCarrinhoLido(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, dados]);
 
-    localStorage.setItem(
-  `cart-${slug}`,
-  JSON.stringify(cart)
-)
+  useEffect(() => {
+    if (carrinhoLido) salvarCarrinho(slug, cart);
+  }, [cart, slug, carrinhoLido]);
 
-  }, [cart])
-
-function openProductModal(
-  produto: ProdutoFormatado
-) {
-
-  if (!lojaAberta) {
-    setModalLojaFechada(true)
-    return
+  const [aviso, setAviso] = useState<string | null>(null);
+  const avisoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ultimoAviso = useRef(0);
+  function mostrarAviso(texto: string) {
+    // Vários itens de uma vez (produto + "Combina com"): um aviso só.
+    const junto = Date.now() - ultimoAviso.current < 400;
+    ultimoAviso.current = Date.now();
+    setAviso(junto ? "Itens adicionados ao carrinho" : texto);
+    if (avisoTimer.current) clearTimeout(avisoTimer.current);
+    avisoTimer.current = setTimeout(() => setAviso(null), 2200);
   }
 
-  setSelectedProduct(produto)
-  setOpenModal(true)
-}
-
-function addToCart(
-  
-  produto: ProdutoFormatado,
-  observacao?: string,
-  adicionaisSelecionados?: Adicional[],
-  obrigatoriosSelecionados?: {
-  grupo: string;
-  nome: string;
-  preco: number;
-}[]
-) {
-
-  if (!lojaAberta) {
-  setModalLojaFechada(true)
-  return
-}
-
-    const totalAdicionais =
-      adicionaisSelecionados?.reduce(
-        (acc, item) => {
-
-          return (
-            acc +
-            Number(item.preco)
-          )
-
-        },
-        0
-      ) || 0
-
-      const totalObrigatorios =
-  obrigatoriosSelecionados?.reduce(
-    (acc, item) => {
-      return acc + Number(item.preco)
-    },
-    0
-  ) || 0
-
-const novoItem: CartItem = {
-  ...produto,
-
-  uniqueId: crypto.randomUUID(),
-
-  quantity: 1,
-
-  observacao,
-
-  precoBase: Number(produto.preco),
-
-  adicionaisSelecionados:
-    adicionaisSelecionados || [],
-
-  obrigatoriosSelecionados:
-    obrigatoriosSelecionados || [],
-
-  preco:
-    Number(produto.preco) +
-    totalAdicionais +
-    totalObrigatorios,
-}
-
-    setCart((prev) => [
-      ...prev,
-      novoItem,
-    ])
-
-    setOpenModal(false)
-  }
-
-  function increaseQuantity(
-    uniqueId: string
+  function addToCart(
+    produto: ProdutoFormatado,
+    observacao?: string,
+    adicionaisSelecionados?: Adicional[],
+    obrigatoriosSelecionados?: { id?: string; grupo: string; nome: string; preco: number }[],
+    quantidade = 1
   ) {
+    if (!lojaAberta) return;
+    const item: CartItem = {
+      ...produto,
+      uniqueId: crypto.randomUUID(),
+      quantity: quantidade,
+      observacao,
+      precoBase: Number(produto.preco),
+      adicionaisSelecionados: adicionaisSelecionados || [],
+      obrigatoriosSelecionados: obrigatoriosSelecionados || [],
+      preco: 0,
+    };
+    item.preco = precoUnitario(item);
 
-    setCart((prev) =>
-
-      prev.map((item) =>
-
-        item.uniqueId === uniqueId
-
-          ? {
-              ...item,
-              quantity:
-                item.quantity + 1,
-            }
-
-          : item
-      )
-    )
+    setCart((atual) => {
+      // Mesmo produto, sem escolhas e sem observação: só soma a quantidade.
+      const igual = atual.find(
+        (i) =>
+          String(i.id) === String(produto.id) &&
+          !i.observacao &&
+          !observacao &&
+          !(i.adicionaisSelecionados ?? []).length &&
+          !(i.obrigatoriosSelecionados ?? []).length &&
+          !(adicionaisSelecionados ?? []).length &&
+          !(obrigatoriosSelecionados ?? []).length
+      );
+      if (igual) return atual.map((i) => (i === igual ? { ...i, quantity: Math.min(99, i.quantity + quantidade) } : i));
+      return [...atual, item];
+    });
+    mostrarAviso(quantidade > 1 ? `${quantidade}x ${produto.nome} no carrinho` : `${produto.nome} no carrinho`);
   }
 
-  function decreaseQuantity(
-    uniqueId: string
-  ) {
-
-    setCart((prev) =>
-
-      prev
-        .map((item) =>
-
-          item.uniqueId === uniqueId
-
-            ? {
-                ...item,
-                quantity:
-                  item.quantity - 1,
-              }
-
-            : item
-        )
-
-        .filter(
-          (item) =>
-            item.quantity > 0
-        )
-    )
-  }
-
-const total = cart.reduce((acc, item) => {
-  return acc + Number(item.preco) * Number(item.quantity)
-}, 0)
-
-  const produtosFiltrados =
-  produtos.filter(
-    (produto: any) => {
-
-      const matchBusca =
-        String(produto.nome || "")
-          .toLowerCase()
-          .includes(
-            String(busca || "")
-              .toLowerCase()
-          )
-
-      return matchBusca
+  function pedirDeNovo(pedido: any) {
+    if (!lojaAberta) {
+      mostrarAviso(avisoFechado || "Restaurante fechado agora");
+      return;
     }
-  )
-
-
-  /* TEMA */
-
-  const bgPage = "bg-white"
-
-  const cardBg = "bg-[#FFFDF9]"
-
-  const borderColor = lightMode
-    ? "border-[#DDD6CC]"
-    : "border-zinc-800"
-
-  const textPrimary = "text-zinc-900"
-
-  const textSecondary = lightMode
-    ? "text-zinc-600"
-    : "text-zinc-400"
-
-  const inputBg = lightMode
-    ? "bg-white"
-    : "bg-zinc-900"
-
-
-
-    function obterStatusLoja() {
-
-  if (!aparencia || !montado) {
-    return "Carregando..."
-  }
-
-  // Aberto (inclusive horário que passa da meia-noite).
-  if (lojaAbertaAgora(aparencia, agoraLocal())) {
-    return "Aberto Agora"
-  }
-
-  const agora = new Date()
-
-  const dias = [
-    "dom",
-    "seg",
-    "ter",
-    "qua",
-    "qui",
-    "sex",
-    "sab"
-  ]
-
-  const nomesDias = [
-    "domingo",
-    "segunda",
-    "terça",
-    "quarta",
-    "quinta",
-    "sexta",
-    "sábado"
-  ]
-
-  const diaAtualIndex = agora.getDay()
-  const diaAtual = dias[diaAtualIndex]
-
-  // verifica se o dia está ativo
-  const ativo = aparencia[`${diaAtual}_ativo`]
-
-  if (ativo === false) {
-
-    for (let i = 1; i <= 7; i++) {
-
-      const proximoIndex = (diaAtualIndex + i) % 7
-      const proximoDia = dias[proximoIndex]
-
-      const proximoAtivo =
-        aparencia[`${proximoDia}_ativo`]
-
-      const proximoInicio =
-        aparencia[`horario_${proximoDia}_inicio`]
-
-      if (proximoAtivo && proximoInicio) {
-
-        if (i === 1) {
-          return `Fechado • Abre amanhã às ${proximoInicio}`
-        }
-
-        return `Fechado • Abre ${nomesDias[proximoIndex]} às ${proximoInicio}`
+    const porId = new Map(produtos.map((p) => [String(p.id), p]));
+    const itens: CartItem[] = [];
+    let faltou = 0;
+    for (const antigo of pedido?.itens ?? []) {
+      const p: any = porId.get(String(antigo?.id));
+      if (!p) {
+        faltou++;
+        continue;
       }
-
-    }
-
-    return "Fechado"
-  }
-
-  const inicio =
-    aparencia[`horario_${diaAtual}_inicio`]
-
-  const fim =
-    aparencia[`horario_${diaAtual}_fim`]
-
-  if (!inicio || !fim) {
-    return "Fechado"
-  }
-
-  const horaAtual =
-    agora.getHours() * 60 +
-    agora.getMinutes()
-
-  const [hInicio, mInicio] =
-    inicio.split(":").map(Number)
-
-  const [hFim, mFim] =
-    fim.split(":").map(Number)
-
-  const minutoInicio =
-    hInicio * 60 + mInicio
-
-  const minutoFim =
-    hFim * 60 + mFim
-
-  if (
-    horaAtual >= minutoInicio &&
-    horaAtual <= minutoFim
-  ) {
-    return "Aberto Agora"
-  }
-
-  if (horaAtual < minutoInicio) {
-    return `Fechado • Abre às ${inicio}`
-  }
-
-  for (let i = 1; i <= 7; i++) {
-
-    const proximoIndex = (diaAtualIndex + i) % 7
-    const proximoDia = dias[proximoIndex]
-
-    const proximoAtivo =
-      aparencia[`${proximoDia}_ativo`]
-
-    const proximoInicio =
-      aparencia[`horario_${proximoDia}_inicio`]
-
-    if (proximoAtivo && proximoInicio) {
-
-      if (i === 1) {
-        return `Fechado • Abre amanhã às ${proximoInicio}`
+      const opcoesValidas = new Set(
+        (p.gruposObrigatorios ?? []).flatMap((g: any) => (g.grupo_obrigatorio_opcoes ?? []).map((o: any) => String(o.id)))
+      );
+      const opcoes = (antigo.obrigatoriosSelecionados ?? []).filter((o: any) => opcoesValidas.has(String(o.id)));
+      if (opcoes.length !== (antigo.obrigatoriosSelecionados ?? []).length) {
+        faltou++;
+        continue;
       }
-
-      return `Fechado • Abre ${nomesDias[proximoIndex]} às ${proximoInicio}`
+      const adicionaisValidos = new Map((p.adicionais ?? []).map((a: any) => [String(a.id ?? a.nome), a]));
+      const adicionais = (antigo.adicionaisSelecionados ?? [])
+        .map((a: any) => adicionaisValidos.get(String(a.id ?? a.nome)) ?? adicionaisValidos.get(String(a.nome)))
+        .filter(Boolean);
+      const item: CartItem = {
+        ...p,
+        uniqueId: crypto.randomUUID(),
+        quantity: Math.max(1, Math.min(99, Number(antigo.quantity) || 1)),
+        observacao: antigo.observacao || "",
+        precoBase: Number(p.preco),
+        adicionaisSelecionados: adicionais as any,
+        obrigatoriosSelecionados: opcoes.map((o: any) => ({ id: o.id, grupo: o.grupo, nome: o.nome, preco: Number(o.preco || 0) })),
+        preco: 0,
+      };
+      item.preco = precoUnitario(item);
+      itens.push(item);
     }
-
+    if (!itens.length) {
+      mostrarAviso("Os itens desse pedido não estão mais no cardápio");
+      return;
+    }
+    setCart(itens);
+    salvarCarrinho(slug, itens);
+    if (faltou) mostrarAviso(`${faltou} item(ns) não estão mais disponíveis`);
+    router.push(`/${slug}/carrinho`);
   }
 
-  return "Fechado"
+  const qtdPorProduto = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const i of cart) m.set(String(i.id), (m.get(String(i.id)) ?? 0) + i.quantity);
+    return m;
+  }, [cart]);
+  const total = totalCarrinho(cart);
+  const qtdItens = quantidadeCarrinho(cart);
 
-}
+  // ---------------- produto aberto ----------------
+  const [produtoAberto, setProdutoAberto] = useState<ProdutoFormatado | null>(null);
+  const fecharProduto = useCallback(() => setProdutoAberto(null), []);
 
-function obterHorarioFechamento() {
+  function abrirProduto(produto: ProdutoFormatado) {
+    setAviso(null);
+    setProdutoAberto(produto);
+  }
 
-  if (!aparencia) return ""
+  function adicionarRapido(produto: ProdutoFormatado) {
+    if (lojaAberta && semEscolhas(produto)) addToCart(produto);
+    else abrirProduto(produto);
+  }
 
-  const agora = new Date()
 
-  const dias = [
-    "dom",
-    "seg",
-    "ter",
-    "qua",
-    "qui",
-    "sex",
-    "sab"
-  ]
+  // ---------------- busca ----------------
+  const [busca, setBusca] = useState("");
+  const [buscaAberta, setBuscaAberta] = useState(false);
+  const buscaRef = useRef<HTMLInputElement>(null);
+  const termo = semAcento(busca.trim());
+  const resultados = useMemo(() => {
+    if (!termo) return [];
+    const palavras = termo.split(/\s+/);
+    return produtos.filter((p) => {
+      const texto = semAcento(`${p.nome} ${p.descricao ?? ""} ${p.categoria ?? ""}`);
+      return palavras.every((w) => texto.includes(w));
+    });
+  }, [termo, produtos]);
 
-  const diaAtual =
-    dias[agora.getDay()]
+  function abrirBusca() {
+    // Foco no mesmo toque: no iPhone o teclado só abre assim.
+    buscaRef.current?.focus({ preventScroll: true });
+    setBuscaAberta(true);
+    const barra = document.getElementById("barra-categorias");
+    if (barra) {
+      const y = barra.getBoundingClientRect().top + window.scrollY;
+      if (window.scrollY < y) window.scrollTo({ top: y, behavior: "smooth" });
+    }
+  }
+
+  function fecharBusca() {
+    setBusca("");
+    setBuscaAberta(false);
+  }
+
+  // ---------------- categorias ----------------
+  const [categoriaAtiva, setCategoriaAtiva] = useState<string | null>(categorias[0] ?? null);
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const categoriasComProdutos = useMemo(
+    () => categorias.filter((c) => produtos.some((p) => p.categoria === c)),
+    [categorias, produtos]
+  );
+
+  useEffect(() => {
+    if (termo) return;
+    const secoes = categoriasComProdutos.map((c) => document.getElementById(idCategoria(c))).filter(Boolean) as HTMLElement[];
+    if (!secoes.length) return;
+    const visiveis = new Set<Element>();
+    const obs = new IntersectionObserver(
+      (entradas) => {
+        for (const e of entradas) e.isIntersecting ? visiveis.add(e.target) : visiveis.delete(e.target);
+        // A mais de cima entre as que estão na faixa de leitura.
+        const primeira = secoes.find((s) => visiveis.has(s));
+        if (primeira) setCategoriaAtiva(primeira.getAttribute("data-categoria"));
+      },
+      { rootMargin: "-130px 0px -65% 0px" }
+    );
+    secoes.forEach((s) => obs.observe(s));
+    return () => obs.disconnect();
+  }, [categoriasComProdutos, termo]);
+
+  // A categoria ativa acompanha a rolagem na barra de cima.
+  useEffect(() => {
+    const barra = chipsRef.current;
+    const chip = categoriaAtiva ? barra?.querySelector<HTMLElement>(`[data-chip="${CSS.escape(categoriaAtiva)}"]`) : null;
+    if (barra && chip) barra.scrollTo({ left: chip.offsetLeft - barra.clientWidth / 2 + chip.clientWidth / 2, behavior: "smooth" });
+  }, [categoriaAtiva]);
+
+  function irParaCategoria(c: string) {
+    setCategoriaAtiva(c);
+    const el = document.getElementById(idCategoria(c));
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 118, behavior: "smooth" });
+  }
+
+  // ---------------- avaliações ----------------
+  const [verAvaliacoes, setVerAvaliacoes] = useState(false);
+
+  // Abre o carrinho já carregado (sem recarregar a página).
+  useEffect(() => {
+    router.prefetch(`/${slug}/carrinho`);
+  }, [router, slug]);
+
+  function irParaCarrinho() {
+    if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
+      (window as any).fbq("track", "InitiateCheckout", { value: total, currency: "BRL", num_items: qtdItens });
+    }
+    router.push(`/${slug}/carrinho`);
+  }
+
+  if (carregando) return <SplashScreen />;
+
+  const pedidoMinimo = Number(aparencia?.pedido_minimo || 0);
+  const banner = aparencia?.banner_url || "";
 
   return (
-    aparencia[
-      `horario_${diaAtual}_fim`
-    ] || ""
-  )
-}
-
-function obterProximaAbertura() {
-  if (!aparencia) return ""
-
-  const agora = new Date()
-
-  const dias = [
-    "dom",
-    "seg",
-    "ter",
-    "qua",
-    "qui",
-    "sex",
-    "sab",
-  ]
-
-  const nomesDias = [
-    "domingo",
-    "segunda-feira",
-    "terça-feira",
-    "quarta-feira",
-    "quinta-feira",
-    "sexta-feira",
-    "sábado",
-  ]
-
-  const diaAtualIndex = agora.getDay()
-  const diaAtual = dias[diaAtualIndex]
-
-  const ativoHoje =
-    aparencia[`${diaAtual}_ativo`]
-
-  const inicioHoje =
-    aparencia[`horario_${diaAtual}_inicio`]
-
-  // Se hoje funciona e ainda não chegou no horário de abertura
-  if (ativoHoje && inicioHoje) {
-    const [h, m] = inicioHoje.split(":").map(Number)
-
-    const minutosAbertura = h * 60 + m
-    const minutosAgora =
-      agora.getHours() * 60 + agora.getMinutes()
-
-    if (minutosAgora < minutosAbertura) {
-      return `Hoje às ${inicioHoje}`
-    }
-  }
-
-  // Procura o próximo dia que funciona
-  for (let i = 1; i <= 7; i++) {
-    const index = (diaAtualIndex + i) % 7
-    const dia = dias[index]
-
-    const ativo =
-      aparencia[`${dia}_ativo`]
-
-    const inicio =
-      aparencia[`horario_${dia}_inicio`]
-
-    if (ativo && inicio) {
-      if (i === 1) {
-        return `Amanhã às ${inicio}`
-      }
-
-      return `${nomesDias[index]} às ${inicio}`
-    }
-  }
-
-  return ""
-}
-
-// Antes de montar no celular, não decide (a hora do servidor é outra).
-const lojaAberta =
-  !pedidosPausados &&
-  (!montado || lojaAbertaAgora(aparencia, agoraLocal()))
-
-if (loadingInicial) {
-  return <SplashScreen />;
-}
-
-
-  return (
-
-    <main
-      className={`
-        min-h-screen
-        transition-all
-        duration-300
-        ${bgPage}
-        ${textPrimary}
-      `}
-    >
-
-      {pedidosPausados && !modoEditor && (
-        <div className="sticky top-0 z-[60] bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-white">
+    <main className="min-h-screen bg-white text-zinc-900">
+      {pedidosPausados && (
+        <div className="bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-white">
           Pedidos online pausados no momento.
           {restaurante?.whatsapp && (
             <>
               {" "}
-              <a
-                className="underline"
-                href={`https://wa.me/55${String(restaurante.whatsapp).replace(/\D/g, "").replace(/^55/, "")}`}
-              >
+              <a className="underline" href={`https://wa.me/55${String(restaurante.whatsapp).replace(/\D/g, "").replace(/^55/, "")}`}>
                 Peça pelo WhatsApp
               </a>
             </>
@@ -861,8 +397,8 @@ if (loadingInicial) {
         </div>
       )}
 
-      {mesa && !modoEditor && (
-        <div className="sticky top-0 z-[59] flex items-center justify-center gap-3 bg-emerald-600 px-4 py-2 text-center text-sm font-semibold text-white">
+      {mesa && (
+        <div className="flex items-center justify-center gap-3 bg-emerald-600 px-4 py-2 text-center text-sm font-semibold text-white">
           🍽️ Pedido na Mesa {mesa}
           <button type="button" onClick={sairDaMesa} className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium">
             Não estou na mesa
@@ -870,16 +406,326 @@ if (loadingInicial) {
         </div>
       )}
 
+      {/* ---------- topo ---------- */}
+      <section className="mx-auto w-full max-w-5xl">
+        <div
+          className="relative h-[170px] w-full md:h-[300px] md:rounded-b-3xl md:overflow-hidden"
+          style={{
+            background: banner
+              ? `url(${banner}) center / cover no-repeat`
+              : `linear-gradient(135deg, ${corPrincipal} 0%, ${corPrincipal}CC 55%, #111827 100%)`,
+          }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/10 to-black/45" />
+          {logo && (
+            <div className="pointer-events-none absolute -bottom-10 left-1/2 z-10 -translate-x-1/2">
+              <div className="h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-white shadow-xl md:h-32 md:w-32">
+                <img src={logo} alt={restaurante?.nome_restaurante || "Logo"} className="h-full w-full object-cover" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className={`px-4 text-center ${logo ? "pt-12" : "pt-4"}`}>
+          <h1 className="text-[22px] font-extrabold leading-tight md:text-3xl">{restaurante?.nome_restaurante}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[13px] text-zinc-500">
+            {status && (
+              <span className={`font-semibold ${lojaAberta ? "text-emerald-600" : "text-red-600"}`}>
+                {pedidosPausados ? "Pedidos pausados" : status.texto}
+              </span>
+            )}
+            {status?.aberta && status.fechaAs && <span>· fecha às {status.fechaAs}</span>}
+            {avaliacao?.total >= 3 && (
+              <button type="button" onClick={() => setVerAvaliacoes(true)} className="inline-flex items-center gap-1">
+                · <Star size={13} className="fill-amber-400 text-amber-400" />
+                <strong className="text-zinc-800">
+                  {Number(avaliacao.media).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                </strong>
+                <span className="underline decoration-zinc-300">({avaliacao.total})</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mx-4 mt-4 grid grid-cols-2 divide-x divide-zinc-200 rounded-2xl border border-zinc-200 py-3 text-center md:mx-auto md:max-w-xl">
+          <div className="px-2">
+            <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold">
+              <Bike size={16} className="text-zinc-500" />
+              {mesa
+                ? "Na mesa"
+                : tempos?.tempoEntregaMin && tempos?.tempoEntregaMax
+                  ? `${tempos.tempoEntregaMin}–${tempos.tempoEntregaMax} min`
+                  : "Delivery"}
+            </p>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              {mesa
+                ? "sem taxa de entrega"
+                : taxaMinima == null
+                  ? "taxa no endereço"
+                  : taxaMinima > 0
+                    ? `entrega a partir de ${reais(taxaMinima)}`
+                    : "entrega grátis"}
+            </p>
+          </div>
+          <div className="px-2">
+            <p className="flex items-center justify-center gap-1.5 text-[13px] font-semibold">
+              <ShoppingBag size={16} className="text-zinc-500" />
+              {pedidoMinimo > 0 ? `Mínimo ${reais(pedidoMinimo)}` : "Sem pedido mínimo"}
+            </p>
+            <p className="mt-0.5 text-xs text-zinc-500">Pix, cartão ou dinheiro</p>
+          </div>
+        </div>
+
+        {/* Fidelidade */}
+        {fidelidade?.programa &&
+          (() => {
+            const necessarios = Number(fidelidade.programa.pedidosNecessarios || 10);
+            const selos = Number(fidelidade.cliente?.selos || 0);
+            const premio = String(fidelidade.programa.textoPremio || "");
+            if (selos >= necessarios) {
+              return (
+                <div className="mx-4 mt-3 rounded-2xl px-4 py-3 text-center text-white md:mx-auto md:max-w-xl" style={{ backgroundColor: corPrincipal }}>
+                  <p className="text-[15px] font-extrabold">🎉 Você ganhou: {premio}</p>
+                  <p className="text-[12px] text-white/85">Marque “Usar meu prêmio” na hora de pagar.</p>
+                </div>
+              );
+            }
+            return (
+              <div className="mx-4 mt-3 rounded-2xl border border-zinc-200 px-3 py-3 md:mx-auto md:max-w-xl">
+                <p className="text-center text-[13px] text-zinc-800">
+                  Junte <strong>{necessarios} pedidos</strong> e ganhe <strong style={{ color: corPrincipal }}>{premio}</strong>
+                </p>
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
+                  {Array.from({ length: necessarios }).map((_, i) => (
+                    <Ticket
+                      key={i}
+                      size={18}
+                      strokeWidth={1.8}
+                      style={{ color: i < selos ? corPrincipal : "#D6B46A", fill: i < selos ? corPrincipal : "transparent" }}
+                    />
+                  ))}
+                </div>
+                {selos > 0 && (
+                  <p className="mt-1.5 text-center text-[12px] text-zinc-500">
+                    Faltam <strong>{necessarios - selos}</strong> pedidos
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+
+        {/* Pedir de novo */}
+        {ultimoPedido && !termo && (
+          <div className="mx-4 mt-3 flex items-center gap-3 rounded-2xl bg-zinc-50 px-4 py-3 md:mx-auto md:max-w-xl">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-bold">Pedir de novo</p>
+              <p className="truncate text-xs text-zinc-500">
+                {(ultimoPedido.itens ?? [])
+                  .map((i: any) => `${i.quantity}x ${i.nome}`)
+                  .join(", ")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => pedirDeNovo(ultimoPedido)}
+              className="shrink-0 rounded-xl px-3 py-2 text-[13px] font-bold text-white"
+              style={{ backgroundColor: corPrincipal }}
+            >
+              Repetir
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* ---------- busca + categorias ---------- */}
+      <div id="barra-categorias" className="sticky top-0 z-[50] mt-4 border-b border-zinc-100 bg-white/95 backdrop-blur">
+        <div className="relative mx-auto flex max-w-5xl items-center gap-2 px-3 py-2.5">
+          <div className={buscaAberta || termo ? "flex h-10 flex-1 items-center gap-2 rounded-xl bg-zinc-100 px-3" : "absolute h-0 w-0 overflow-hidden opacity-0"}>
+            <Search size={17} className="shrink-0 text-zinc-500" />
+            <input
+              ref={buscaRef}
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              onBlur={() => !busca.trim() && setBuscaAberta(false)}
+              placeholder="Buscar no cardápio"
+              enterKeyHint="search"
+              type="search"
+              className="h-full min-w-0 flex-1 bg-transparent text-base outline-none [&::-webkit-search-cancel-button]:hidden"
+              aria-label="Buscar no cardápio"
+              tabIndex={buscaAberta || termo ? 0 : -1}
+            />
+            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={fecharBusca} aria-label="Fechar busca" className="text-zinc-500">
+              <X size={18} />
+            </button>
+          </div>
+          {!(buscaAberta || termo) && (
+            <>
+              <button
+                type="button"
+                onClick={abrirBusca}
+                aria-label="Buscar no cardápio"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-600"
+              >
+                <Search size={18} />
+              </button>
+              <div ref={chipsRef} className="scrollbar-hide flex flex-1 gap-2 overflow-x-auto scroll-smooth">
+                {categoriasComProdutos.map((c) => {
+                  const ativa = categoriaAtiva === c;
+                  return (
+                    <button
+                      key={c}
+                      data-chip={c}
+                      type="button"
+                      onClick={() => irParaCategoria(c)}
+                      className="h-10 shrink-0 whitespace-nowrap rounded-xl border px-3.5 text-[13px] font-semibold transition-colors"
+                      style={{
+                        backgroundColor: ativa ? corPrincipal : "#FFFFFF",
+                        color: ativa ? "#FFFFFF" : "#3F3F46",
+                        borderColor: ativa ? corPrincipal : "#E4E4E7",
+                      }}
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ---------- produtos ---------- */}
+      <section className="mx-auto max-w-5xl pb-6">
+        {termo ? (
+          <div className="pt-2">
+            <p className="px-4 py-2 text-[13px] text-zinc-500">
+              {resultados.length
+                ? `${resultados.length} resultado${resultados.length > 1 ? "s" : ""} para “${busca.trim()}”`
+                : `Nada encontrado para “${busca.trim()}”`}
+            </p>
+            <div className="md:grid md:grid-cols-2 md:gap-3 md:px-4">
+              {resultados.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  corPrincipal={corPrincipal}
+                  onAdd={() => abrirProduto(p)}
+                  onMais={() => adicionarRapido(p)}
+                  noCarrinho={qtdPorProduto.get(String(p.id))}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {(dados?.maisPedidos?.length ?? 0) >= 3 && (
+              <div className="pt-5">
+                <h2 className="px-4 text-lg font-extrabold">🔥 Mais pedidos</h2>
+                <div className="scrollbar-hide mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
+                  {(dados.maisPedidos as string[])
+                    .map((pid) => produtos.find((p) => String(p.id) === pid))
+                    .filter(Boolean)
+                    .map((p: any) => (
+                      <FeaturedProductCard key={`mais-${p.id}`} product={p} corPrincipal={corPrincipal} onClick={() => abrirProduto(p)} />
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {categoriasComProdutos.map((categoria) => {
+              const lista = produtos.filter((p) => p.categoria === categoria);
+              const faixa = DESTAQUE.test(categoria);
+              return (
+                <div key={categoria} id={idCategoria(categoria)} data-categoria={categoria} className="scroll-mt-28 pt-5">
+                  <h2 className="px-4 text-lg font-extrabold md:text-2xl">{categoria}</h2>
+                  {faixa ? (
+                    <div className="scrollbar-hide mt-3 flex snap-x gap-3 overflow-x-auto px-4 pb-1">
+                      {lista.map((p) => (
+                        <FeaturedProductCard key={p.id} product={p} corPrincipal={corPrincipal} onClick={() => abrirProduto(p)} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-1 md:mt-3 md:grid md:grid-cols-2 md:gap-3 md:px-4">
+                      {lista.map((p) => (
+                        <ProductCard
+                          key={p.id}
+                          product={p}
+                          corPrincipal={corPrincipal}
+                          onAdd={() => abrirProduto(p)}
+                          onMais={() => adicionarRapido(p)}
+                          noCarrinho={qtdPorProduto.get(String(p.id))}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {produtos.length === 0 && (
+              <p className="px-4 py-16 text-center text-zinc-500">O cardápio ainda está sendo montado. Volte daqui a pouco!</p>
+            )}
+          </>
+        )}
+      </section>
+
+      <RestaurantFooter corPrincipal={corPrincipal} />
+      <div className={cart.length > 0 ? "h-40" : "h-24"} />
+
+      <ProductModal
+        open={Boolean(produtoAberto)}
+        onClose={fecharProduto}
+        product={produtoAberto}
+        onAdd={addToCart}
+        corPrincipal={corPrincipal}
+        bloqueado={avisoFechado}
+      />
+
+      {/* Aviso "adicionado" */}
+      {aviso && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-[150px] z-[1001] flex justify-center px-4">
+          <div className="rounded-full bg-zinc-900/90 px-4 py-2 text-sm font-medium text-white shadow-lg">✓ {aviso}</div>
+        </div>
+      )}
+
+      {/* Barra do carrinho */}
+      {cart.length > 0 && (
+        <div className="fixed inset-x-0 bottom-[calc(62px+var(--altura-aviso-cookies,0px)+env(safe-area-inset-bottom))] z-[999] px-3 pb-2">
+          <button
+            type="button"
+            onClick={irParaCarrinho}
+            className="mx-auto flex h-14 w-full max-w-xl items-center justify-between rounded-2xl px-4 text-white shadow-xl transition active:scale-[0.99]"
+            style={{ backgroundColor: corPrincipal }}
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white/25 px-1.5 text-sm font-bold">{qtdItens}</span>
+              <span className="text-[15px] font-bold">Ver carrinho</span>
+            </span>
+            <span className="text-right leading-tight">
+              <span className="block text-[15px] font-bold">{reais(total)}</span>
+              {!lojaAberta ? (
+                <span className="block text-[11px] text-white/85">{status?.proximaAbertura ? `abre ${status.proximaAbertura}` : "fechado agora"}</span>
+              ) : pedidoMinimo > 0 && !mesa && total < pedidoMinimo ? (
+                <span className="block text-[11px] text-white/85">faltam {reais(pedidoMinimo - total)} p/ o mínimo</span>
+              ) : null}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Avaliações */}
       {verAvaliacoes && avaliacao && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/50 md:items-center" onClick={() => setVerAvaliacoes(false)}>
-          <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 text-zinc-900 md:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50 md:items-center" onClick={() => setVerAvaliacoes(false)}>
+          <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 md:rounded-3xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <p className="text-lg font-bold">
                 <span className="text-amber-500">★</span>{" "}
                 {Number(avaliacao.media).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                 <span className="ml-2 text-sm font-normal text-zinc-500">{avaliacao.total} avaliações</span>
               </p>
-              <button type="button" onClick={() => setVerAvaliacoes(false)} className="text-2xl leading-none text-zinc-400">×</button>
+              <button type="button" onClick={() => setVerAvaliacoes(false)} aria-label="Fechar" className="text-2xl leading-none text-zinc-400">
+                ×
+              </button>
             </div>
             <div className="mt-4 space-y-3">
               {(avaliacao.comentarios ?? []).map((c: any, i: number) => (
@@ -892,913 +738,90 @@ if (loadingInicial) {
                   <p className="mt-1 text-sm text-zinc-600">{c.comentario}</p>
                 </div>
               ))}
-              {(avaliacao.comentarios ?? []).length === 0 && (
-                <p className="text-sm text-zinc-500">Ainda sem comentários escritos.</p>
-              )}
+              {(avaliacao.comentarios ?? []).length === 0 && <p className="text-sm text-zinc-500">Ainda sem comentários escritos.</p>}
             </div>
           </div>
         </div>
       )}
 
-      {/* HERO */}
-
-<section
-className="
-w-full
-bg-white
-"
->
-
-<div
-className="
-w-full
-h-[190px]
-md:h-[340px]
-relative
-"
-
-style={{
-  background: banner
-    ? `url(${banner})`
-    : `linear-gradient(
-        135deg,
-        ${corPrincipal} 0%,
-        ${corPrincipal}CC 55%,
-        #111827 100%
-      )`,
-
-  backgroundSize: "cover",
-  backgroundRepeat: "no-repeat",
-  backgroundPosition: "center",
-}}
-  >
-
-   {/* ESCURECER BANNER */}
-
-<div
-  className="
-    absolute
-    inset-0
-    bg-black/65
-    z-10
-  "
-/>
-
-{/* LOGO CENTRAL */}
-
-{logo && (
-<div
-className="
-absolute
-left-1/2
--translate-x-1/2
--bottom-7
-z-50
-pointer-events-none
-"
->
-    <div
-      className="
-        w-28
-        h-28
-        md:w-40
-        md:h-40
-
-        rounded-full
-        bg-white
-
-        border-4
-        border-white
-
-        shadow-2xl
-
-        overflow-hidden
-      "
-    >
-      <img
-        src={logo}
-        alt="Logo"
-        className="
-          w-full
-          h-full
-          object-cover
-        "
+      {/* Aviso de loja fechada (uma vez, ao abrir) */}
+      <AvisoFechado
+        slug={slug}
+        mostrar={Boolean(status && !lojaAberta)}
+        pausado={pedidosPausados}
+        proximaAbertura={status?.proximaAbertura || ""}
+        cor={corPrincipal}
+        whatsapp={restaurante?.whatsapp}
       />
-    </div>
-  </div>
-)}
 
-</div>
+      <BottomNavigation
+        corPrincipal={corPrincipal}
+        onBuscar={abrirBusca}
+        onInicio={() => {
+          fecharBusca();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onPedirDeNovo={pedirDeNovo}
+      />
+    </main>
+  );
+}
 
-<div
-className="
-pt-6
-pb-0
-shadow-sm
-"
+/** Mostra uma vez por visita que a loja está fechada, sem impedir de ver o cardápio. */
+function AvisoFechado({
+  slug,
+  mostrar,
+  pausado,
+  proximaAbertura,
+  cor,
+  whatsapp,
+}: {
+  slug: string;
+  mostrar: boolean;
+  pausado: boolean;
+  proximaAbertura: string;
+  cor: string;
+  whatsapp?: string;
+}) {
+  const [aberto, setAberto] = useState(false);
+  useEffect(() => {
+    if (!mostrar) return;
+    try {
+      const chave = `aviso-fechado-${slug}`;
+      if (sessionStorage.getItem(chave)) return;
+      sessionStorage.setItem(chave, "1");
+    } catch {}
+    setAberto(true);
+  }, [mostrar, slug]);
 
->
-
- <div 
-className="
-grid
-grid-cols-3
-text-center
-px-4
-pb-6
-divide-x
-divide-zinc-200
-items-center
-"
- >
-
-    <div>
-<Bike
-  size={22}
-  strokeWidth={1.8}
-  className="mx-auto text-zinc-500 mb-2"
-/>
-      <p className="text-xs font-semibold mt-2">
-        Delivery
-        {tempos?.tempoEntregaMin && tempos?.tempoEntregaMax ? (
-          <span className="block font-normal text-[11px] text-zinc-500">
-            {tempos.tempoEntregaMin}–{tempos.tempoEntregaMax} min
-          </span>
-        ) : null}
-      </p>
-      {mesa ? (
-        <p className="mt-1 text-[11px] leading-5 text-zinc-500">Na mesa: sem taxa</p>
-      ) : taxaMinima != null ? (
-        <>
-          <p className="mt-1 text-[11px] leading-5 text-zinc-500">
-            {taxaMinima > 0 ? "Taxa a partir de" : "Taxa"}
-          </p>
-          <p className="text-sm">
-            {taxaMinima > 0
-              ? `R$ ${taxaMinima.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-              : "Grátis"}
-          </p>
-        </>
-      ) : null}
-    </div>
-
-    <div>
-      <Clock3
-size={22}
-className="mx-auto text-zinc-500 mb-2"
-/>
-
-<p
-  className={`text-xs font-semibold mt-2 ${
-    lojaAberta
-      ? "text-green-600"
-      : "text-red-600"
-  }`}
->
-  {obterStatusLoja()}
-</p>
-
-<p className="mt-1 text-[11px] leading-5 text-zinc-900 font-medium">
-  {montado && obterHorarioFechamento() ? `Fecha às ${obterHorarioFechamento()}` : "\u00a0"}
-</p>
-    </div>
-
-    <div>
-<Wallet
-  size={22}
-  strokeWidth={1.8}
-  className="mx-auto text-zinc-500 mb-2"
-/>
-      <p className="text-xs font-semibold mt-2">
-        Pedido mínimo
-      </p>
-      <p className="text-sm">
-        R$ {Number(
-          aparencia?.pedido_minimo || 0
-        ).toLocaleString("pt-BR",{
-          minimumFractionDigits:2
-        })}
-      </p>
-    </div>
-
-
-  </div>
-
-{avaliacao?.total >= 3 && (
-  <button
-    type="button"
-    onClick={() => setVerAvaliacoes(true)}
-    className="mx-auto -mt-3 mb-3 flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[13px] text-zinc-700"
-  >
-    <span className="text-amber-500">★</span>
-    <strong>{Number(avaliacao.media).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</strong>
-    <span className="text-zinc-500">({avaliacao.total} avaliações)</span>
-    {avaliacao.comentarios?.length > 0 && <span className="underline text-zinc-500">ver</span>}
-  </button>
-)}
-
-<div className="mx-4 -mt-1 border-t border-zinc-100" />
-
-
-
-
-{fidelidade?.programa && (() => {
-  const necessarios = Number(fidelidade.programa.pedidosNecessarios || 10);
-  const selos = Number(fidelidade.cliente?.selos || 0);
-  const liberado = selos >= necessarios;
-  const premio = String(fidelidade.programa.textoPremio || "");
-
-  if (liberado) {
-    return (
-      <div
-        className="mx-3 mt-3 mb-3 rounded-2xl px-4 py-4 text-center text-white shadow-md"
-        style={{ backgroundColor: corPrincipal }}
-      >
-        <p className="text-2xl">🎉</p>
-        <p className="mt-1 text-[15px] font-black leading-5">
-          Parabéns!! Você é nosso cliente fiel
-        </p>
-        <p className="text-[13px] text-white/90">e vai receber agora:</p>
-        <p className="mt-1 text-xl font-black">{premio}</p>
-        <p className="mt-2 text-[12px] text-white/85">
-          Use quando quiser: é só marcar “Usar meu prêmio” na hora de pagar.
-        </p>
-      </div>
-    );
-  }
-
+  if (!aberto) return null;
+  const zap = String(whatsapp || "").replace(/\D/g, "").replace(/^55/, "");
   return (
-    <div className="mx-3 mt-3 mb-3 rounded-2xl border border-[#E8E1DA] bg-[#FFFDF9] px-3 py-3">
-      <p className="text-center text-[13px] leading-5 text-zinc-800">
-        Junte <strong>{necessarios} pedidos</strong> e ganhe{" "}
-        <strong style={{ color: corPrincipal }}>{premio}</strong>!
-      </p>
-
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-y-1">
-        {Array.from({ length: necessarios }).map((_, index) => {
-          const preenchido = index < selos;
-          return (
-            <div key={index} className="flex justify-center" style={{ width: `${100 / Math.min(necessarios, 10)}%` }}>
-              <Ticket
-                size={20}
-                strokeWidth={1.8}
-                style={{
-                  color: preenchido ? corPrincipal : "#D6B46A",
-                  fill: preenchido ? corPrincipal : "transparent",
-                }}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      <p className="mt-3 text-center text-[12px] leading-4 text-zinc-500">
-        {selos > 0 ? (
-          <>
-            Faltam <strong>{necessarios - selos}</strong> pedidos para você ganhar seu prêmio.
-          </>
-        ) : (
-          <>Cada pedido vale 1 selo. Vale Pix, dinheiro ou cartão.</>
+    <div className="fixed inset-0 z-[1002] flex items-center justify-center bg-black/50 px-5" onClick={() => setAberto(false)}>
+      <div className="w-full max-w-[360px] rounded-[28px] bg-white px-6 pb-6 pt-7 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: `${cor}15` }}>
+          <Clock3 size={26} style={{ color: cor }} />
+        </div>
+        <h2 className="text-xl font-bold text-zinc-900">{pausado ? "Pedidos online pausados" : "Estamos fechados agora"}</h2>
+        <p className="mt-2 text-sm leading-6 text-zinc-500">
+          {pausado
+            ? "Você pode olhar o cardápio. Para pedir agora, fale com a gente pelo WhatsApp."
+            : "Você pode olhar o cardápio à vontade. Os pedidos voltam a ser aceitos quando abrirmos."}
+        </p>
+        {!pausado && proximaAbertura && (
+          <p className="mt-4 rounded-2xl px-4 py-3 text-[15px] font-bold" style={{ backgroundColor: `${cor}10`, color: cor }}>
+            Abrimos {proximaAbertura}
+          </p>
         )}
-      </p>
+        <button type="button" onClick={() => setAberto(false)} className="mt-5 h-12 w-full rounded-xl text-[15px] font-semibold text-white" style={{ backgroundColor: cor }}>
+          Ver cardápio
+        </button>
+        {pausado && zap && (
+          <a href={`https://wa.me/55${zap}`} className="mt-2 block text-sm font-semibold text-emerald-700">
+            Pedir pelo WhatsApp
+          </a>
+        )}
+      </div>
     </div>
   );
-})()}
-
-<div
-className={`
-sticky
-top-0
-w-full
-bg-white
-border-b
-border-[#ECE8E2]
-shadow-sm
-${openModal ? "-z-10" : "z-[999]"}
-`}
->
-
-<div
-className="
-max-w-7xl
-mx-auto
-px-2
-pt-3
-pb-3
-"
->
-
-<div className="relative">
-
-<div
-  ref={categoriasRef}
-  className="
-    flex
-    items-center
-    justify-start
-    gap-2
-    overflow-x-auto
-    scroll-smooth
-    whitespace-nowrap
-    scrollbar-hide
-    px-4
-    md:px-0
-  "
->
-
-{categorias.map((categoria, index) => (
-
-
-<div
-  key={categoria}
-  className="
-    flex
-    items-center
-    shrink-0
-  "
->
-
-<button
-   ref={(el) => {
-     botoesCategoriaRef.current[categoria] = el
-   }}
-   id={`botao-${categoria}`}
-   onClick={() => {
-
-  setCategoriaSelecionada(categoria)
-
-const categoriaId =
-  categoria
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "-")
-
-const element =
-  document.getElementById(
-    `categoria-${categoriaId}`
-  )
-
-  if (element) {
-
-    const y =
-      element.getBoundingClientRect().top +
-      window.pageYOffset -
-      180
-
-    window.scrollTo({
-      top: y,
-      behavior: "smooth",
-    })
-  }
-}}
-className="
-px-3 md:px-6
-h-9 md:h-11
-text-[13px] md:text-base
-rounded-xl
-font-semibold
-whitespace-nowrap
-transition-all
-duration-300
-"
-    style={{
-      backgroundColor:
-  categoriaSelecionada === categoria
-    ? corPrincipal
-    : "#FFFFFF",
-
-      color:
-        categoriaSelecionada === categoria
-          ? "#FFFFFF"
-          : "#3F3F46",
-
-          border: "1px solid #E4E4E7"
-    }}
-  >
-    {categoria}
-  </button>
-
-</div>
-
-))}
-
-
-</div>
-</div>
-
-          </div>
-
-        </div>
-
-        </div>
-
-<div style={{ height: 1, background: "#FFFFFF" }} />
-
-</section>
-
-<section className="bg-white">
-
-{/* Mais pedidos (últimos 30 dias) — só aparece sem busca e com pedidos suficientes */}
-{!busca.trim() && (inicial?.maisPedidos?.length ?? 0) >= 3 && (
-  <div className="px-4 pt-6">
-    <h2 className="text-lg font-black text-zinc-900">🔥 Mais pedidos</h2>
-    <div className="mt-3 -mx-4 px-4 flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-      {(inicial.maisPedidos as string[])
-        .map((pid) => produtos.find((p) => String(p.id) === pid))
-        .filter(Boolean)
-        .map((produto: any) => (
-          <button
-            key={`mais-${produto.id}`}
-            onClick={() => openProductModal(produto)}
-            className="w-36 shrink-0 text-left rounded-2xl border border-zinc-200 bg-white overflow-hidden"
-          >
-            {produto.imagem ? (
-              <img loading="lazy" decoding="async" src={produto.imagem} alt={produto.nome} className="w-full h-24 object-cover" />
-            ) : (
-              <div className="w-full h-24 bg-zinc-100" />
-            )}
-            <span className="block px-2 pt-2 text-sm font-semibold text-zinc-900 line-clamp-2">{produto.nome}</span>
-            <span className="block px-2 pb-2 text-sm font-bold" style={{ color: corPrincipal }}>
-              {Number(produto.preco).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-            </span>
-          </button>
-        ))}
-    </div>
-  </div>
-)}
-
-{categorias.map((categoria, indexCategoria) => {
-
-  const produtosCategoria =
-    produtosFiltrados.filter(
-      (produto) =>
-        produto.categoria === categoria
-    )
-
-    
-  if (
-    produtosCategoria.length === 0
-  ) {
-    return null
-  }
-
-const categoriaId =
-  categoria
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "-")
-
-
-return (
-
-<div
-  id={`categoria-${categoriaId}`}
-  key={categoria}
-  ref={(el) => {
-    categoriaRefs.current[categoria] = el
-  }}
-  className="mb-2 md:mb-14"
->
-<h2
-  className="
-    px-4
-    md:px-0
-
-    mt-5
-    md:mt-8
-
-    text-[18px]
-    md:text-[30px]
-
-    font-semibold
-
-    text-zinc-900
-
-    mb-2
-    md:mb-5
-  "
->
-  {categoria}
-</h2>
-
-<div
-className={
-  indexCategoria === 0
-    ? `
-        flex
-        flex-nowrap
-        gap-[6px] md:gap-5
-        overflow-x-auto
-        overflow-y-hidden
-        px-3 md:px-2
-        pb-3
-        snap-x
-        snap-mandatory
-        scrollbar-hide
-      `
-    : `
-        flex
-        flex-col
-        gap-[6px] md:gap-5
-        px-3
-        md:px-0
-      `
-}
->
-
-{!produtosCarregados ? (
-
-  [...Array(6)].map((_, index) => (
-
-    <div
-      key={index}
-      className="
-        rounded-3xl
-        bg-white
-      shadow-[0_8px_22px_rgba(0,0,0,0.07)]
-        overflow-hidden
-        animate-pulse
-      "
-    >
-      <div className="w-full h-40 bg-zinc-200" />
-
-      <div className="p-4">
-
-        <div className="h-5 w-3/4 bg-zinc-200 rounded" />
-
-        <div className="h-4 w-full bg-zinc-100 rounded mt-3" />
-
-        <div className="h-4 w-2/3 bg-zinc-100 rounded mt-2" />
-
-        <div className="h-8 w-24 bg-zinc-200 rounded-xl mt-5" />
-
-      </div>
-
-    </div>
-
-  ))
-
-) : (
-
-produtosCategoria.map((produto) => (
-
-  indexCategoria === 0 ? (
-
-    <FeaturedProductCard
-      key={produto.id}
-      product={produto}
-      corPrincipal={corPrincipal}
-      onClick={() => openProductModal(produto)}
-    />
-
-  ) : (
-
-    <ProductCard
-      key={produto.id}
-      product={produto}
-      corPrincipal={corPrincipal}
-      onAdd={() => openProductModal(produto)}
-    />
-
-  )
-
-))
-
-)}
-
-      </div>
-
-    </div>
-
-  )
-})}
-
-</section>
-
-      
-      <ProductModal
-  open={openModal}
-  onClose={() => setOpenModal(false)}
-  product={selectedProduct}
-  onAdd={addToCart}
-  corPrincipal={corPrincipal}
-/>
-
-
-{cart.length > 0 && (
-<div
-className="
-fixed
-bottom-[74px]
-left-0
-right-0
-z-[999]
-shadow-2xl
-pb-[env(safe-area-inset-bottom)]
-"
-style={{
-  backgroundColor: corPrincipal,
-}}
->
-
-<div
-  className="
-    px-4
-    py-4
-    flex
-    items-center
-    justify-between
-  "
->
-      <div className="flex items-center gap-3">
-
-        <div
-          className="
-            w-12
-            h-12
-            rounded-xl
-            overflow-hidden
-            bg-white
-            shrink-0
-          "
-        >
-          {cart[0]?.imagem && (
-            <img
-              src={cart[0].imagem}
-              alt=""
-              className="
-                w-full
-                h-full
-                object-cover
-              "
-            />
-          )}
-        </div>
-
-        <div className="text-white">
-
-          <p className="font-bold text-sm">
-            {cart.reduce(
-              (acc, item) =>
-                acc + item.quantity,
-              0
-            )} itens no carrinho
-          </p>
-
-          <p className="text-white/80 text-[15px]">
-            Total: R$ {total.toLocaleString(
-  "pt-BR",
-  {
-    minimumFractionDigits: 2,
-  }
-)}
-          </p>
-
-        </div>
-
-      </div>
-
-<button
-  disabled={carregandoCarrinho}
- onClick={() => {
-
-   if (!lojaAberta) {
-  setModalLojaFechada(true)
-  return
-}
-
-    if (carregandoCarrinho) return;
-
-    setCarregandoCarrinho(true);
-
-    setTimeout(() => {
-
-      window.location.href = `/${slug}/carrinho`;
-
-    }, 300);
-
-}}
-  className="
-    bg-[#22C55E]
-    hover:bg-emerald-600
-
-    text-white
-    font-semibold
-
-    px-4
-    py-2
-
-    rounded-xl
-
-    flex
-    items-center
-    justify-center
-    gap-3
-
-    transition-all
-    duration-200
-
-    active:scale-95
-
-    disabled:opacity-70
-    disabled:cursor-not-allowed
-
-    min-w-[140px]
-  "
->
-  {carregandoCarrinho ? (
-    <>
-      <div
-        className="
-          w-5
-          h-5
-          border-2
-          border-white/40
-          border-t-white
-          rounded-full
-          animate-spin
-        "
-      />
-      Carregando...
-    </>
-  ) : (
-    "Ver carrinho"
-  )}
-</button>
-
-    </div>
-  </div>
-)}
-
-
-<div className="-mt-4">
-<RestaurantFooter
-  corPrincipal={corPrincipal}
-/>
-
-<div
-  className={
-    cart.length > 0
-      ? "h-28"
-      : "h-0"
-  }
-/>
-
-</div>
-
-{modalLojaFechada && (
-  <div
-    className="
-      fixed
-      inset-0
-      z-[99999]
-      flex
-      items-center
-      justify-center
-      bg-black/50
-      backdrop-blur-[2px]
-      px-5
-    "
-    onClick={() => setModalLojaFechada(false)}
-  >
-<div
-  className="
-    w-full
-    max-w-[390px]
-    bg-white
-    rounded-[28px]
-    shadow-2xl
-    overflow-hidden
-  "
-  onClick={(e) => e.stopPropagation()}
->
-
-  <div className="px-6 pt-7 pb-6 text-center">
-
-    {/* ÍCONE */}
-    
-        <div
-          className="
-            w-16
-            h-16
-            rounded-full
-            mx-auto
-            flex
-            items-center
-            justify-center
-            mb-5
-          "
-          style={{
-            backgroundColor: `${corPrincipal}15`,
-          }}
-        >
-          <Clock3
-            size={30}
-            strokeWidth={2}
-            style={{
-              color: corPrincipal,
-            }}
-          />
-        </div>
-
-        {/* TÍTULO */}
-        <h2
-          className="
-            text-[22px]
-            font-bold
-            text-zinc-900
-          "
-        >
-          {pedidosPausados
-            ? "Pedidos online pausados"
-            : "Estamos fechados no momento"}
-        </h2>
-
-        {/* TEXTO */}
-        <p
-          className="
-            mt-2
-            text-[14px]
-            leading-6
-            text-zinc-500
-          "
-        >
-          {pedidosPausados
-            ? "No momento não estamos recebendo pedidos pelo cardápio. Fale com a gente pelo WhatsApp."
-            : "No momento não estamos aceitando novos pedidos. Você pode voltar quando estivermos abertos."}
-        </p>
-
-        {/* HORÁRIO */}
-        {obterProximaAbertura() && (
-          <div
-            className="
-              mt-5
-              rounded-2xl
-              px-4
-              py-4
-            "
-            style={{
-              backgroundColor: `${corPrincipal}10`,
-            }}
-          >
-            <p
-              className="
-                text-[12px]
-                text-zinc-500
-                font-medium
-              "
-            >
-              Voltamos a aceitar pedidos
-            </p>
-
-            <p
-              className="
-                mt-1
-                text-[17px]
-                font-bold
-              "
-              style={{
-                color: corPrincipal,
-              }}
-            >
-              {obterProximaAbertura()}
-            </p>
-          </div>
-        )}
-
-        {/* BOTÃO */}
-        <button
-          onClick={() => setModalLojaFechada(false)}
-          className="
-            mt-6
-            w-full
-            h-12
-            rounded-xl
-            text-white
-            font-semibold
-            text-[15px]
-            transition
-            active:scale-[0.98]
-          "
-          style={{
-            backgroundColor: corPrincipal,
-          }}
-        >
-          Entendi
-        </button>
-
-      </div>
-    </div>
-  </div>
-)}
-
-
-<BottomNavigation
-  corPrincipal={corPrincipal}
-/>
-
-</main>
-  )
 }

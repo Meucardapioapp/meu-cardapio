@@ -19,7 +19,7 @@ const perguntas = [
     icon: BadgeDollarSign,
     pergunta: "Quanto custa?",
     resposta:
-      "Você testa grátis por 15 dias, sem cartão. Depois são R$ 79,90 por mês, com tudo incluído e sem taxa por pedido. No Pix online automático há 1% por Pix recebido.",
+      "Você testa grátis por 15 dias, sem cartão. Depois são R$ 79,90 por mês, com tudo incluído e sem taxa por pedido. No Pix online automático há 2,5% por Pix recebido.",
   },
   {
     icon: CreditCard,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { comprimirImagem } from "@/lib/imagem";
 import { toast } from "sonner";
 import {
   Bike,
@@ -212,14 +213,20 @@ export default function AparenciaPage() {
 
   /* ---------- imagens ---------- */
 
-  async function enviarImagem(tipo: "banner" | "logo", arquivo: File | undefined) {
-    if (!arquivo) return;
-    if (!arquivo.type.startsWith("image/")) return toast.error("Escolha uma imagem (JPG, PNG ou WEBP).");
-    if (arquivo.size > 5 * 1024 * 1024) return toast.error("A imagem pode ter no máximo 5 MB.");
+  async function enviarImagem(tipo: "banner" | "logo", original: File | undefined) {
+    if (!original) return;
+    if (!original.type.startsWith("image/")) return toast.error("Escolha uma imagem (JPG, PNG ou WEBP).");
+    if (original.size > 20 * 1024 * 1024) return toast.error("A imagem pode ter no máximo 20 MB.");
 
     setEnviando(tipo);
 
     try {
+      // Imagem leve: o topo do cardápio aparece na hora.
+      const arquivo = await comprimirImagem(original, {
+        maxLado: tipo === "banner" ? 1600 : 512,
+        qualidade: tipo === "banner" ? 0.78 : 0.85,
+        nome: tipo,
+      });
       const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
       const bucket = tipo === "banner" ? "banners" : "logos";
       // Cada restaurante só pode gravar na própria pasta (regra do Storage).
@@ -227,7 +234,7 @@ export default function AparenciaPage() {
 
       const { error } = await supabase.storage.from(bucket).upload(caminho, arquivo, {
         contentType: arquivo.type,
-        cacheControl: "3600",
+        cacheControl: "31536000",
       });
       if (error) throw error;
 

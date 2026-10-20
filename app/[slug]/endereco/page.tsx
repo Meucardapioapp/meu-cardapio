@@ -1,1290 +1,567 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { ShoppingCart } from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { buscarCardapio, cardapioGuardado } from "@/lib/cardapio-cliente";
+import { useParams, useRouter } from "next/navigation";
+import { ArrowLeft, Check, LocateFixed, Loader2, MapPin } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRestaurant } from "@/contexts/RestaurantContext";
-import { ArrowLeft } from "lucide-react";
-import { lerRestaurantePublico } from "@/lib/restaurantePublico";
+import { agoraNoFuso, statusDaLoja } from "@/lib/horario";
+import { paraUF } from "@/lib/uf";
+import { reais, semAcento } from "@/lib/dinheiro";
+import { formatarTelefone, telefoneValido } from "@/lib/validacoes";
+import { lerCarrinho, quantidadeCarrinho, totalCarrinho } from "@/lib/carrinho";
+
+type Erros = Partial<Record<"nome" | "whatsapp" | "bairro" | "rua" | "numero" | "geral", string>>;
+type Frete = { estado: "vazio" | "calculando" | "ok" | "fora" | "erro"; valor?: number; km?: number | null; mensagem?: string };
+
+function Campo({
+  id,
+  rotulo,
+  erro,
+  children,
+  dica,
+}: {
+  id: string;
+  rotulo: string;
+  erro?: string;
+  dica?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="text-xs font-semibold text-zinc-600">
+        {rotulo}
+      </label>
+      <div className="mt-1">{children}</div>
+      {erro ? <p className="mt-1 text-xs text-red-600">{erro}</p> : dica ? <p className="mt-1 text-xs text-zinc-400">{dica}</p> : null}
+    </div>
+  );
+}
+
+const estiloInput = (erro?: string) =>
+  `h-12 w-full rounded-xl border px-4 text-base outline-none transition focus:border-zinc-500 ${erro ? "border-red-400 bg-red-50" : "border-zinc-200 bg-white"}`;
 
 export default function EnderecoPage() {
-
   const params = useParams();
+  const router = useRouter();
   const slug = params.slug as string;
-  const [carregandoPagamento, setCarregandoPagamento] = useState(false);
-  const [lojaAberta, setLojaAberta] = useState(true);
-  const [alerta, setAlerta] = useState<{
-  titulo: string;
-  mensagem: string;
-} | null>(null);
+  const { logo, corPrincipal } = useRestaurant();
 
-useEffect(() => {
+  const [carrinho, setCarrinho] = useState<any[]>([]);
+  const [dados, setDados] = useState<any>(null);
+  const [bairros, setBairros] = useState<{ bairro: string; valor: number }[]>([]);
+  const [modoFrete, setModoFrete] = useState<"bairro" | "km">("bairro");
+  const [enderecosSalvos, setEnderecosSalvos] = useState<any[]>([]);
 
-  async function carregarDados() {
+  const [nome, setNome] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [bairro, setBairro] = useState("");
+  const [buscaBairro, setBuscaBairro] = useState("");
+  const [listaBairroAberta, setListaBairroAberta] = useState(false);
+  const [rua, setRua] = useState("");
+  const [numero, setNumero] = useState("");
+  const [complemento, setComplemento] = useState("");
+  const [referencia, setReferencia] = useState("");
+  const [cep, setCep] = useState("");
 
-    const carrinho =
-      JSON.parse(
-        localStorage.getItem(
-          `cart-${slug}`
-        ) || "[]"
-      )
+  const [frete, setFrete] = useState<Frete>({ estado: "vazio" });
+  const enderecoLocal = useRef(false);
+  const [erros, setErros] = useState<Erros>({});
+  const restauranteId = dados?.restaurante?.id ? String(dados.restaurante.id) : "";
 
-      setQuantidadeCarrinho(
-  carrinho.reduce(
-    (acc: number, item: any) =>
-      acc + item.quantity,
-    0
-  )
-)
-
-    const subtotalCarrinho =
-      carrinho.reduce(
-        (acc: number, item: any) =>
-          acc +
-          Number(item.preco) *
-          Number(item.quantity),
-        0
-      )
-
-    setSubtotal(
-      subtotalCarrinho
-    )
-
-const { data: restaurante } =
-  await lerRestaurantePublico((tabela) => supabase.from(tabela).select("*").eq("slug", slug).single())
-
-if (!restaurante) return
-
-setRestauranteId(restaurante.id)
-
-
-
-// Bairros e forma de cobrança da entrega ao mesmo tempo.
-const [{ data: bairros }, configFrete] = await Promise.all([
-  supabase
-    .from("bairros_entrega")
-    .select("*")
-    .eq("restaurante_id", restaurante.id)
-    .order("bairro"),
-  fetch(`/api/calcular-frete?restauranteId=${encodeURIComponent(restaurante.id)}`)
-    .then((r) => r.json())
-    .catch(() => null),
-]);
-
-if (configFrete?.modo === "km") {
-  setModoFrete("km");
-}
- 
-
-
-
-
-if (bairros) {
-  setBairrosEntrega(bairros);
-}
-
-setCidadeRestaurante(
-  restaurante.cidade || ""
-)
-
-setEstadoRestaurante(
-  restaurante.estado || ""
-)
-
-const { data: aparencia } =
-  await supabase
-    .from("aparencia")
-    .select("*")
-    .eq("restaurante_id", restaurante.id)
-    .single()
-
-if (aparencia) {
-
-  const agora = new Date()
-
-  const dias = [
-    "dom",
-    "seg",
-    "ter",
-    "qua",
-    "qui",
-    "sex",
-    "sab",
-  ]
-
-  const dia = dias[agora.getDay()]
-
-  const inicio =
-    aparencia[`horario_${dia}_inicio`]
-
-  const fim =
-    aparencia[`horario_${dia}_fim`]
-
-  if (inicio && fim) {
-
-    const [hi, mi] =
-      inicio.split(":").map(Number)
-
-    const [hf, mf] =
-      fim.split(":").map(Number)
-
-    const agoraMin =
-      agora.getHours() * 60 +
-      agora.getMinutes()
-
-    const inicioMin =
-      hi * 60 + mi
-
-    const fimMin =
-      hf * 60 + mf
-
-    setLojaAberta(
-      agoraMin >= inicioMin &&
-      agoraMin <= fimMin
-    )
-
-  } else {
-
-    setLojaAberta(false)
-
-  }
-
-}
-
-  }
-  
-  carregarDados()
-
-}, [slug])
-
-
-useEffect(() => {
-  async function carregarCliente() {
-const slug = window.location.pathname.split("/")[1];
-
-const token = localStorage.getItem(
-  `cliente_token-${slug}`
-);
-
-    if (!token) return;
+  // ---------- carregar ----------
+  useEffect(() => {
+    setCarrinho(lerCarrinho(slug));
 
     try {
-      const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
-      const resultado = await response.json();
-
-      if (!resultado.success) return;
-
-      const cliente = resultado.cliente;
-      const endereco = resultado.enderecos?.[0];
-      
-
-     
-
-      setNome(cliente.nome || "");
-      setWhatsapp(cliente.telefone || "");
-      setCpf(cliente.cpf || "");
-
-      if (endereco) {
-setRua(endereco.rua || "");
-setNumero(endereco.numero || "");
-setComplemento(endereco.complemento || "");
-setReferencia(endereco.referencia || "");
-const bairroCliente = endereco.bairro || "";
-
-setBairroSalvo(bairroCliente);
-setBairro(bairroCliente);
-
+      const salvo = JSON.parse(localStorage.getItem(`endereco-${slug}`) || "{}");
+      if (salvo?.nome) setNome(salvo.nome);
+      if (salvo?.whatsapp) setWhatsapp(formatarTelefone(salvo.whatsapp));
+      if (salvo?.cpf) setCpf(salvo.cpf);
+      if (salvo?.bairro) {
+        setBairro(salvo.bairro);
+        setBuscaBairro(salvo.bairro);
       }
+      if (salvo?.rua) {
+        setRua(salvo.rua);
+        enderecoLocal.current = true;
+      }
+      if (salvo?.numero) setNumero(salvo.numero);
+      if (salvo?.complemento) setComplemento(salvo.complemento);
+      if (salvo?.referencia) setReferencia(salvo.referencia);
+      if (salvo?.cep) setCep(salvo.cep);
+    } catch {}
 
-    } catch (error) {
-      console.error(error);
+    (async () => {
+      const guardado = cardapioGuardado(slug);
+      if (guardado) setDados(guardado);
+      const cardapio = guardado ?? (await buscarCardapio(slug));
+      if (!cardapio) return;
+      if (!guardado) setDados(cardapio);
+      else buscarCardapio(slug).then((novo) => novo && setDados(novo));
+      const id = String(cardapio.restaurante.id);
+      const [{ data: lista }, config] = await Promise.all([
+        supabase.from("bairros_entrega").select("bairro, valor").eq("restaurante_id", id).order("bairro"),
+        fetch(`/api/calcular-frete?restauranteId=${encodeURIComponent(id)}`)
+          .then((r) => r.json())
+          .catch(() => null),
+      ]);
+      if (config?.modo === "km") setModoFrete("km");
+      setBairros((lista ?? []).map((b: any) => ({ bairro: String(b.bairro), valor: Number(b.valor || 0) })));
+    })();
+
+    let token = "";
+    try {
+      token = localStorage.getItem(`cliente_token-${slug}`) || "";
+    } catch {}
+    if (token) {
+      fetch("/api/cliente/me", { headers: { "x-cliente-token": token } })
+        .then((r) => r.json())
+        .then((r) => {
+          if (!r?.success) return;
+          setNome((v) => v || r.cliente?.nome || "");
+          setWhatsapp((v) => v || formatarTelefone(r.cliente?.telefone || ""));
+          setCpf((v) => v || r.cliente?.cpf || "");
+          const lista = r.enderecos ?? [];
+          setEnderecosSalvos(lista);
+          // Primeiro pedido nesta visita: usa o último endereço salvo.
+          if (!enderecoLocal.current && lista[0]) usarEndereco(lista[0]);
+        })
+        .catch(() => {});
     }
+    router.prefetch(`/${slug}/pagamento`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  function usarEndereco(e: any) {
+    setRua(e.rua || "");
+    setNumero(e.numero || "");
+    setComplemento(e.complemento || "");
+    setReferencia(e.referencia || "");
+    setBairro(e.bairro || "");
+    setBuscaBairro(e.bairro || "");
+    setErros({});
   }
 
-  carregarCliente();
-}, []);
-
-
-
-const {
-  logo,
-  corPrincipal,
-} = useRestaurant();
-
-const [restauranteId, setRestauranteId] =
-  useState("")
-
-const [taxaEntrega, setTaxaEntrega] =
-  useState(0)
-
-const [subtotal, setSubtotal] =
-  useState(0)
-
-  const [quantidadeCarrinho, setQuantidadeCarrinho] =
-  useState(0)
-
-const [rua, setRua] =
-  useState("")
-
-const [bairro, setBairro] =
-  useState("")
-
-  const [bairrosEntrega, setBairrosEntrega] = useState<any[]>([]);
-  // "km": entrega cobrada pela distância (bairro vira campo livre)
-  const [modoFrete, setModoFrete] = useState<"bairro" | "km">("bairro");
-  const [distanciaKm, setDistanciaKm] = useState<number | null>(null);
-
-const [bairroSalvo, setBairroSalvo] = useState("");
-
-  const [cidadeRestaurante, setCidadeRestaurante] =
-  useState("")
-
-const [estadoRestaurante, setEstadoRestaurante] =
-  useState("")
-
-const [numero, setNumero] =
-  useState("")
-
-  const [whatsapp, setWhatsapp] =
-  useState("")
-
-  const [nome, setNome] =
-  useState("")
-
-const [cpf, setCpf] =
-  useState("")
-
-const [complemento, setComplemento] = useState("");
-const [referencia, setReferencia] = useState("");
-
-const [freteCalculado, setFreteCalculado] =
-  useState(false)
-
-  const [foraDaArea, setForaDaArea] =
-  useState(false)
-
-  const [carregandoFrete, setCarregandoFrete] =
-  useState(false)
-
-
-
-
-useEffect(() => {
-  const dados = localStorage.getItem(`endereco-${slug}`);
-
-  if (!dados) return;
-  
-
-  const endereco = JSON.parse(dados);
-
-  setNome(endereco.nome || "");
-  setWhatsapp(endereco.whatsapp || "");
-  setCpf(endereco.cpf || "");
- 
-
-setRua(endereco.rua || "");
-setNumero(endereco.numero || "");
-setComplemento(endereco.complemento || "");
-setReferencia(endereco.referencia || "");
-if (!bairro) {
-  setBairro(endereco.bairro || "");
-}
-
-  setTaxaEntrega(endereco.taxaEntrega || 0);
-
-  if (endereco.taxaEntrega > 0) {
-    setFreteCalculado(true);
-  }
-}, [slug]);
-
-useEffect(() => {
-  localStorage.setItem(
-    `endereco-${slug}`,
-JSON.stringify({
-    nome,
-    whatsapp,
-    cpf,
-
-    rua,
-    numero,
-    complemento,
-    referencia,
-    bairro,
-
-    taxaEntrega,
-      subtotal,
-      total: subtotal + taxaEntrega,
-    })
-  );
-}, [
-  nome,
-  whatsapp,
-  cpf,
-  rua,
-  numero,
-  complemento,
-  referencia,
-  bairro,
-  taxaEntrega,
-  subtotal,
-  slug,
-]);
-
-
-
-useEffect(() => {
-// não calcula automaticamente
-}, );
-
-
-
-function formatarTelefone(valor: string) {
-  const numeros = valor.replace(/\D/g, "").slice(0, 11);
-
-  if (numeros.length <= 2) return numeros;
-
-  if (numeros.length <= 7) {
-    return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`;
-  }
-
-  return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(7)}`;
-}
-
-function formatarCPF(valor: string) {
-  const numeros = valor.replace(/\D/g, "").slice(0, 11);
-
-  return numeros
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
-    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
-}
-
-function validarCPF(cpf: string) {
-  cpf = cpf.replace(/\D/g, "");
-
-  if (cpf.length !== 11) return false;
-
-  if (/^(\d)\1+$/.test(cpf)) return false;
-
-  let soma = 0;
-
-  for (let i = 0; i < 9; i++) {
-    soma += Number(cpf[i]) * (10 - i);
-  }
-
-  let resto = (soma * 10) % 11;
-
-  if (resto === 10) resto = 0;
-
-  if (resto !== Number(cpf[9])) return false;
-
-  soma = 0;
-
-  for (let i = 0; i < 10; i++) {
-    soma += Number(cpf[i]) * (11 - i);
-  }
-
-  resto = (soma * 10) % 11;
-
-  if (resto === 10) resto = 0;
-
-  return resto === Number(cpf[10]);
-}
-
-
-
-async function calcularFrete() {
-
-  setCarregandoFrete(true)
-
-if (
-  !nome ||
-  !whatsapp ||
-  !restauranteId ||
-  !rua ||
-  !numero
-) {
-  setCarregandoFrete(false)
-
-  alert("Preencha todos os campos obrigatórios.")
-
-  return
-}
-
-if (!bairro) {
-    setCarregandoFrete(false);
-    alert("Selecione um bairro.");
-    return;
-}
-
-  try {
-
-    const response =
-      await fetch(
-        "/api/calcular-frete",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-body: JSON.stringify({
-    restauranteId,
-    bairro,
-    rua,
-    numero,
-}),
+  // ---------- usar minha localização ----------
+  const [localizando, setLocalizando] = useState(false);
+  const [avisoLocal, setAvisoLocal] = useState("");
+  function usarLocalizacao() {
+    setAvisoLocal("");
+    if (!navigator.geolocation) return setAvisoLocal("Este celular não informa a localização. Digite o endereço.");
+    setLocalizando(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const r = await fetch("/api/localizacao", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+          });
+          const d = await r.json();
+          if (!d?.success) return setAvisoLocal(d?.error || "Não achamos seu endereço. Digite abaixo.");
+          const e = d.endereco;
+          if (e.rua) setRua(e.rua);
+          if (e.numero) setNumero(e.numero);
+          if (e.cep) setCep(String(e.cep).replace(/\D/g, "").replace(/^(\d{5})(\d)/, "$1-$2"));
+          if (e.bairro) {
+            if (modoFrete === "bairro") {
+              const achado = bairros.find((b) => semAcento(b.bairro).trim() === semAcento(e.bairro).trim());
+              setBuscaBairro(achado ? achado.bairro : e.bairro);
+              setBairro(achado ? achado.bairro : "");
+              if (!achado) setListaBairroAberta(true);
+            } else setBairro(e.bairro);
+          }
+          setErros({});
+          setAvisoLocal(e.numero ? "Confira o endereço antes de continuar." : "Confira a rua e digite o número.");
+          if (!e.numero) setTimeout(() => document.getElementById("campo-numero")?.focus(), 50);
+        } catch {
+          setAvisoLocal("Sem conexão. Digite o endereço.");
+        } finally {
+          setLocalizando(false);
         }
-      )
-
-   const data = await response.json()
-
-   
-
-setCarregandoFrete(false)
-
-if (!response.ok) {
-
-if (data.foraDaArea) {
-
-  resetarFrete()
-
-  setForaDaArea(true)
-
-  return
-}
-
-  alert(data.erro || data.error || "Erro ao calcular frete")
-
-  return
-}
-
-if (!data.faixaFrete) {
-  alert("Nenhuma faixa encontrada.")
-  return
-}
-
-setForaDaArea(false)
-
-setTaxaEntrega(Number(data.faixaFrete.valor))
-setDistanciaKm(data.faixaFrete.distanciaKm ?? null)
-
-setFreteCalculado(true)
-
-  } catch (error) {
-
-    console.error(error)
-    setCarregandoFrete(false)
-
+      },
+      () => {
+        setLocalizando(false);
+        setAvisoLocal("Não conseguimos sua localização. Digite o endereço.");
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
   }
-}
 
-function resetarFrete() {
+  // ---------- frete ----------
+  // Por bairro: a taxa já está na lista, aparece na hora.
+  useEffect(() => {
+    if (modoFrete !== "bairro") return;
+    if (!bairro) return setFrete({ estado: "vazio" });
+    const achado =
+      bairros.find((b) => b.bairro === bairro) || bairros.find((b) => semAcento(b.bairro).trim() === semAcento(bairro).trim());
+    if (achado && achado.bairro !== bairro) {
+      setBairro(achado.bairro);
+      setBuscaBairro(achado.bairro);
+      return;
+    }
+    if (achado) setFrete({ estado: "ok", valor: achado.valor });
+    else if (bairros.length) setFrete({ estado: "fora", mensagem: "Não entregamos neste bairro." });
+  }, [modoFrete, bairro, bairros]);
 
-  setFreteCalculado(false)
+  // Por distância: calcula sozinho quando rua, número e bairro estão preenchidos.
+  const ultimaConsulta = useRef("");
+  useEffect(() => {
+    if (modoFrete !== "km" || !restauranteId) return;
+    const chave = [rua.trim(), numero.trim(), bairro.trim(), cep.replace(/\D/g, "")].join("|");
+    if (rua.trim().length < 3 || !numero.trim() || bairro.trim().length < 2) {
+      ultimaConsulta.current = "";
+      return setFrete({ estado: "vazio" });
+    }
+    if (chave === ultimaConsulta.current) return;
+    const t = setTimeout(async () => {
+      ultimaConsulta.current = chave;
+      setFrete({ estado: "calculando" });
+      try {
+        const r = await fetch("/api/calcular-frete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ restauranteId, bairro, rua, numero, cep }),
+        });
+        const d = await r.json();
+        if (ultimaConsulta.current !== chave) return;
+        if (r.ok && d?.faixaFrete) setFrete({ estado: "ok", valor: Number(d.faixaFrete.valor), km: d.faixaFrete.distanciaKm ?? null });
+        else if (d?.foraDaArea) setFrete({ estado: "fora", mensagem: d.erro || "Endereço fora da área de entrega." });
+        else setFrete({ estado: "erro", mensagem: d?.erro || d?.error || "Não achamos esse endereço. Confira a rua e o número." });
+      } catch {
+        setFrete({ estado: "erro", mensagem: "Sem conexão. Tente de novo." });
+        ultimaConsulta.current = "";
+      }
+    }, 900);
+    return () => clearTimeout(t);
+  }, [modoFrete, restauranteId, rua, numero, bairro, cep]);
 
-  setTaxaEntrega(0)
+  const bairrosFiltrados = useMemo(() => {
+    const t = semAcento(buscaBairro.trim());
+    return t ? bairros.filter((b) => semAcento(b.bairro).includes(t)) : bairros;
+  }, [buscaBairro, bairros]);
 
-  setDistanciaKm(null)
+  // ---------- loja ----------
+  const restaurante = dados?.restaurante;
+  const uf = restaurante?.uf || paraUF(restaurante?.estado);
+  const status = dados?.aparencia ? statusDaLoja(dados.aparencia, agoraNoFuso(uf)) : null;
+  const pausado = dados ? dados.pedidosAtivos === false : false;
+  const lojaAberta = !pausado && (status ? status.aberta : true);
 
-  setForaDaArea(false)
+  const subtotal = totalCarrinho(carrinho);
+  const taxa = frete.estado === "ok" ? Number(frete.valor || 0) : 0;
 
-}
+  function continuar() {
+    const e: Erros = {};
+    if (nome.trim().length < 2) e.nome = "Digite seu nome";
+    if (!telefoneValido(whatsapp)) e.whatsapp = "Digite um WhatsApp com DDD";
+    if (!bairro.trim()) e.bairro = modoFrete === "bairro" ? "Escolha seu bairro na lista" : "Digite seu bairro";
+    if (rua.trim().length < 3) e.rua = "Digite a rua";
+    if (!numero.trim()) e.numero = "Digite o número (ou S/N)";
+    if (!lojaAberta) e.geral = pausado ? "O restaurante pausou os pedidos online agora." : status?.texto || "Restaurante fechado agora.";
+    else if (frete.estado === "fora") e.geral = frete.mensagem || "Endereço fora da área de entrega.";
+    else if (frete.estado === "calculando") e.geral = "Calculando a entrega, só um instante...";
+    else if (frete.estado !== "ok" && !e.bairro && !e.rua && !e.numero) e.geral = frete.mensagem || "Não conseguimos calcular a entrega para este endereço.";
 
+    setErros(e);
+    const primeiro = (["nome", "whatsapp", "bairro", "rua", "numero"] as const).find((k) => e[k]);
+    if (primeiro) {
+      document.getElementById(`campo-${primeiro}`)?.focus();
+      return;
+    }
+    if (e.geral) return;
 
-return (
-  <>
+    try {
+      localStorage.setItem(
+        `endereco-${slug}`,
+        JSON.stringify({
+          nome: nome.trim(),
+          whatsapp,
+          cpf,
+          rua: rua.trim(),
+          numero: numero.trim(),
+          complemento: complemento.trim(),
+          referencia: referencia.trim(),
+          bairro: bairro.trim(),
+          cep,
+          taxaEntrega: taxa,
+          subtotal,
+          total: subtotal + taxa,
+        })
+      );
+      localStorage.setItem("tipoPedido", "entrega");
+    } catch {}
+    router.push(`/${slug}/pagamento`);
+  }
 
-    {alerta && (
-      <div
-        className="
-          fixed inset-0 z-[9999]
-          bg-black/50
-          backdrop-blur-[2px]
-          flex items-center justify-center
-          px-5
-        "
-      >
-        <div
-          className="
-            w-full max-w-[380px]
-            bg-white
-            rounded-3xl
-            shadow-2xl
-            overflow-hidden
-          "
-        >
-          <div
-            className="h-2 w-full"
-            style={{
-              backgroundColor: corPrincipal,
-            }}
-          />
+  return (
+    <main className="min-h-screen bg-zinc-50 pb-44 text-zinc-900">
+      <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-xl items-center gap-3 px-3">
+          <button
+            type="button"
+            onClick={() => router.push(`/${slug}/carrinho`)}
+            aria-label="Voltar ao carrinho"
+            className="flex h-10 w-10 items-center justify-center rounded-full active:bg-zinc-100"
+          >
+            <ArrowLeft size={22} style={{ color: corPrincipal }} />
+          </button>
+          {logo && <img src={logo} alt="" className="h-8 w-8 rounded-full object-cover" />}
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-bold leading-tight">Entrega</p>
+            <p className="text-xs text-zinc-500">Passo 2 de 3</p>
+          </div>
+        </div>
+      </header>
 
-          <div className="px-7 pt-8 pb-7 text-center">
+      <div className="mx-auto max-w-xl space-y-4 px-3 pt-3">
+        {status && !lojaAberta && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <strong>{pausado ? "Pedidos online pausados" : "Restaurante fechado agora"}</strong>
+            {!pausado && status.proximaAbertura && <> · abre {status.proximaAbertura}</>}
+          </div>
+        )}
 
-            <div
-              className="
-                w-16 h-16
-                rounded-full
-                mx-auto mb-5
-                flex items-center justify-center
-              "
-              style={{
-                backgroundColor: `${corPrincipal}15`,
-                color: corPrincipal,
+        <section className="space-y-3 rounded-3xl bg-white p-4">
+          <p className="text-[15px] font-bold">Seus dados</p>
+          <Campo id="campo-nome" rotulo="Nome" erro={erros.nome}>
+            <input
+              id="campo-nome"
+              value={nome}
+              onChange={(e) => {
+                setNome(e.target.value);
+                setErros((x) => ({ ...x, nome: undefined }));
               }}
-            >
-              <svg
-                width="30"
-                height="30"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
+              autoComplete="name"
+              placeholder="Seu nome"
+              className={estiloInput(erros.nome)}
+            />
+          </Campo>
+          <Campo id="campo-whatsapp" rotulo="WhatsApp" erro={erros.whatsapp} dica="O restaurante avisa por aqui sobre o pedido.">
+            <input
+              id="campo-whatsapp"
+              value={whatsapp}
+              onChange={(e) => {
+                setWhatsapp(formatarTelefone(e.target.value));
+                setErros((x) => ({ ...x, whatsapp: undefined }));
+              }}
+              inputMode="tel"
+              autoComplete="tel-national"
+              placeholder="(00) 00000-0000"
+              className={estiloInput(erros.whatsapp)}
+            />
+          </Campo>
+        </section>
+
+        <section className="space-y-3 rounded-3xl bg-white p-4">
+          <p className="text-[15px] font-bold">Endereço de entrega</p>
+
+          <button
+            type="button"
+            onClick={usarLocalizacao}
+            disabled={localizando}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition active:scale-[0.99] disabled:opacity-60"
+            style={{ borderColor: `${corPrincipal}55`, color: corPrincipal, backgroundColor: `${corPrincipal}0A` }}
+          >
+            {localizando ? <Loader2 size={17} className="animate-spin" /> : <LocateFixed size={17} />}
+            {localizando ? "Buscando seu endereço..." : "Usar minha localização"}
+          </button>
+          {avisoLocal && <p className="-mt-1 text-xs text-zinc-500">{avisoLocal}</p>}
+
+          {enderecosSalvos.length > 1 && (
+            <div className="scrollbar-hide -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+              {enderecosSalvos.slice(0, 5).map((e: any, i: number) => {
+                const ativo = e.rua === rua && String(e.numero) === numero && e.bairro === bairro;
+                return (
+                  <button
+                    key={e.id ?? i}
+                    type="button"
+                    onClick={() => usarEndereco(e)}
+                    className="flex max-w-[220px] shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-left text-xs"
+                    style={{ borderColor: ativo ? corPrincipal : "#E4E4E7", backgroundColor: ativo ? `${corPrincipal}0D` : "white" }}
+                  >
+                    <MapPin size={14} className="shrink-0" style={{ color: ativo ? corPrincipal : "#71717A" }} />
+                    <span className="truncate">
+                      {e.rua}, {e.numero} · {e.bairro}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+          )}
 
-            <h2 className="text-2xl font-black text-zinc-900">
-              {alerta.titulo}
-            </h2>
+          {modoFrete === "bairro" ? (
+            <Campo id="campo-bairro" rotulo="Bairro" erro={erros.bairro}>
+              <div className="relative">
+                <input
+                  id="campo-bairro"
+                  value={buscaBairro}
+                  onChange={(e) => {
+                    setBuscaBairro(e.target.value);
+                    setBairro("");
+                    setListaBairroAberta(true);
+                    setErros((x) => ({ ...x, bairro: undefined }));
+                  }}
+                  onFocus={() => setListaBairroAberta(true)}
+                  onBlur={() => setTimeout(() => setListaBairroAberta(false), 150)}
+                  placeholder={bairros.length ? "Digite para procurar seu bairro" : "Carregando bairros..."}
+                  autoComplete="off"
+                  className={`${estiloInput(erros.bairro)} pr-10`}
+                />
+                {bairro && <Check size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600" />}
+                {listaBairroAberta && !bairro && bairrosFiltrados.length > 0 && (
+                  <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-xl">
+                    {bairrosFiltrados.map((b) => (
+                      <button
+                        key={b.bairro}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setBairro(b.bairro);
+                          setBuscaBairro(b.bairro);
+                          setListaBairroAberta(false);
+                          document.getElementById("campo-rua")?.focus();
+                        }}
+                        className="flex w-full items-center justify-between px-4 py-3 text-left text-[15px] active:bg-zinc-50"
+                      >
+                        <span>{b.bairro}</span>
+                        <span className="text-sm text-zinc-500">{b.valor > 0 ? reais(b.valor) : "Grátis"}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {listaBairroAberta && !bairro && buscaBairro.trim() && bairrosFiltrados.length === 0 && bairros.length > 0 && (
+                  <p className="mt-1 text-xs text-red-600">Não entregamos nesse bairro. Confira o nome ou escolha retirar no local.</p>
+                )}
+              </div>
+            </Campo>
+          ) : (
+            <div className="grid grid-cols-[1fr_120px] gap-3">
+              <Campo id="campo-bairro" rotulo="Bairro" erro={erros.bairro}>
+                <input
+                  id="campo-bairro"
+                  value={bairro}
+                  onChange={(e) => {
+                    setBairro(e.target.value);
+                    setErros((x) => ({ ...x, bairro: undefined }));
+                  }}
+                  placeholder="Seu bairro"
+                  className={estiloInput(erros.bairro)}
+                />
+              </Campo>
+              <Campo id="campo-cep" rotulo="CEP (opcional)">
+                <input
+                  id="campo-cep"
+                  value={cep}
+                  onChange={(e) => setCep(e.target.value.replace(/\D/g, "").slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2"))}
+                  inputMode="numeric"
+                  autoComplete="postal-code"
+                  placeholder="00000-000"
+                  className={estiloInput()}
+                />
+              </Campo>
+            </div>
+          )}
 
-            <p className="mt-3 text-[15px] leading-6 text-zinc-500">
-              {alerta.mensagem}
-            </p>
+          <div className="grid grid-cols-[1fr_96px] gap-3">
+            <Campo id="campo-rua" rotulo="Rua" erro={erros.rua}>
+              <input
+                id="campo-rua"
+                value={rua}
+                onChange={(e) => {
+                  setRua(e.target.value);
+                  setErros((x) => ({ ...x, rua: undefined }));
+                }}
+                autoComplete="address-line1"
+                placeholder="Nome da rua"
+                className={estiloInput(erros.rua)}
+              />
+            </Campo>
+            <Campo id="campo-numero" rotulo="Número" erro={erros.numero}>
+              <input
+                id="campo-numero"
+                value={numero}
+                onChange={(e) => {
+                  setNumero(e.target.value.slice(0, 10));
+                  setErros((x) => ({ ...x, numero: undefined }));
+                }}
+                inputMode="text"
+                placeholder="Nº"
+                className={estiloInput(erros.numero)}
+              />
+            </Campo>
+          </div>
+          <Campo id="campo-complemento" rotulo="Complemento (opcional)">
+            <input
+              id="campo-complemento"
+              value={complemento}
+              onChange={(e) => setComplemento(e.target.value)}
+              autoComplete="address-line2"
+              placeholder="Apto, bloco, casa..."
+              className={estiloInput()}
+            />
+          </Campo>
+          <Campo id="campo-referencia" rotulo="Ponto de referência (opcional)">
+            <input
+              id="campo-referencia"
+              value={referencia}
+              onChange={(e) => setReferencia(e.target.value)}
+              placeholder="Perto do mercado, portão azul..."
+              className={estiloInput()}
+            />
+          </Campo>
 
-            <button
-              type="button"
-              onClick={() => setAlerta(null)}
-              className="
-                w-full mt-7
-                py-4
-                rounded-2xl
-                text-white
-                font-bold
-                text-base
-                active:scale-[0.98]
-                transition
-              "
-              style={{
-                backgroundColor: corPrincipal,
-              }}
+          {frete.estado !== "vazio" && (
+            <div
+              className={`flex items-center gap-2 rounded-2xl px-4 py-3 text-sm ${
+                frete.estado === "ok"
+                  ? "bg-emerald-50 text-emerald-800"
+                  : frete.estado === "calculando"
+                    ? "bg-zinc-100 text-zinc-600"
+                    : "bg-red-50 text-red-700"
+              }`}
             >
-              Entendi
-            </button>
+              {frete.estado === "calculando" && <Loader2 size={16} className="animate-spin" />}
+              {frete.estado === "ok" && <Check size={16} />}
+              <span>
+                {frete.estado === "calculando"
+                  ? "Calculando a entrega..."
+                  : frete.estado === "ok"
+                    ? `Entregamos aqui · ${taxa > 0 ? reais(taxa) : "entrega grátis"}${frete.km ? ` (${String(frete.km).replace(".", ",")} km)` : ""}`
+                    : frete.mensagem}
+              </span>
+            </div>
+          )}
+        </section>
+      </div>
 
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto max-w-xl">
+          <div className="mb-2 flex justify-between text-sm text-zinc-600">
+            <span>
+              {quantidadeCarrinho(carrinho)} {quantidadeCarrinho(carrinho) === 1 ? "item" : "itens"} {reais(subtotal)} + entrega{" "}
+              {frete.estado === "ok" ? (taxa > 0 ? reais(taxa) : "grátis") : "—"}
+            </span>
+            <strong className="text-zinc-900">{reais(subtotal + taxa)}</strong>
           </div>
-        </div>
-      </div>
-    )}
-
-    <main
-      className="
-        min-h-screen
-        bg-white
-        p-4
-        pb-36
-      "
-    >
-
-      {/* TOPO */}
-
-      <div
-        className="
-          relative
-          flex
-          items-center
-          justify-between
-          mb-4
-        "
-      >
-
-<button
-  onClick={() => {
-    window.location.href = `/${slug}/carrinho`;
-  }}
-  className="
-    w-12
-    h-12
-    rounded-full
-    bg-white
-    shadow-md
-    flex
-    items-center
-    justify-center
-    transition-all
-    hover:scale-105
-    active:scale-95
-  "
->
-  <ArrowLeft
-    size={24}
-    style={{
-      color: corPrincipal,
-    }}
-  />
-</button>
-
-        <div
-          className="
-            absolute
-            left-1/2
-            -translate-x-1/2
-            flex
-            flex-col
-            items-center
-          "
-        >
-
-          <img
-            src={logo}
-            alt="Logo"
-            className="
-              w-20
-              h-20
-              rounded-full
-              object-cover
-              border
-              border-white
-              shadow-md
-            "
-          />
-
-        </div>
-
-        <div
-          className="
-            px-3
-            h-10
-            rounded-xl
-            flex
-            items-center
-            gap-2
-            text-white
-            font-bold
-          "
-          style={{
-            backgroundColor:
-              corPrincipal,
-          }}
-        >
-          <ShoppingCart size={16} />
-          <span>
-{quantidadeCarrinho}
-</span>
-        </div>
-
-      </div>
-
-      {/* TITULO */}
-
-      <h1
-        className="
-          text-3xl
-          font-black
-          mb-6
-        "
-      >
-        Endereço de entrega
-      </h1>
-
-
-      {/* NOVO ENDEREÇO */}
-
-      <h2
-  className="
-    font-bold
-    text-lg
-    mb-4
-  "
->
-  Informações do cliente
-</h2>
-
-<div
-  className="
-    bg-white
-    rounded-xl
-    border
-    p-4
-    mb-4
-  "
->
-
-  <p
-    className="
-      text-xs
-      font-semibold
-      mb-2
-      text-zinc-600
-    "
-  >
-    Nome e Sobrenome
-  </p>
-
-  <input
-    value={nome}
-    onChange={(e) =>
-      setNome(e.target.value)
-    }
-    placeholder="Ex.: João da Silva"
-    className="
-      w-full
-      outline-none
-      font-semibold
-    "
-  />
-
-</div>
-
- <div
-  className="
-    bg-white
-    rounded-xl
-    border
-    p-4
-  "
->
-
-  <div
-    className="
-      flex
-      items-center
-      justify-between
-    "
-  >
-
-    <div
-      className="
-        flex
-        items-center
-        gap-3
-      "
-    >
-
-<div
-  className="
-    w-10
-    h-10
-    rounded-full
-    bg-green-100
-    flex
-    items-center
-    justify-center
-  "
->
-  <FaWhatsapp
-    size={22}
-    className="text-green-600"
-  />
-</div>
-
-      <div>
-
-        <input
-          value={whatsapp}
-onChange={(e) =>
-  setWhatsapp(
-    formatarTelefone(e.target.value)
-  )
-}
-inputMode="tel"
-autoComplete="tel"
-          placeholder="(92) 99999-9999"
-          className="
-            outline-none
-            font-semibold
-          "
-        />
-
-        <p
-          className="
-            text-xs
-            text-zinc-500
-          "
-        >
-          Para avisos sobre seu pedido
-        </p>
-
-      </div>
-
-    </div>
-
-    {
-      whatsapp.length >= 15 && (
-
-        <div
-          className="
-            w-6
-            h-6
-            rounded-full
-            bg-green-500
-            text-white
-            flex
-            items-center
-            justify-center
-            text-xs
-            font-bold
-          "
-        >
-          ✓
-        </div>
-
-      )
-    }
-
-  </div>
-
-</div>
-
-     
-<div className="space-y-4">
-
-
-
-<h2
-  className="
-    font-bold
-    text-lg
-    mt-6
-    mb-4
-  "
->
-  Endereço de entrega
-</h2>
-
-<div>
-
-  <p className="text-xs font-semibold mb-1">
-    Bairro
-  </p>
-
-  {modoFrete === "km" ? (
-  <input
-    value={bairro}
-    onChange={(e) => {
-      setBairro(e.target.value)
-      resetarFrete()
-    }}
-    placeholder="Seu bairro"
-    className="w-full rounded-xl border p-4"
-  />
-  ) : (
-  <select
-    value={bairro}
-    onChange={(e) => {
-      setBairro(e.target.value)
-      resetarFrete()
-    }}
-    className="w-full bg-white rounded-xl border p-4"
-  >
-    <option value="">
-      Selecione um bairro
-    </option>
-
-    {bairrosEntrega.map((b:any) => (
-      <option
-        key={b.id}
-        value={b.bairro}
-      >
-        {b.bairro}
-      </option>
-    ))}
-
-  </select>
-  )}
-
-</div>
-
-<div className="mt-4">
-
-  <p className="text-xs font-semibold mb-1">
-    Rua
-  </p>
-
-  <input
-    value={rua}
-    onChange={(e)=>{ setRua(e.target.value); if (modoFrete === "km") resetarFrete() }}
-    className="w-full rounded-xl border p-4"
-  />
-
-</div>
-
-<div
-  className="
-    grid
-    grid-cols-2
-    gap-3
-    mt-4
-  "
->
-
-  <div>
-
-    <p className="text-xs font-semibold mb-1">
-      Número
-    </p>
-
-    <input
-      value={numero}
-      onChange={(e)=>{ setNumero(e.target.value); if (modoFrete === "km") resetarFrete() }}
-      className="w-full rounded-xl border p-4"
-    />
-
-  </div>
-
-  <div>
-
-    <p className="text-xs font-semibold mb-1">
-      Complemento
-    </p>
-
-    <input
-      value={complemento}
-      onChange={(e)=>setComplemento(e.target.value)}
-      className="w-full rounded-xl border p-4"
-    />
-
-  </div>
-
-</div>
-
-<div className="mt-4">
-
-  <p className="text-xs font-semibold mb-1">
-    Referência
-  </p>
-
-  <input
-    value={referencia}
-    onChange={(e)=>setReferencia(e.target.value)}
-    placeholder="Próximo ao..."
-    className="w-full rounded-xl border p-4"
-  />
-
-</div>
-
-<button
-  onClick={calcularFrete}
-  className="
-    w-full
-    h-14
-    rounded-xl
-    text-white
-    font-bold
-    mt-5
-  "
-  style={{
-    backgroundColor: corPrincipal,
-  }}
->
-  Calcular entrega
-</button>
-
-{foraDaArea && (
-  <div className="mt-5 rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
-    <p className="font-bold">Fora da área de entrega</p>
-    <p className="text-sm mt-1">
-      Infelizmente ainda não entregamos neste endereço. Confira o endereço ou volte ao carrinho e escolha retirar no local.
-    </p>
-  </div>
-)}
-
-{freteCalculado && (
-
-  <div
-    className="
-      mt-5
-      rounded-xl
-      bg-green-50
-      border
-      border-green-200
-      p-4
-    "
-  >
-
-    <p className="text-green-700 font-bold">
-      Taxa de entrega
-    </p>
-
-    <p className="text-2xl font-black text-green-600">
-      R$ {taxaEntrega.toFixed(2).replace(".", ",")}
-    </p>
-
-    {distanciaKm != null && (
-      <p className="text-sm text-green-700 mt-1">
-        Você está a {String(distanciaKm).replace(".", ",")} km do restaurante.
-      </p>
-    )}
-
-  </div>
-
-)}
-
-      {/* ENTREGA */}
-
-      {
-freteCalculado && (
-<div
-  className="
-    mt-6
-          bg-[#F7F1FF]
-          rounded-xl
-          p-4
-          flex
-          justify-between
-        "
-      >
-
-        <div>
-
-          <p
-            className="
-              text-sm
-              text-zinc-500
-            "
-          >
-            Entrega
-          </p>
-
-          <p
-            className="
-              font-bold
-            "
-          >
-            30-50 min
-          </p>
-
-        </div>
-
-        <div>
-
-          <p
-            className="
-              text-sm
-              text-zinc-500
-            "
-          >
-            Taxa
-          </p>
-
-          <p
-            className="
-              font-bold
-              text-green-600
-            "
-          >
-            R$ {
-taxaEntrega.toFixed(2)
-}
-          </p>
-
-        </div>
-
-      </div>
-)
-}
-
-</div>
-      {/* RODAPÉ FIXO */}
-
-<div
-  className="
-    fixed
-    bottom-0
-    left-0
-    right-0
-    p-4
-    shadow-2xl
-  "
-  style={{
-    backgroundColor: corPrincipal,
-  }}
->
-
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-          "
-        >
-
-          <div>
-
-<p
-  className="
-    text-sm
-    text-white/80
-  "
->
-  Total parcial
-</p>
-
-<p
-  className="
-    text-2xl
-    font-black
-    text-white
-  "
->
-              R$ {
-(
-subtotal +
-taxaEntrega
-).toFixed(2)
-}
+          {erros.geral && (
+            <p role="alert" className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+              {erros.geral}
             </p>
-
-          </div>
-
-<button
-  disabled={!freteCalculado || carregandoPagamento}
-
-
-onClick={() => {
-
-  if (!lojaAberta) {
-
-    alert(
-      "O restaurante está fechado e não está recebendo pedidos."
-    );
-
-    return;
-
-  }
-
-if (carregandoPagamento) return;
-
-
-// NOME OBRIGATÓRIO
-
-if (!nome.trim()) {
-  setAlerta({
-    titulo: "Informe seu nome",
-    mensagem:
-      "Preencha seu nome e sobrenome para continuar com o pedido.",
-  });
-
-  return;
-}
-
-
-// WHATSAPP OBRIGATÓRIO
-
-if (whatsapp.replace(/\D/g, "").length !== 11) {
-  setAlerta({
-    titulo: "Telefone obrigatório",
-    mensagem:
-      "Informe um telefone válido com DDD para continuar.",
-  });
-
-  return;
-}
-
-
-
-    setCarregandoPagamento(true);
-
-    localStorage.setItem(
-      `endereco-${slug}`,
-JSON.stringify({
-    nome,
-    whatsapp,
-    cpf,
-
-    rua,
-    numero,
-    complemento,
-    referencia,
-    bairro,
-
-    taxaEntrega,
-        subtotal,
-        total: subtotal + taxaEntrega,
-      })
-    );
-
-localStorage.setItem(
-  `endereco-${slug}`,
-  JSON.stringify({
-    nome,
-    whatsapp,
-    cpf,
-    bairro,
-    rua,
-    numero,
-    complemento,
-    referencia,
-    taxaEntrega,
-    subtotal,
-    total: subtotal + taxaEntrega,
-  })
-)
-
-    setTimeout(() => {
-      window.location.href = `/${slug}/pagamento`;
-    }, 250);
-
-  }}
-
-  className={`
-    px-6
-    py-4
-    rounded-xl
-    font-bold
-    text-white
-    transition-all
-    duration-200
-    active:scale-95
-    disabled:opacity-80
-    disabled:cursor-not-allowed
-    min-w-[280px]
-    flex
-    items-center
-    justify-center
-    gap-3
-    ${
-      freteCalculado
-        ? "bg-green-600"
-        : "bg-zinc-300"
-    }
-  `}
->
-  {carregandoPagamento ? (
-    <>
-      <div
-        className="
-          w-5
-          h-5
-          border-2
-          border-white/40
-          border-t-white
-          rounded-full
-          animate-spin
-        "
-      />
-      Carregando...
-    </>
-  ) : (
-    "Continuar para pagamento"
-  )}
-</button>
-
+          )}
+          <button
+            type="button"
+            onClick={continuar}
+            className="h-14 w-full rounded-2xl text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99]"
+            style={{ backgroundColor: frete.estado === "ok" && lojaAberta ? corPrincipal : "#A1A1AA" }}
+          >
+            Ir para o pagamento
+          </button>
         </div>
-
       </div>
-
     </main>
-
-  </>
   );
 }

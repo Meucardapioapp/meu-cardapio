@@ -58,7 +58,7 @@ export default function Precos() {
         </div>
 
         <p className="mt-6 text-center text-sm text-zinc-500">
-          Pix online automático: 1% por Pix recebido (cobre a operação do Pix). Dinheiro e cartão na
+          Pix online automático: 2,5% por Pix recebido. Dinheiro e cartão na
           entrega não têm taxa.
         </p>
       </div>

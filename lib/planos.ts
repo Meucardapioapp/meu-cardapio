@@ -24,7 +24,7 @@ export const DIAS_AVISO_VENCIMENTO = 5;
 /** Dias de tolerância depois do vencimento antes de pausar os pedidos. */
 export const DIAS_TOLERANCIA = 3;
 
-export const TAXA_PIX_ONLINE_TEXTO = "1% apenas sobre Pix recebido online";
+export const TAXA_PIX_ONLINE_TEXTO = "2,5% apenas sobre Pix recebido online";
 
 export function formatarReais(valor: number) {
   return valor.toLocaleString("pt-BR", {

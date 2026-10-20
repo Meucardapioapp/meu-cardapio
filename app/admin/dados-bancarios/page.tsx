@@ -258,7 +258,7 @@ if (
       <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 p-4 text-sm text-blue-900">
         Opcional. Você já pode vender com dinheiro e cartão na entrega sem preencher
         isto. Os dados bancários servem para ativar o <strong>Pix online automático</strong>:
-        o cliente paga no cardápio e o valor cai na sua conta (taxa de 1% por Pix recebido).
+        o cliente paga no cardápio e o valor cai na sua conta (taxa de 2,5% por Pix recebido).
       </div>
 
       {contaAtual && (

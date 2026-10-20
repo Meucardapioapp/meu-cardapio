@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { buscarCardapio, cardapioGuardado } from "@/lib/cardapio-cliente";
+import { useParams, useRouter } from "next/navigation";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { formatarCPF, validarCPF } from "@/lib/validacoes";
 import {
@@ -19,8 +19,9 @@ import {
 } from "lucide-react";
 import { normalizarCodigoCupom, type ProgramaFidelidade } from "@/lib/fidelidade";
 import { FaPix } from "react-icons/fa6";
-import { lerRestaurantePublico } from "@/lib/restaurantePublico";
-import { agoraLocal, lojaAbertaAgora } from "@/lib/horario";
+import { agoraNoFuso, statusDaLoja } from "@/lib/horario";
+import { paraUF } from "@/lib/uf";
+import { lerCarrinho, limparCarrinho, precoUnitario } from "@/lib/carrinho";
 
 type Metodo = "pix" | "pix_chave" | "cartao_entrega" | "dinheiro";
 
@@ -92,8 +93,10 @@ function Opcao({
 
 export default function PagamentoPage() {
   const params = useParams();
+  const router = useRouter();
   const slug = params.slug as string;
   const { logo, corPrincipal } = useRestaurant();
+  const [lembrarCpf, setLembrarCpf] = useState(false);
 
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -141,7 +144,7 @@ export default function PagamentoPage() {
       const ehRetirada = tipoSalvo === "retirada" || ehMesa;
       const endereco = lerJSON<any>(`endereco-${slug}`, {});
       const dadosRetirada = lerJSON<any>("dadosRetirada", {});
-      const itens = lerJSON<any[]>(`cart-${slug}`, []);
+      const itens = lerCarrinho(slug);
 
       setRetirada(ehRetirada);
       setCarrinho(itens);
@@ -151,7 +154,12 @@ export default function PagamentoPage() {
           ? { nome: dadosRetirada.nome, telefone: dadosRetirada.telefone, cpf: dadosRetirada.cpf }
           : { ...endereco, telefone: endereco.whatsapp }
       );
-      setCpf(formatarCPF((ehRetirada ? dadosRetirada.cpf : endereco.cpf) || ""));
+      let cpfLembrado = "";
+      try {
+        cpfLembrado = localStorage.getItem("cpf-pix") || "";
+      } catch {}
+      if (cpfLembrado) setLembrarCpf(true);
+      setCpf(formatarCPF(cpfLembrado || (ehRetirada ? dadosRetirada.cpf : endereco.cpf) || ""));
 
       const token =
         localStorage.getItem(`cliente_token-${slug}`) ||
@@ -159,7 +167,9 @@ export default function PagamentoPage() {
         "";
       setClienteToken(token);
 
-      const { data: restaurante } = await lerRestaurantePublico((tabela) => supabase.from(tabela).select("id, whatsapp").eq("slug", slug).single());
+      // Já veio do cardápio nesta visita: abre na hora (o servidor confere tudo ao finalizar).
+      const cardapio = cardapioGuardado(slug) ?? (await buscarCardapio(slug));
+      const restaurante = cardapio?.restaurante;
 
       if (!restaurante) {
         setErro("Restaurante não encontrado.");
@@ -170,8 +180,7 @@ export default function PagamentoPage() {
       setRestauranteId(String(restaurante.id));
       setWhatsappRestaurante(String(restaurante.whatsapp || "").replace(/\D/g, ""));
 
-      const [{ data: aparencias }, configResposta, fidelidade] = await Promise.all([
-        supabase.from("aparencia").select("*").eq("restaurante_id", restaurante.id).limit(1),
+      const [configResposta, fidelidade] = await Promise.all([
         fetch(`/api/configuracoes-pagamento?restauranteId=${restaurante.id}`).then((r) => r.json()),
         fetch(
           `/api/fidelidade?restauranteId=${encodeURIComponent(String(restaurante.id))}`,
@@ -181,10 +190,11 @@ export default function PagamentoPage() {
           .catch(() => null),
       ]);
 
-      const aparencia = aparencias?.[0];
+      const aparencia = cardapio?.aparencia;
 
-      // Horário (inclusive o que passa da meia-noite).
-      setLojaAberta(lojaAbertaAgora(aparencia, agoraLocal()));
+      // Horário no fuso do restaurante (inclusive o que passa da meia-noite).
+      const uf = restaurante.uf || paraUF(restaurante.estado);
+      setLojaAberta(statusDaLoja(aparencia, agoraNoFuso(uf)).aberta);
 
       const pix = Boolean(configResposta?.pix_online);
       const dinheiro = Boolean(configResposta?.dinheiro);
@@ -211,7 +221,7 @@ export default function PagamentoPage() {
 
   const quantidadeItens = carrinho.reduce((s, i) => s + Number(i.quantity || 0), 0);
   const subtotal = useMemo(
-    () => carrinho.reduce((s, i) => s + Number(i.preco) * Number(i.quantity), 0),
+    () => carrinho.reduce((s, i) => s + precoUnitario(i) * Number(i.quantity), 0),
     [carrinho]
   );
   const descontoCupom = cupom ? Math.min(cupom.desconto, subtotal) : 0;
@@ -255,7 +265,14 @@ export default function PagamentoPage() {
   const trocoNumero = Number(trocoPara.replace(/\./g, "").replace(",", "."));
 
   function voltar() {
-    window.location.href = retirada ? `/${slug}/carrinho` : `/${slug}/endereco`;
+    router.push(retirada ? `/${slug}/carrinho` : `/${slug}/endereco`);
+  }
+
+  function escolherMetodo(m: Metodo) {
+    setMetodo(m);
+    if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
+      (window as any).fbq("track", "AddPaymentInfo", { value: total, currency: "BRL", payment_type: m });
+    }
   }
 
   async function finalizar() {
@@ -309,6 +326,7 @@ export default function PagamentoPage() {
           rua: retirada ? "" : dados.rua,
           numero: retirada ? "" : dados.numero,
           complemento: retirada ? "" : dados.complemento,
+          cep: retirada ? "" : dados.cep || "",
           referencia: dados.referencia || "",
           observacoes: "",
           payment_method: METODO_API[metodo],
@@ -366,11 +384,16 @@ export default function PagamentoPage() {
           return;
         }
 
-        window.location.href = `/${slug}/pix?id=${pedido.id}&c=${codigo}&qr=${encodeURIComponent(pix.qrCode)}`;
+        try {
+          if (lembrarCpf) localStorage.setItem("cpf-pix", cpf);
+          else localStorage.removeItem("cpf-pix");
+        } catch {}
+        const exp = pix.expiresAt ? `&exp=${encodeURIComponent(pix.expiresAt)}` : "";
+        window.location.href = `/${slug}/pix?id=${pedido.id}&c=${codigo}&qr=${encodeURIComponent(pix.qrCode)}${exp}`;
         return;
       }
 
-      localStorage.removeItem(`cart-${slug}`);
+      limparCarrinho(slug);
       localStorage.removeItem(`endereco-${slug}`);
       localStorage.removeItem("dadosRetirada");
       sessionStorage.removeItem(`sessao-${slug}`);
@@ -416,7 +439,32 @@ export default function PagamentoPage() {
         </div>
 
         <h1 className="text-2xl font-black text-zinc-900">Pagamento</h1>
-        <p className="text-zinc-500 mt-1 mb-5">Escolha como você vai pagar</p>
+        <p className="text-zinc-500 mt-1 mb-4">Confira e escolha como vai pagar</p>
+
+        {!carregando && (
+          <div className="mb-5 rounded-2xl bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-zinc-500">
+                  {mesa ? `Mesa ${mesa}` : retirada ? "Retirar no local" : "Entregar em"}
+                </p>
+                {!retirada && (
+                  <p className="mt-0.5 text-[15px] font-semibold leading-snug text-zinc-900">
+                    {[dados.rua, dados.numero].filter(Boolean).join(", ")}
+                    {dados.complemento ? ` · ${dados.complemento}` : ""}
+                    <span className="block text-sm font-normal text-zinc-500">{dados.bairro}</span>
+                  </p>
+                )}
+                <p className="mt-0.5 text-sm text-zinc-500">
+                  {dados.nome} · {dados.telefone}
+                </p>
+              </div>
+              <button type="button" onClick={voltar} className="shrink-0 text-sm font-semibold" style={{ color: corPrincipal }}>
+                Alterar
+              </button>
+            </div>
+          </div>
+        )}
 
         {!pedidosAtivos && !carregando && (
           <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
@@ -458,7 +506,7 @@ export default function PagamentoPage() {
                   id="pix"
                   ativo={metodo === "pix"}
                   cor={corPrincipal}
-                  onEscolher={setMetodo}
+                  onEscolher={escolherMetodo}
                   titulo="Pix"
                   descricao="Pague agora pelo app do banco"
                   icone={<FaPix size={24} color="#32BCAD" />}
@@ -486,8 +534,12 @@ export default function PagamentoPage() {
                       )}
                     </div>
                     <p className="text-xs text-zinc-500 mt-1">
-                      Exigido pelo banco para gerar o Pix. Não fica salvo no cardápio.
+                      Exigido pelo banco para gerar o Pix.
                     </p>
+                    <label className="mt-3 flex items-center gap-2 text-xs text-zinc-600">
+                      <input type="checkbox" checked={lembrarCpf} onChange={(e) => setLembrarCpf(e.target.checked)} />
+                      Lembrar meu CPF neste celular
+                    </label>
                   </div>
                 )}
               </div>
@@ -498,7 +550,7 @@ export default function PagamentoPage() {
                 id="pix_chave"
                 ativo={metodo === "pix_chave"}
                 cor={corPrincipal}
-                onEscolher={setMetodo}
+                onEscolher={escolherMetodo}
                 titulo={aceitaPix ? "Pix na chave do restaurante" : "Pix"}
                 descricao="Ao finalizar, você recebe o Pix copia e cola com o valor"
                 icone={<FaPix size={24} color="#32BCAD" />}
@@ -510,7 +562,7 @@ export default function PagamentoPage() {
                 id="cartao_entrega"
                 ativo={metodo === "cartao_entrega"}
                 cor={corPrincipal}
-                onEscolher={setMetodo}
+                onEscolher={escolherMetodo}
                 titulo="Cartão de crédito ou débito"
                 descricao={mesa ? "Pague no final (maquininha)" : retirada ? "Pague na retirada" : "Pague na entrega (maquininha)"}
                 icone={<CreditCard size={22} color={corPrincipal} />}
@@ -523,7 +575,7 @@ export default function PagamentoPage() {
                   id="dinheiro"
                   ativo={metodo === "dinheiro"}
                   cor={corPrincipal}
-                  onEscolher={setMetodo}
+                  onEscolher={escolherMetodo}
                   titulo="Dinheiro"
                   descricao={mesa ? "Pague no final" : retirada ? "Pague na retirada" : "Pague na entrega"}
                   icone={<Banknote size={22} color="#16A34A" />}
@@ -664,7 +716,28 @@ export default function PagamentoPage() {
 
         {/* Resumo */}
         <div className="bg-white rounded-2xl p-5 mt-5">
-          <h2 className="text-lg font-bold mb-4">Resumo do pedido</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold">Resumo do pedido</h2>
+            <button type="button" onClick={() => router.push(`/${slug}/carrinho`)} className="text-sm font-semibold" style={{ color: corPrincipal }}>
+              Editar itens
+            </button>
+          </div>
+          <div className="mb-3 space-y-1.5 border-b border-zinc-100 pb-3">
+            {carrinho.map((item: any) => (
+              <div key={item.uniqueId} className="flex justify-between gap-3 text-sm">
+                <span className="min-w-0 text-zinc-700">
+                  <strong>{item.quantity}x</strong> {item.nome}
+                  {(item.obrigatoriosSelecionados ?? []).length > 0 && (
+                    <span className="block text-xs text-zinc-500">{(item.obrigatoriosSelecionados ?? []).map((o: any) => o.nome).join(" · ")}</span>
+                  )}
+                  {(item.adicionaisSelecionados ?? []).length > 0 && (
+                    <span className="block text-xs text-zinc-500">+ {(item.adicionaisSelecionados ?? []).map((x: any) => x.nome).join(", ")}</span>
+                  )}
+                </span>
+                <span className="shrink-0 text-zinc-700">{reais(precoUnitario(item) * Number(item.quantity))}</span>
+              </div>
+            ))}
+          </div>
 
           <div className="flex justify-between mb-2 text-zinc-700">
             <span>Total dos produtos</span>

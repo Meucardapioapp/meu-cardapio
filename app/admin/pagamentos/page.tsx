@@ -350,7 +350,7 @@ export default function PagamentosPage() {
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-bold text-zinc-900">Pix online automático</p>
-              <span className="text-[11px] font-bold uppercase bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-full">Opcional · 1% por Pix</span>
+              <span className="text-[11px] font-bold uppercase bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-full">Opcional · 2,5% por Pix</span>
               {pixOnline && (
                 <span className="text-[11px] font-bold uppercase bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Ativo</span>
               )}

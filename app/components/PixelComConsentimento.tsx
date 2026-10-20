@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 /**
  * Pixel do Meta do restaurante só depois do "Aceitar" do cliente
@@ -32,6 +33,9 @@ function carregarPixel(pixelId: string) {
 
 export default function PixelComConsentimento({ pixelId }: { pixelId: string }) {
   const [perguntar, setPerguntar] = useState(false);
+  // No cardápio fica embaixo (a barra de categorias fica livre no topo);
+  // nas telas do pedido, que têm botão fixo embaixo, fica no topo.
+  const noTopo = /\/(carrinho|endereco|pagamento|pix|pedido-aprovado)/.test(usePathname() || "");
 
   useEffect(() => {
     let escolha = "";
@@ -55,23 +59,32 @@ export default function PixelComConsentimento({ pixelId }: { pixelId: string }) 
     else if ((window as any).fbq) window.location.reload();
   }
 
+  // Enquanto o aviso aparece, a barra do carrinho sobe um pouco para não ficar por baixo dele.
+  useEffect(() => {
+    const raiz = document.documentElement.style;
+    if (perguntar && !noTopo) raiz.setProperty("--altura-aviso-cookies", "60px");
+    else raiz.removeProperty("--altura-aviso-cookies");
+    return () => {
+      raiz.removeProperty("--altura-aviso-cookies");
+    };
+  }, [perguntar, noTopo]);
+
   if (!perguntar) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-3 z-[1000] mx-auto max-w-lg rounded-2xl border bg-white p-4 shadow-2xl sm:bottom-5">
-      <p className="text-sm text-zinc-700">
-        Este cardápio usa cookies do Meta (Facebook/Instagram) para medir anúncios do restaurante. Você aceita? Os
-        essenciais (carrinho e login) funcionam de qualquer jeito.{" "}
-        <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">Saiba mais</a>
+    <div className={`fixed inset-x-2 ${noTopo ? "top-[max(0.5rem,env(safe-area-inset-top))]" : "bottom-[calc(68px+env(safe-area-inset-bottom))]"} z-[900] mx-auto flex max-w-lg items-center gap-2 rounded-2xl border bg-white/95 p-2.5 pl-3.5 shadow-xl backdrop-blur`}>
+      <p className="min-w-0 flex-1 text-[12px] leading-4 text-zinc-600">
+        Usamos cookies do Meta para medir anúncios.{" "}
+        <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">
+          Saiba mais
+        </a>
       </p>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button onClick={() => escolher(false)} className="h-11 rounded-xl border font-semibold text-zinc-700">
-          Recusar
-        </button>
-        <button onClick={() => escolher(true)} className="h-11 rounded-xl bg-zinc-900 font-semibold text-white">
-          Aceitar
-        </button>
-      </div>
+      <button onClick={() => escolher(false)} className="h-9 shrink-0 rounded-xl border px-3 text-[13px] font-semibold text-zinc-700">
+        Recusar
+      </button>
+      <button onClick={() => escolher(true)} className="h-9 shrink-0 rounded-xl bg-zinc-900 px-3 text-[13px] font-semibold text-white">
+        Aceitar
+      </button>
     </div>
   );
 }

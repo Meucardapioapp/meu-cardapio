@@ -63,7 +63,7 @@ export default function FAQDesktop() {
             {
               question: "Quanto custa?",
               answer:
-                "15 dias grátis, sem cartão. Depois R$ 79,90 por mês, tudo incluído e sem taxa por pedido. No Pix online automático há 1% por Pix recebido.",
+                "15 dias grátis, sem cartão. Depois R$ 79,90 por mês, tudo incluído e sem taxa por pedido. No Pix online automático há 2,5% por Pix recebido.",
             },
           ].map((item) => (
             <div

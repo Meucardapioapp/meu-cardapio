@@ -1,175 +1,75 @@
 "use client";
 
-import { Search, Package, User } from "lucide-react";
+import { Search, Package, User, Home } from "lucide-react";
 import { useState } from "react";
-import CustomerArea from "./CustomerArea";
+import dynamic from "next/dynamic";
+
+// "Minha conta" só baixa quando o cliente abre (o cardápio carrega mais leve).
+const CustomerArea = dynamic(() => import("./CustomerArea"), { ssr: false });
+const MeusPedidos = dynamic(() => import("./MeusPedidos"), { ssr: false });
 
 type Props = {
   corPrincipal: string;
+  /** Abre a busca do cardápio. */
+  onBuscar?: () => void;
+  /** Volta ao topo do cardápio. */
+  onInicio?: () => void;
+  /** "Pedir de novo" dentro de Meus pedidos. */
+  onPedirDeNovo?: (pedido: any) => void;
 };
 
-export default function BottomNavigation({
-  corPrincipal,
-}: Props) {
-  const [openCustomer, setOpenCustomer] = useState(false);
+export default function BottomNavigation({ corPrincipal, onBuscar, onInicio, onPedirDeNovo }: Props) {
+  const [aberto, setAberto] = useState<null | "conta" | "pedidos">(null);
+
+  const itens = [
+    { id: "inicio", rotulo: "Início", Icone: Home, acao: () => (onInicio ? onInicio() : window.scrollTo({ top: 0, behavior: "smooth" })) },
+    { id: "buscar", rotulo: "Buscar", Icone: Search, acao: () => onBuscar?.() },
+    { id: "pedidos", rotulo: "Pedidos", Icone: Package, acao: () => setAberto("pedidos") },
+    { id: "conta", rotulo: "Conta", Icone: User, acao: () => setAberto("conta") },
+  ];
 
   return (
     <>
-      <div
-        className="
-          fixed
-          bottom-0
-          left-0
-          right-0
-          z-[998]
-
-          bg-white/95
-          backdrop-blur-xl
-
-          border-t
-          border-zinc-200
-
-          shadow-[0_-12px_32px_rgba(0,0,0,0.08)]
-
-          pb-[env(safe-area-inset-bottom)]
-        "
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-[998] border-t border-zinc-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl"
+        aria-label="Navegação do cardápio"
       >
-        <div
-          className="
-            h-[80px]
-            flex
-            items-center
-            justify-around
-          "
-        >
-          {/* Buscar */}
-
-          <button
-            className="
-              w-[72px]
-              h-[54px]
-
-              rounded-2xl
-
-              flex
-              flex-col
-              items-center
-              justify-center
-              gap-1
-
-              transition-all
-              duration-200
-
-              active:scale-95
-            "
-            style={{
-              backgroundColor: `${corPrincipal}15`,
-            }}
-          >
-            <Search
-              size={23}
-              strokeWidth={2.4}
-              color={corPrincipal}
-            />
-
-            <span
-              className="
-                text-[12px]
-                font-semibold
-              "
-              style={{
-                color: corPrincipal,
-              }}
+        <div className="mx-auto flex h-[62px] max-w-xl items-center justify-around">
+          {itens.map(({ id, rotulo, Icone, acao }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={acao}
+              className="flex h-[52px] w-[72px] flex-col items-center justify-center gap-0.5 rounded-2xl text-zinc-500 transition active:scale-95"
             >
-              Buscar
-            </span>
-          </button>
-
-          {/* Pedidos */}
-
-          <button
-            className="
-              w-[72px]
-              h-[54px]
-
-              rounded-2xl
-
-              flex
-              flex-col
-              items-center
-              justify-center
-              gap-1
-
-              transition-all
-              duration-200
-
-              hover:bg-zinc-50
-              active:scale-95
-            "
-          >
-            <Package
-              size={22}
-              strokeWidth={2.3}
-              color="#71717A"
-            />
-
-            <span
-              className="
-                text-[12px]
-                font-medium
-                text-zinc-500
-              "
-            >
-              Pedidos
-            </span>
-          </button>
-
-          {/* Conta */}
-
-          <button
-            onClick={() => setOpenCustomer(true)}
-            className="
-              w-[72px]
-              h-[54px]
-
-              rounded-2xl
-
-              flex
-              flex-col
-              items-center
-              justify-center
-              gap-1
-
-              transition-all
-              duration-200
-
-              hover:bg-zinc-50
-              active:scale-95
-            "
-          >
-            <User
-              size={22}
-              strokeWidth={2.3}
-              color="#71717A"
-            />
-
-            <span
-              className="
-                text-[12px]
-                font-medium
-                text-zinc-500
-              "
-            >
-              Conta
-            </span>
-          </button>
+              <Icone size={21} strokeWidth={2.2} color={(aberto ? id === aberto : id === "inicio") ? corPrincipal : "#71717A"} />
+              <span className="text-[11px] font-semibold" style={{ color: (aberto ? id === aberto : id === "inicio") ? corPrincipal : undefined }}>
+                {rotulo}
+              </span>
+            </button>
+          ))}
         </div>
-      </div>
+      </nav>
 
-      <CustomerArea
-        open={openCustomer}
-        onClose={() => setOpenCustomer(false)}
-      />
+      {aberto === "pedidos" && (
+        <MeusPedidos
+          open
+          corPrincipal={corPrincipal}
+          onClose={() => setAberto(null)}
+          onPedirDeNovo={
+            onPedirDeNovo
+              ? (p: any) => {
+                  setAberto(null);
+                  onPedirDeNovo(p);
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {aberto === "conta" && (
+        <CustomerArea open semPedidos onVerPedidos={() => setAberto("pedidos")} onClose={() => setAberto(null)} />
+      )}
     </>
   );
 }

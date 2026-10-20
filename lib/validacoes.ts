@@ -63,3 +63,20 @@ export function formatarCpfCnpj(valor: string) {
     .replace(/\.(\d{3})(\d)/, ".$1/$2")
     .replace(/(\d{4})(\d)/, "$1-$2");
 }
+
+/** (11) 91234-5678 ou (11) 3456-7890 enquanto digita. */
+export function formatarTelefone(valor: string) {
+  let d = String(valor ?? "").replace(/\D/g, "");
+  if (d.length === 13 && d.startsWith("55")) d = d.slice(2); // colado com +55
+  d = d.slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+/** Celular (11 dígitos) ou fixo (10 dígitos), com DDD. */
+export function telefoneValido(valor: string) {
+  const d = String(valor ?? "").replace(/\D/g, "");
+  return /^[1-9]{2}9\d{8}$/.test(d) || /^[1-9]{2}[2-5]\d{7}$/.test(d);
+}

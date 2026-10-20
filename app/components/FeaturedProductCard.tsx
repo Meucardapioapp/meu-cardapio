@@ -1,6 +1,7 @@
 "use client";
 
 import type { ProdutoFormatado } from "../types";
+import { PrecoProduto } from "./ProductCard";
 
 type Props = {
   product: ProdutoFormatado;
@@ -8,328 +9,31 @@ type Props = {
   corPrincipal: string;
 };
 
-export default function FeaturedProductCard({
-  product,
-  onClick,
-  corPrincipal,
-}: Props) {
-  const preco = Number(product.preco) || 0;
-  const precoAntigo = Number(product.precoAntigo) || 0;
-
-  const temDescricao =
-    Boolean(product.descricao) &&
-    String(product.descricao).trim() !== "" &&
-    String(product.descricao).trim() !== "0";
-
-  const temPreco = preco > 0;
-
-  const temPromocao =
-    precoAntigo > 0 &&
-    preco > 0 &&
-    precoAntigo > preco;
-
-  const percentualDesconto = temPromocao
-    ? Math.round(
-        ((precoAntigo - preco) / precoAntigo) * 100
-      )
-    : 0;
+/** Cartão grande, usado nos destaques (rolagem para o lado). */
+export default function FeaturedProductCard({ product, onClick, corPrincipal }: Props) {
+  const antigo = Number(product.precoAntigo) || 0;
+  const desconto = antigo > Number(product.preco) && Number(product.preco) > 0 ? Math.round(((antigo - product.preco) / antigo) * 100) : 0;
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="
-        flex-none
-
-        min-w-[150px]
-        max-w-[150px]
-
-        md:min-w-[270px]
-        md:max-w-[270px]
-
-        h-[248px]
-        md:h-[430px]
-
-        bg-white
-        rounded-[24px]
-        overflow-hidden
-
-        border
-        border-[#ECE8E2]
-
-        shadow-sm
-        hover:shadow-lg
-        hover:-translate-y-1
-
-        transition-all
-        duration-300
-
-        text-left
-        snap-start
-      "
+      className="w-[152px] shrink-0 snap-start overflow-hidden rounded-2xl border border-zinc-200 bg-white text-left shadow-sm transition active:scale-[0.98] md:w-[220px]"
     >
-      {/* FOTO */}
-
-      <div
-        className="
-          relative
-
-          h-[110px]
-          md:h-[210px]
-
-          overflow-hidden
-          bg-zinc-100
-        "
-      >
+      <div className="relative h-[112px] w-full bg-zinc-100 md:h-[160px]">
         {product.imagem ? (
-          <img loading="lazy" decoding="async"
-            src={product.imagem}
-            alt={product.nome}
-            className="
-              w-full
-              h-full
-              object-cover
-
-              transition-transform
-              duration-300
-
-              hover:scale-105
-            "
-          />
+          <img loading="lazy" decoding="async" src={product.imagem} alt={product.nome} className="h-full w-full object-cover" />
         ) : (
-          <div
-            className="
-              w-full
-              h-full
-
-              flex
-              items-center
-              justify-center
-
-              text-zinc-400
-            "
-          >
-            Sem imagem
-          </div>
+          <div className="h-full w-full" style={{ backgroundColor: `${corPrincipal}12` }} />
         )}
-
-        {/* DESCONTO SOBRE A FOTO */}
-
-        {temPromocao && (
-          <div
-            className="
-              absolute
-              top-2
-              left-2
-
-              text-white
-
-              text-[10px]
-              md:text-[14px]
-
-              font-extrabold
-
-              px-2
-              md:px-4
-
-              py-[3px]
-              md:py-[5px]
-
-              rounded-full
-              shadow-md
-            "
-            style={{
-              backgroundColor: corPrincipal,
-            }}
-          >
-            {percentualDesconto}% OFF
-          </div>
+        {desconto > 0 && (
+          <span className="absolute left-2 top-2 rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-bold text-white">-{desconto}%</span>
         )}
       </div>
-
-      {/* CONTEÚDO */}
-
-      <div
-        className="
-          p-2.5
-          md:p-5
-        "
-      >
-        {/* NOME */}
-
-        <h3
-          className="
-            text-[14px]
-            md:text-[20px]
-
-            font-semibold
-            text-zinc-900
-
-            leading-tight
-            line-clamp-1
-          "
-        >
-          {product.nome}
-        </h3>
-
-        {product.rotuloPromocao && (
-          <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-            {product.rotuloPromocao}
-          </span>
-        )}
-
-        {/* ÁREA FIXA DA DESCRIÇÃO */}
-
-        <div
-          className="
-            h-[34px]
-            md:h-[52px]
-
-            mt-1
-          "
-        >
-<p
-  className="
-    mt-1
-    text-[12px]
-    md:text-[16px]
-    text-zinc-500
-    leading-4
-    md:leading-6
-    line-clamp-2
-    min-h-[34px]
-    md:min-h-[52px]
-  "
->
-  {temDescricao ? product.descricao : "\u00A0"}
-</p>
-        </div>
-
-        {/* ÁREA DOS PREÇOS */}
-
-        <div className="mt-2 md:mt-5">
-          {/* LINHA DO PREÇO ANTIGO */}
-
-          <div
-            className="
-              h-[17px]
-              md:h-[24px]
-
-              flex
-              items-center
-            "
-          >
-            {temPromocao && (
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-1
-                "
-              >
-                <span
-                  className="
-                    text-[12px]
-                    md:text-[16px]
-
-                    text-zinc-400
-                    line-through
-                  "
-                >
-                  R${" "}
-                  {precoAntigo.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
-                  })}
-                </span>
-
-                <span
-                  className="
-                    text-white
-
-                    text-[9px]
-                    md:text-[12px]
-
-                    font-bold
-
-                    px-2
-
-                    py-[1px]
-                    md:py-[2px]
-
-                    rounded-full
-                  "
-                  style={{
-                    backgroundColor: corPrincipal,
-                  }}
-                >
-                  -{percentualDesconto}%
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* PREÇO ATUAL */}
-
-          <div
-            className="
-              h-[22px]
-              md:h-[36px]
-
-              flex
-              items-center
-            "
-          >
-            {temPreco && (
-              <p
-                className="
-                  text-[16px]
-                  md:text-[30px]
-
-                  font-bold
-                  leading-none
-                "
-                style={{
-                  color: corPrincipal,
-                }}
-              >
-                R${" "}
-                {preco.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                })}
-              </p>
-            )}
-          </div>
-
-          {/* ECONOMIA */}
-
-          <div
-            className="
-              h-[18px]
-              md:h-[25px]
-
-              flex
-              items-center
-            "
-          >
-            {temPromocao && (
-              <p
-                className="
-                  text-[11px]
-                  md:text-[16px]
-
-                  font-semibold
-                  text-emerald-600
-                "
-              >
-                Economize R${" "}
-                {(precoAntigo - preco).toLocaleString(
-                  "pt-BR",
-                  {
-                    minimumFractionDigits: 2,
-                  }
-                )}
-              </p>
-            )}
-          </div>
+      <div className="flex min-h-[78px] flex-col p-2.5">
+        <p className="line-clamp-2 text-[13px] font-semibold leading-4 text-zinc-900 md:text-[15px] md:leading-5">{product.nome}</p>
+        <div className="mt-auto pt-1.5">
+          <PrecoProduto product={product} cor={corPrincipal} />
         </div>
       </div>
     </button>

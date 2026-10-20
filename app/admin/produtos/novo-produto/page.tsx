@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { comprimirImagem } from "@/lib/imagem";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -277,14 +278,16 @@ function FormularioProduto() {
       toast.error("Escolha um arquivo de imagem (JPG, PNG ou WEBP).");
       return;
     }
-    if (arquivo.size > 5 * 1024 * 1024) {
-      toast.error("A foto pode ter no máximo 5 MB.");
+    if (arquivo.size > 20 * 1024 * 1024) {
+      toast.error("A foto pode ter no máximo 20 MB.");
       return;
     }
     setImagemArquivo(arquivo);
   }
 
-  async function enviarFoto(arquivo: File) {
+  async function enviarFoto(original: File) {
+    // Foto leve: o cardápio abre bem mais rápido no 4G.
+    const arquivo = await comprimirImagem(original, { maxLado: 1200, qualidade: 0.8, nome: "produto" });
     const extensao = (arquivo.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
     const restauranteId = localStorage.getItem("restaurante_id");
     if (!restauranteId) throw new Error("Entre novamente para enviar fotos.");
@@ -292,6 +295,8 @@ function FormularioProduto() {
 
     const { error } = await supabase.storage.from("products").upload(caminho, arquivo, {
       contentType: arquivo.type,
+      // Nome único por foto: o celular do cliente pode guardar por 1 ano.
+      cacheControl: "31536000",
       upsert: false,
     });
 

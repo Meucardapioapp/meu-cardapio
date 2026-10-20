@@ -1,545 +1,237 @@
 "use client";
 
-import {
-  Suspense,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
-import {
-  useParams,
-  useSearchParams,
-} from "next/navigation";
-
-import Link from "next/link";
-
-import { motion } from "framer-motion";
-
-import { useRestaurant } from "@/contexts/RestaurantContext";
-
-import {
-  ArrowLeft,
-  Clock3,
-  Copy,
-  ShieldCheck,
-  LoaderCircle,
-  CircleCheckBig,
-  Share2,
-} from "lucide-react";
-
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Check, Copy, LoaderCircle, ShieldCheck } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
+import { useRestaurant } from "@/contexts/RestaurantContext";
+import { reais } from "@/lib/dinheiro";
+import { limparCarrinho } from "@/lib/carrinho";
 
-import { supabase } from "@/lib/supabase";
-import { lerRestaurantePublico } from "@/lib/restaurantePublico";
+function copiarTexto(texto: string) {
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(texto);
+  // Navegadores antigos
+  const area = document.createElement("textarea");
+  area.value = texto;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  document.execCommand("copy");
+  area.remove();
+  return Promise.resolve();
+}
 
 function PixContent() {
   const params = useParams();
-  const searchParams = useSearchParams();
-
+  const router = useRouter();
+  const busca = useSearchParams();
   const slug = params.slug as string;
+  const pedidoId = busca.get("id");
+  const codigoPedido = busca.get("c") || "";
+  const codigoPix = useMemo(() => busca.get("qr") || "", [busca]);
+  const expiraEm = useMemo(() => {
+    const t = Date.parse(busca.get("exp") || "");
+    return Number.isFinite(t) ? t : Date.now() + 60 * 60 * 1000;
+  }, [busca]);
 
-  const qrCode = searchParams.get("qr");
-  const pedidoId = searchParams.get("id");
-  const codigoPedido = searchParams.get("c") || "";
-
-  const codigoPix = useMemo(() => {
-    if (!qrCode) return "";
-    return decodeURIComponent(qrCode);
-  }, [qrCode]);
-
-const {
-  logo,
-  corPrincipal,
-} = useRestaurant();
-
-const [banner, setBanner] =
-  useState("");
-
-const [nomeRestaurante, setNomeRestaurante] =
-  useState("");
-
-  const [copiado, setCopiado] =
-    useState(false);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [pagamentoAprovado, setPagamentoAprovado] =
-    useState(false);
-
-  const [segundos, setSegundos] =
-    useState(60 * 60);
-
-  async function carregarRestaurante() {
-    try {
-      const {
-        data: restaurante,
-      } = await lerRestaurantePublico((tabela) => supabase.from(tabela).select("*").eq("slug", slug).single());
-
-      if (!restaurante) return;
-
-      const {
-        data: aparencia,
-      } = await supabase
-        .from("aparencia")
-        .select("*")
-        .eq(
-          "restaurante_id",
-          restaurante.id
-        )
-        .single();
-
-      setNomeRestaurante(
-        aparencia?.nome_restaurante ||
-          restaurante.nome ||
-          ""
-      );
-
-      setBanner(
-        aparencia?.banner_url || ""
-      );
-
-
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { logo, corPrincipal } = useRestaurant();
+  const [copiado, setCopiado] = useState(false);
+  const [aprovado, setAprovado] = useState(false);
+  const [conferindo, setConferindo] = useState(false);
+  const [agora, setAgora] = useState(Date.now());
+  const [pedido, setPedido] = useState<any>(null);
+  const terminou = useRef(false);
 
   useEffect(() => {
-    carregarRestaurante();
-  }, [slug]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSegundos((old) => {
-        if (old <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-
-        return old - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
+    const t = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
     if (!pedidoId) return;
+    fetch(`/api/pedido?id=${encodeURIComponent(pedidoId)}&c=${encodeURIComponent(codigoPedido)}`)
+      .then((r) => r.json())
+      .then((d) => setPedido(d?.pedido ?? null))
+      .catch(() => {});
+  }, [pedidoId, codigoPedido]);
 
-    const intervalo = setInterval(async () => {
-      try {
-        const response = await fetch(
-          `/api/pedido-status?id=${pedidoId}&c=${codigoPedido}`
-        );
+  const conferir = useCallback(async () => {
+    if (!pedidoId || terminou.current) return;
+    try {
+      const r = await fetch(`/api/pedido-status?id=${encodeURIComponent(pedidoId)}&c=${encodeURIComponent(codigoPedido)}`);
+      const d = await r.json();
+      if (d.payment_status === "approved" && !terminou.current) {
+        terminou.current = true;
+        setAprovado(true);
+        limparCarrinho(slug);
+        try {
+          localStorage.removeItem(`endereco-${slug}`);
+          localStorage.removeItem("dadosRetirada");
+          localStorage.removeItem("tipoPedido");
+          sessionStorage.removeItem(`sessao-${slug}`);
+        } catch {}
+        setTimeout(() => router.replace(`/${slug}/pedido-aprovado?id=${pedidoId}&c=${codigoPedido}`), 900);
+      }
+    } catch {}
+  }, [pedidoId, codigoPedido, slug, router]);
 
-        const data =
-          await response.json();
+  // Confere a cada 3 s e assim que o cliente volta do app do banco.
+  useEffect(() => {
+    const t = setInterval(conferir, 3000);
+    const aoVoltar = () => document.visibilityState === "visible" && conferir();
+    document.addEventListener("visibilitychange", aoVoltar);
+    window.addEventListener("focus", aoVoltar);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", aoVoltar);
+      window.removeEventListener("focus", aoVoltar);
+    };
+  }, [conferir]);
 
-if (
-  data.payment_status ===
-  "approved"
-) {
-  clearInterval(intervalo);
-
-  setPagamentoAprovado(true);
-
-  localStorage.removeItem(`cart-${slug}`);
-  localStorage.removeItem(`endereco-${slug}`);
-  localStorage.removeItem("dadosRetirada");
-  localStorage.removeItem("tipoPedido");
-  sessionStorage.removeItem(`sessao-${slug}`);
-
-  setTimeout(() => {
-    window.location.href =
-      `/${slug}/pedido-aprovado?id=${pedidoId}&c=${codigoPedido}`;
-  }, 1000);
-}
-      } catch {}
-    }, 3000);
-
-    return () =>
-      clearInterval(intervalo);
-  }, [pedidoId, slug]);
-
-  function copiarPix() {
-    navigator.clipboard.writeText(
-      codigoPix
-    );
-
+  async function copiar() {
+    await copiarTexto(codigoPix).catch(() => {});
     setCopiado(true);
-
-    setTimeout(() => {
-      setCopiado(false);
-    }, 2500);
+    setTimeout(() => setCopiado(false), 3000);
   }
 
-  function compartilhar() {
-    if (
-      navigator.share
-    ) {
-      navigator.share({
-        title: "PIX",
-        text: codigoPix,
-      });
-
-      return;
-    }
-
-    copiarPix();
+  async function jaPaguei() {
+    setConferindo(true);
+    await conferir();
+    setTimeout(() => setConferindo(false), 1500);
   }
 
-  const minutos = String(
-    Math.floor(segundos / 60)
-  ).padStart(2, "0");
-
-  const segundosTexto = String(
-    segundos % 60
-  ).padStart(2, "0");
+  const restante = Math.max(0, Math.floor((expiraEm - agora) / 1000));
+  const expirou = restante === 0 && !aprovado;
+  const relogio = `${String(Math.floor(restante / 60)).padStart(2, "0")}:${String(restante % 60).padStart(2, "0")}`;
+  const zap = String(pedido?.telefone_restaurante || pedido?.whatsapp_restaurante || "").replace(/\D/g, "").replace(/^55/, "");
 
   if (!codigoPix) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-lg font-semibold">
-        QR Code não encontrado.
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
-        <LoaderCircle
-          className="animate-spin"
-          size={40}
-        />
-      </div>
-    );
+    return <div className="flex min-h-screen items-center justify-center p-6 text-center text-lg font-semibold">Código Pix não encontrado.</div>;
   }
 
   return (
-    <main className="min-h-screen bg-[#F4F5F7]">
-      <div
-  className="relative pb-36"
-        style={{
-          background: `linear-gradient(
-180deg,
-${corPrincipal} 0%,
-${corPrincipal}EE 100%
-)`,
-        }}
-      >
+    <main className="min-h-screen bg-zinc-50 pb-10 text-zinc-900">
+      <header className="border-b border-zinc-200 bg-white">
+        <div className="mx-auto flex h-14 max-w-md items-center gap-3 px-3">
+          <button
+            type="button"
+            onClick={() => router.push(`/${slug}/pagamento`)}
+            aria-label="Voltar"
+            className="flex h-10 w-10 items-center justify-center rounded-full active:bg-zinc-100"
+          >
+            <ArrowLeft size={22} style={{ color: corPrincipal }} />
+          </button>
+          {logo && <img src={logo} alt="" className="h-8 w-8 rounded-full object-cover" />}
+          <p className="flex-1 text-[15px] font-bold">Pagar com Pix</p>
+          <span className="flex items-center gap-1 text-xs text-zinc-500">
+            <ShieldCheck size={14} /> Seguro
+          </span>
+        </div>
+      </header>
 
-        <div className="relative max-w-md mx-auto px-5 pt-6">
-          <div className="flex items-center justify-between">
-            <Link
-              href={`/${slug}/pagamento`}
-              className="w-12 h-12 rounded-full bg-white/15 backdrop-blur flex items-center justify-center text-white"
-            >
-              <ArrowLeft size={22} />
-            </Link>
-
-            <div />
-
+      <div className="mx-auto max-w-md space-y-4 px-4 pt-5">
+        {aprovado ? (
+          <div className="rounded-3xl bg-emerald-600 p-6 text-center text-white">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/20">
+              <Check size={30} strokeWidth={3} />
+            </div>
+            <p className="mt-3 text-xl font-extrabold">Pagamento confirmado!</p>
+            <p className="mt-1 text-sm text-white/85">Abrindo o acompanhamento do pedido...</p>
           </div>
-
-        
-
-          <motion.div
-            initial={{
-              opacity: 0,
-              y: -20,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            className="mt-8 flex flex-col items-center"
-          >
-            <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-xl bg-white">
-              {logo && (
-                <img
-                  src={logo}
-                  className="w-full h-full object-cover"
-                  alt=""
-                />
-              )}
-            </div>
-
-            <h1 className="mt-4 text-white text-4xl font-black text-center">
-              {nomeRestaurante}
-            </h1>
-
-            <div className="mt-3 flex items-center gap-2 text-white/90">
-              <ShieldCheck size={18} />
-
-              <span className="font-medium">
-                Pagamento Seguro
-              </span>
-            </div>
-
-            
-          </motion.div>
-                    <motion.div
-            initial={{
-              opacity: 0,
-              y: 40,
-            }}
-            animate={{
-              opacity: 1,
-              y: 0,
-            }}
-            transition={{
-              delay: 0.2,
-            }}
-            className="-mb-20 mt-10"
-          >
-            <div className="bg-white rounded-[40px] shadow-2xl overflow-hidden">
-
-              <div className="px-8 pt-10 pb-10">
-
-                <div className="flex items-center justify-center gap-2">
-
-  <ShieldCheck
-    size={18}
-    color={corPrincipal}
-  />
-
-  <span
-    className="font-bold"
-    style={{
-      color: corPrincipal,
-    }}
-  >
-    Pagamento via PIX
-  </span>
-
-</div>
-
-<div className="w-full h-px bg-zinc-200 my-6" />
-
-                <h2 className="mt-4 text-center text-3xl font-black text-zinc-900">
-                  Escaneie o QR Code
-                </h2>
-
-                <p className="mt-3 text-center text-zinc-500 leading-relaxed">
-                  Utilize o aplicativo do seu banco para
-                  realizar o pagamento de forma rápida e segura.
-                </p>
-
-                <motion.div
-                  animate={{
-                    scale: [1, 1.03, 1],
-                  }}
-                  transition={{
-                    repeat: Infinity,
-                    duration: 2,
-                  }}
-                  className="mt-8 flex justify-center"
-                >
-                  <div 
-                  className="
-rounded-[28px]
-bg-white
-p-4
-border-2
-shadow-xl
-"
-style={{
-  borderColor: corPrincipal,
-}}
->
-                    <QRCodeCanvas
-                      value={codigoPix}
-                      size={300}
-                      bgColor="#FFFFFF"
-                      fgColor="#000000"
-                      includeMargin
-                    />
-
-                  </div>
-                </motion.div>
-
-                
-
-
-                <div className="mt-6">
-
-                 <label className="block text-center font-semibold text-zinc-700 mb-3">
-                    Código PIX
-                  </label>
-
-                  <div className="mt-3 flex gap-3">
-
-  <input
-  readOnly
-  value={codigoPix}
-  className="
-    flex-1
-    rounded-xl
-    border
-    border-zinc-200
-    bg-zinc-50
-    px-4
-    h-14
-    text-sm
-    overflow-x-auto
-  "
-/>
-
-                    <button
-                      onClick={copiarPix}
-                      className="
-                        w-16
-                        rounded-2xl
-                        flex
-                        items-center
-                        justify-center
-                        text-white
-                        transition-all
-                        hover:scale-105
-                      "
-                      style={{
-                        backgroundColor: corPrincipal,
-                      }}
-                    >
-                      <Copy size={22} />
-                    </button>
-
-                  </div>
-
+        ) : expirou ? (
+          <div className="rounded-3xl bg-white p-6 text-center">
+            <p className="text-lg font-bold">Este Pix expirou</p>
+            <p className="mt-1 text-sm text-zinc-500">Se você já pagou, aguarde: a confirmação chega em instantes. Se não, faça o pedido de novo.</p>
+            <button
+              type="button"
+              onClick={jaPaguei}
+              className="mt-4 h-12 w-full rounded-xl border border-zinc-200 font-semibold"
+            >
+              {conferindo ? "Conferindo..." : "Já paguei, conferir"}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/${slug}/carrinho`)}
+              className="mt-2 h-12 w-full rounded-xl font-semibold text-white"
+              style={{ backgroundColor: corPrincipal }}
+            >
+              Fazer o pedido de novo
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-3xl bg-white p-5">
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-zinc-500">Valor</p>
+                  <p className="text-2xl font-extrabold">{pedido?.total != null ? reais(pedido.total) : "—"}</p>
                 </div>
-
-                <button
-                  onClick={copiarPix}
-                  className="
-                    mt-8
-                    w-full
-                    rounded-2xl
-                    py-4
-                    font-bold
-                    text-white
-                    text-lg
-                    transition-all
-                    hover:scale-[1.02]
-                    active:scale-95
-                  "
-                  style={{
-                    backgroundColor: corPrincipal,
-                  }}
-                >
-                  {copiado
-                    ? "Código copiado!"
-                    : "Copiar código PIX"}
-                </button>
-
-                <motion.div
-                  animate={{
-                    opacity: [0.6, 1, 0.6],
-                  }}
-                  transition={{
-                    repeat: Infinity,
-                    duration: 1.5,
-                  }}
-                  className="
-                    mt-8
-                    rounded-2xl
-                    border
-                    border-yellow-200
-                    bg-yellow-50
-                    p-5
-                  "
-                >
-
-                  <div className="flex gap-3">
-
-                    <LoaderCircle
-                      className="animate-spin text-yellow-600"
-                      size={24}
-                    />
-
-                    <div>
-
-                      <h3 className="font-bold text-yellow-700">
-
-                        {pagamentoAprovado
-                          ? "Pagamento aprovado!"
-                          : "Aguardando pagamento..."}
-
-                      </h3>
-
-                      <p className="text-sm text-yellow-700 mt-1">
-
-                        {pagamentoAprovado
-                          ? "Redirecionando..."
-                          : "Estamos verificando automaticamente o seu pagamento."}
-
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                </motion.div>
-                                <div className="mt-8 space-y-4">
-
-
-                  <button
-                    onClick={compartilhar}
-                    className="
-                      w-full
-                      rounded-2xl
-                      py-4
-                      font-bold
-                      text-lg
-                      text-white
-                      transition-all
-                      hover:scale-[1.02]
-                      active:scale-95
-                      flex
-                      items-center
-                      justify-center
-                      gap-3
-                    "
-                    style={{
-                      backgroundColor: corPrincipal,
-                    }}
-                  >
-                    <Share2 size={22} />
-                    Compartilhar PIX
-                  </button>
-
+                <div className="text-right">
+                  <p className="text-xs font-semibold text-zinc-500">Expira em</p>
+                  <p className="font-mono text-lg font-bold tabular-nums">{relogio}</p>
                 </div>
-
               </div>
 
+              <button
+                type="button"
+                onClick={copiar}
+                className="mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-[16px] font-bold text-white shadow-lg transition active:scale-[0.98]"
+                style={{ backgroundColor: copiado ? "#059669" : corPrincipal }}
+              >
+                {copiado ? <Check size={20} strokeWidth={3} /> : <Copy size={20} />}
+                {copiado ? "Código copiado!" : "Copiar código Pix"}
+              </button>
+
+              <ol className="mt-5 space-y-3 text-sm text-zinc-600">
+                {[
+                  "Toque em “Copiar código Pix”",
+                  "Abra o app do seu banco e escolha Pix → Pix Copia e Cola",
+                  "Cole o código e confirme o pagamento",
+                ].map((passo, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                      style={{ backgroundColor: corPrincipal }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="pt-0.5">{passo}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
 
-          </motion.div>
+            <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <LoaderCircle size={20} className="shrink-0 animate-spin text-amber-600" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-amber-900">Aguardando pagamento</p>
+                <p className="text-xs text-amber-800">Depois de pagar, volte aqui: a confirmação aparece sozinha.</p>
+              </div>
+              <button type="button" onClick={jaPaguei} className="shrink-0 text-xs font-bold text-amber-900 underline">
+                {conferindo ? "..." : "Já paguei"}
+              </button>
+            </div>
 
-        </div>
+            <details className="rounded-3xl bg-white p-5">
+              <summary className="cursor-pointer text-sm font-semibold text-zinc-700">Pagar por outro celular (QR Code)</summary>
+              <div className="mt-4 flex justify-center">
+                <div className="rounded-2xl border p-3">
+                  <QRCodeCanvas value={codigoPix} size={220} includeMargin />
+                </div>
+              </div>
+              <p className="mt-3 break-all rounded-xl bg-zinc-50 p-3 font-mono text-[11px] leading-4 text-zinc-500">{codigoPix}</p>
+            </details>
+          </>
+        )}
 
+        {zap && !aprovado && (
+          <a href={`https://wa.me/55${zap}`} className="block text-center text-sm font-semibold text-emerald-700">
+            Problema com o pagamento? Fale com o restaurante
+          </a>
+        )}
+        <p className="text-center text-xs text-zinc-400">Pagamento processado pela Pagar.me</p>
       </div>
-
-      <div className="py-10 flex flex-col items-center">
-
-  <div className="flex items-center gap-2 text-zinc-500">
-    <ShieldCheck size={18} />
-    <span className="text-sm font-medium">
-      Ambiente 100% seguro
-    </span>
-  </div>
-
-  <p className="mt-3 text-sm text-zinc-500">
-    Pagamento processado por
-  </p>
-
-  <p className="mt-1 text-lg font-black">
-    pagar.me
-  </p>
-
-</div>
-
     </main>
   );
 }
@@ -548,11 +240,8 @@ export default function PixPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <LoaderCircle
-            className="animate-spin"
-            size={40}
-          />
+        <div className="flex min-h-screen items-center justify-center">
+          <LoaderCircle className="animate-spin" size={36} />
         </div>
       }
     >

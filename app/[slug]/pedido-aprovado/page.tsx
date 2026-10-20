@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { reais } from "@/lib/dinheiro";
 import {
   useParams,
   useSearchParams,
@@ -542,10 +543,7 @@ function etapaAtual() {
                   corPrincipal,
               }}
             >
-              R${" "}
-              {Number(
-                pedido.total_pago ?? pedido.total
-              ).toFixed(2)}
+              {reais(pedido.total_pago ?? pedido.total)}
             </p>
           </div>
         </div>

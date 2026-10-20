@@ -162,7 +162,7 @@
 
   body {
     @apply bg-background text-foreground;
-    overflow-x: hidden;
+    overflow-x: clip;
     background: #f8f6f4;
     color: #111111;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -193,19 +193,24 @@
 
 /* MOBILE */
 
-@media (max-width: 768px) {
-  html,
-  body {
-    overflow-x: hidden;
-  }
+/* Na camada "base": as classes de tamanho (h-24, h-full...) sempre valem
+   por cima destas regras. Fora da camada, elas esticavam as fotos no celular. */
+@layer base {
+  @media (max-width: 768px) {
+    /* "clip" e não "hidden": "hidden" quebrava a barra de categorias fixa no topo. */
+    html,
+    body {
+      overflow-x: clip;
+    }
 
-  section {
-    overflow: hidden;
-  }
+    section {
+      overflow: hidden;
+    }
 
-  img {
-    max-width: 100%;
-    height: auto;
+    img {
+      max-width: 100%;
+      height: auto;
+    }
   }
 }
 /* Scrollbar */

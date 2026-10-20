@@ -58,7 +58,7 @@ export default function PrivacidadePage() {
       <ul>
         <li>Nome, telefone, endereço de entrega, itens e observações do pedido: para o restaurante preparar, cobrar e entregar (execução do contrato de compra).</li>
         <li>O endereço é enviado a um serviço de mapas para calcular a distância e a taxa de entrega, quando o restaurante cobra por quilômetro.</li>
-        <li>CPF: só para gerar o Pix online (exigência do sistema de pagamento). Se você salvar o CPF no seu perfil, ele fica criptografado.</li>
+        <li>CPF: só para gerar o Pix online (exigência do sistema de pagamento). Se você salvar o CPF no seu perfil, ele fica criptografado. Se marcar “Lembrar meu CPF neste celular”, ele fica guardado só no seu aparelho.</li>
         <li>Histórico de pedidos e selos de fidelidade: programa de fidelidade e cupons do restaurante (execução de contrato / legítimo interesse).</li>
         <li>Avaliação do pedido: a nota, o comentário e o seu primeiro nome podem aparecer publicamente no cardápio.</li>
         <li>Quando o restaurante ativa, você recebe mensagens no WhatsApp sobre o andamento do pedido.</li>
