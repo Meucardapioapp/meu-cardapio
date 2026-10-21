@@ -44,6 +44,7 @@ type Cliente = {
   diasRestantes: number | null;
   cancelouRenovacao: boolean;
   pagamentos: number;
+  pago30: number;
   ultimoPagamento: string | null;
   pedidos30: number;
   vendas30: number;
@@ -105,7 +106,10 @@ type Filtro =
   | "hoje"
   | "semVenda"
   | "semProdutos"
-  | "novos";
+  | "novos"
+  | "pagou30"
+  | "comPix"
+  | "comVendas";
 
 const FILTROS: Record<Filtro, { rotulo: string; teste: (c: Cliente) => boolean }> = {
   todos: { rotulo: "Todos", teste: () => true },
@@ -124,6 +128,9 @@ const FILTROS: Record<Filtro, { rotulo: string; teste: (c: Cliente) => boolean }
   },
   semProdutos: { rotulo: "Sem produtos", teste: (c) => c.produtos === 0 },
   novos: { rotulo: "Novos (7 dias)", teste: (c) => Date.now() - new Date(c.cadastro).getTime() < 7 * 86400000 },
+  pagou30: { rotulo: "Pagaram o plano em 30 dias", teste: (c) => c.pago30 > 0 },
+  comPix: { rotulo: "Venderam com Pix online (30 dias)", teste: (c) => c.pix30 > 0 },
+  comVendas: { rotulo: "Venderam nos últimos 30 dias", teste: (c) => c.vendas30 > 0 },
 };
 
 type Ordem = "cadastro" | "vendas" | "pedidos" | "vencimento" | "nome" | "ultimoPedido";
@@ -330,7 +337,16 @@ export default function PlataformaPage() {
   }
 
   const r = dados.resumo;
-  const f = (x: Filtro) => ({ filtro: x, ativo: filtro === x, onFiltro: (y: Filtro) => setFiltro((atual) => (atual === y ? "todos" : y)) });
+  const f = (x: Filtro) => ({
+    filtro: x,
+    ativo: filtro === x,
+    onFiltro: (y: Filtro) => {
+      const novo = filtro === y ? "todos" : y;
+      setFiltro(novo);
+      if (novo === "comVendas" || novo === "comPix") setOrdem("vendas");
+      if (novo !== "todos") setTimeout(() => document.getElementById("lista-clientes")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    },
+  });
 
   return (
     <main className="min-h-screen bg-zinc-50 pb-16 text-zinc-900">
@@ -361,10 +377,10 @@ export default function PlataformaPage() {
         <section>
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">Receita</h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Cartao titulo="Receita mensal (MRR)" valor={reais(r.mrr)} detalhe={`${r.pagantes} assinantes × ${reais(dados.preco)}`} Icone={TrendingUp} tom="bom" />
-            <Cartao titulo="Recebido em 30 dias" valor={reais(r.receita30)} detalhe="planos pagos (Pix e cartão)" Icone={CreditCard} />
-            <Cartao titulo="Sua comissão Pix (30 dias)" valor={reais(r.comissaoPix30)} detalhe={`1% de ${reais(r.volumePix30)} em Pix`} Icone={FaPix} tom="bom" />
-            <Cartao titulo="Vendido nos cardápios (30 dias)" valor={reais(r.vendasTotais30)} detalhe={`${numero(r.pedidos30)} pedidos`} Icone={Store} />
+            <Cartao titulo="Receita mensal (MRR)" valor={reais(r.mrr)} detalhe={`${r.pagantes} assinantes × ${reais(dados.preco)} · ver quem`} Icone={TrendingUp} tom="bom" {...f("pagantes")} />
+            <Cartao titulo="Recebido em 30 dias" valor={reais(r.receita30)} detalhe="planos pagos · ver quem pagou" Icone={CreditCard} {...f("pagou30")} />
+            <Cartao titulo="Sua comissão Pix (30 dias)" valor={reais(r.comissaoPix30)} detalhe={`1% de ${reais(r.volumePix30)} em Pix · ver quem`} Icone={FaPix} tom="bom" {...f("comPix")} />
+            <Cartao titulo="Vendido nos cardápios (30 dias)" valor={reais(r.vendasTotais30)} detalhe={`${numero(r.pedidos30)} pedidos · ver quem`} Icone={Store} {...f("comVendas")} />
           </div>
         </section>
 
@@ -417,7 +433,7 @@ export default function PlataformaPage() {
         </section>
 
         {/* Lista */}
-        <section className="rounded-3xl border border-zinc-200 bg-white">
+        <section id="lista-clientes" className="scroll-mt-20 rounded-3xl border border-zinc-200 bg-white">
           <div className="flex flex-col gap-3 border-b border-zinc-100 p-4 md:flex-row md:items-center">
             <div className="min-w-0 flex-1">
               <p className="font-bold">

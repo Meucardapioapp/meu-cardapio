@@ -150,6 +150,7 @@ export async function GET(req: NextRequest) {
         diasRestantes: acessoAte ? Math.ceil((acessoAte - agora) / DIA) : null,
         cancelouRenovacao: a?.status === "cancelada" && dentroDoPrazo,
         pagamentos: pagos.length,
+        pago30: Math.round(pagos.filter((x) => x.pago_em && x.pago_em >= desde30).reduce((t, x) => t + Number(x.valor || 0), 0) * 100) / 100,
         ultimoPagamento: pagos[0]?.pago_em ?? null,
         pedidos30: u?.pedidos ?? 0,
         vendas30: Math.round((u?.vendas ?? 0) * 100) / 100,
