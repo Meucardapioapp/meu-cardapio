@@ -76,6 +76,20 @@ export default function LoginPage() {
         } catch {}
       }
 
+      // Dono da plataforma (sem restaurante): vai para o painel da plataforma.
+      if (!restauranteId) {
+        try {
+          const r = await fetch("/api/plataforma/eu", {
+            headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+          })
+          const d = await r.json()
+          if (d?.dono) {
+            window.location.href = "/plataforma"
+            return
+          }
+        } catch {}
+      }
+
       if (!restauranteId) {
         await supabase.auth.signOut()
         setToast({
