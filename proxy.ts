@@ -50,7 +50,7 @@ export function proxy(request: NextRequest) {
   resposta.headers.set("Content-Security-Policy", csp);
 
   // Painel não aparece no Google.
-  if (/^\/(admin|entregador|equipe|garcom|cozinha|seguranca|contatos-restaurantes|financeiro)/.test(request.nextUrl.pathname)) {
+  if (/^\/(admin|entregador|equipe|garcom|cozinha|seguranca|plataforma|contatos-restaurantes|financeiro)/.test(request.nextUrl.pathname)) {
     resposta.headers.set("X-Robots-Tag", "noindex, nofollow");
   }
 

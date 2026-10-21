@@ -53,6 +53,7 @@ export default function SegurancaPage() {
   return (
     <main className="min-h-screen bg-zinc-50 px-4 py-8">
       <div className="max-w-2xl mx-auto">
+        <a href="/plataforma" className="mb-4 inline-block text-sm font-semibold text-[#6D1F2F]">← Painel da plataforma</a>
         <h1 className="text-3xl font-black text-zinc-900">Teste de segurança</h1>
         <p className="mt-1 text-zinc-500">
           Tenta invadir o sistema com a chave pública (como um hacker faria) e confere as configurações secretas.
