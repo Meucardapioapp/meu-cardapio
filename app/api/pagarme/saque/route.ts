@@ -4,6 +4,7 @@ import { erroInterno, getDonoAutenticado, naoAutenticado } from "@/lib/server/au
 import { getRecebedorId } from "@/lib/server/recebedor";
 import { PagarmeError, pagarme } from "@/lib/server/pagarme";
 import { limitar } from "@/lib/server/rate-limit";
+import { sincronizarSaques } from "@/lib/server/saques";
 import { SenhaInvalidaError, confirmarSenhaDoDono } from "@/lib/server/confirmar-senha";
 
 const HORAS_TRAVA_APOS_TROCAR_CONTA = 24;
@@ -26,22 +27,10 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    if (recipientId && saques?.some((s) => s.pagarme_withdrawal_id)) {
-      try {
-        const resposta = await pagarme<any>(`/recipients/${recipientId}/transfers`);
-        const transferencias: any[] = Array.isArray(resposta) ? resposta : resposta?.data || [];
-
-        for (const saque of saques) {
-          const t = transferencias.find((x) => x.id === saque.pagarme_withdrawal_id);
-
-          if (t?.status && t.status !== saque.status) {
-            await supabaseAdmin.from("saques").update({ status: t.status }).eq("id", saque.id);
-            saque.status = t.status;
-          }
-        }
-      } catch (e) {
-        console.error("[saque] sincronização", e);
-      }
+    try {
+      await sincronizarSaques(saques ?? [], recipientId);
+    } catch (e) {
+      console.error("[saque] sincronização", e);
     }
 
     return NextResponse.json({ success: true, saques: saques || [] });

@@ -32,6 +32,26 @@ type Saque = {
   pago_em: string | null;
 };
 
+type Situacao = "pago" | "processando" | "pendente" | "falhou" | "cancelado";
+
+/** Status da Pagar.me (v5 e versão antiga) em 5 situações simples. */
+function situacao(status: string): Situacao {
+  const s = String(status || "").toLowerCase();
+  if (["transferred", "paid", "pago"].includes(s)) return "pago";
+  if (["processing", "em processamento"].includes(s)) return "processando";
+  if (["failed", "falhou"].includes(s)) return "falhou";
+  if (["canceled", "cancelled", "cancelado"].includes(s)) return "cancelado";
+  return "pendente";
+}
+
+const STATUS_SAQUE: Record<Situacao, { texto: string; cor: string }> = {
+  pago: { texto: "Pago", cor: "bg-green-100 text-green-700" },
+  processando: { texto: "Em processamento", cor: "bg-blue-100 text-blue-700" },
+  pendente: { texto: "Aguardando", cor: "bg-yellow-100 text-yellow-700" },
+  falhou: { texto: "Falhou", cor: "bg-red-100 text-red-700" },
+  cancelado: { texto: "Cancelado", cor: "bg-gray-100 text-gray-600" },
+};
+
 export default function SaquesPage() {
 const [saldoTotal, setSaldoTotal] = useState(0);
 
@@ -44,6 +64,8 @@ const [saldoTransferido, setSaldoTransferido] = useState(0);
 const [carregandoSaldo, setCarregandoSaldo] = useState(true);
 
 const [historico, setHistorico] = useState<Saque[]>([]);
+const [filtro, setFiltro] = useState<"todos" | Situacao>("todos");
+const [mostrar, setMostrar] = useState(5);
 
 const [dadosBancarios, setDadosBancarios] = useState<any>(null);
 
@@ -143,7 +165,7 @@ if (!restauranteId) {
 }
 
     const response = await apiFetch(
-      `/api/saques?restauranteId=${restauranteId}`
+      "/api/pagarme/saque"
     );
 
     const json = await response.json();
@@ -366,50 +388,12 @@ async function carregarDadosBancarios() {
     });
 
   const badge = (status: string) => {
-  switch (status) {
-    case "pending":
-      return (
-        <span className="rounded-full bg-yellow-100 text-yellow-700 px-3 py-1 text-xs font-semibold">
-          Pendente
-        </span>
-      );
+    const st = STATUS_SAQUE[situacao(status)];
+    return <span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${st.cor}`}>{st.texto}</span>;
+  };
 
-    case "processing":
-      return (
-        <span className="rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-semibold">
-          Em processamento
-        </span>
-      );
-
-    case "paid":
-      return (
-        <span className="rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold">
-          Pago
-        </span>
-      );
-
-    case "failed":
-      return (
-        <span className="rounded-full bg-red-100 text-red-700 px-3 py-1 text-xs font-semibold">
-          Falhou
-        </span>
-      );
-
-    case "canceled":
-      return (
-        <span className="rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs font-semibold">
-          Cancelado
-        </span>
-      );
-
-    default:
-      return (
-        <span className="rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs font-semibold">
-          {status}
-        </span>
-      );
-  }
-};
+  const filtrados = historico.filter((s) => filtro === "todos" || situacao(s.status) === filtro);
+  const visiveis = filtrados.slice(0, mostrar);
 
 async function solicitarSaque() {
 
@@ -1003,15 +987,25 @@ setValor(
               Histórico de saques
             </h2>
 
-            <Button
-              variant="outline"
-              className="gap-2"
-            >
-              <Filter className="w-4 h-4"/>
-
-              Todos os status
-
-            </Button>
+            <label className="relative inline-flex items-center">
+              <Filter className="pointer-events-none absolute left-3 h-4 w-4 text-zinc-500" />
+              <select
+                value={filtro}
+                onChange={(e) => {
+                  setFiltro(e.target.value as any);
+                  setMostrar(5);
+                }}
+                className="h-10 rounded-xl border border-zinc-200 bg-white pl-9 pr-3 text-sm font-medium outline-none"
+                aria-label="Filtrar por status"
+              >
+                <option value="todos">Todos os status</option>
+                <option value="pago">Pago</option>
+                <option value="processando">Em processamento</option>
+                <option value="pendente">Aguardando</option>
+                <option value="falhou">Falhou</option>
+                <option value="cancelado">Cancelado</option>
+              </select>
+            </label>
 
           </div>
 
@@ -1053,20 +1047,20 @@ setValor(
 
 <tbody>
 
-  {historico.length === 0 ? (
+  {visiveis.length === 0 ? (
 
     <tr>
       <td
         colSpan={6}
         className="text-center py-10 text-gray-500"
       >
-        Nenhum saque realizado.
+        {historico.length === 0 ? "Nenhum saque realizado." : "Nenhum saque com esse status."}
       </td>
     </tr>
 
   ) : (
 
-    historico.map((item) => (
+    visiveis.map((item) => (
 
                   <tr
                     key={item.id}
@@ -1096,7 +1090,9 @@ setValor(
                     <td>
                       {item.pago_em
   ? new Date(item.pago_em).toLocaleDateString("pt-BR")
-  : "-"}
+  : situacao(item.status) === "pendente" || situacao(item.status) === "processando"
+    ? "até 1 dia útil"
+    : "-"}
                     </td>
 
                   </tr>
@@ -1111,18 +1107,17 @@ setValor(
 
           </div>
 
-          <div className="flex justify-center mt-10">
-
-            <Button
-              variant="ghost"
-              className="text-[#6D1F2F] hover:text-[#531723]"
-            >
-
-              Ver mais saques
-
-            </Button>
-
-          </div>
+          {filtrados.length > mostrar && (
+            <div className="flex justify-center mt-10">
+              <Button
+                variant="ghost"
+                className="text-[#6D1F2F] hover:text-[#531723]"
+                onClick={() => setMostrar((m) => m + 10)}
+              >
+                Ver mais saques ({filtrados.length - mostrar})
+              </Button>
+            </div>
+          )}
 
         </CardContent>
 

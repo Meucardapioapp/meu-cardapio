@@ -4,6 +4,7 @@ import { timingSafeEqual } from "crypto";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { pagarme } from "@/lib/server/pagarme";
 import { confirmarPedidoPagarme } from "@/lib/server/pix-confirmacao";
+import { sincronizarSaquePorId } from "@/lib/server/saques";
 import {
   sincronizarAssinaturaCartao,
   sincronizarFaturaCartao,
@@ -31,7 +32,7 @@ const ID = {
   order: /^or_[A-Za-z0-9]{8,64}$/,
   invoice: /^in_[A-Za-z0-9]{8,64}$/,
   subscription: /^sub_[A-Za-z0-9]{8,64}$/,
-  transfer: /^(tran|tr)_[A-Za-z0-9]{8,64}$/,
+  transfer: /^[a-z]{2,5}_[A-Za-z0-9]{6,64}$/,
 };
 
 function comparar(a: string, b: string) {
@@ -60,14 +61,7 @@ function autenticado(req: NextRequest): "ok" | "sem-config" | "negado" {
 }
 
 async function processarTransferencia(transferId: string) {
-  const transferencia = await pagarme<any>(`/transfers/${transferId}`);
-
-  if (!transferencia?.status) return;
-
-  await supabaseAdmin
-    .from("saques")
-    .update({ status: transferencia.status })
-    .eq("pagarme_withdrawal_id", transferId);
+  await sincronizarSaquePorId(transferId);
 }
 
 export async function POST(req: NextRequest) {
