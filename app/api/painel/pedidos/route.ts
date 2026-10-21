@@ -4,6 +4,35 @@ import { whatsappStatusPedido } from "@/lib/server/notificacoes";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { erroInterno, getEquipeAutenticada, naoAutenticado } from "@/lib/server/auth";
 import { contabilizarPedido } from "@/lib/server/fidelidade";
+import { confirmarPedidoPagarme } from "@/lib/server/pix-confirmacao";
+
+// Rede de segurança: se o aviso (webhook) da Pagar.me não chegar, o painel
+// confere os Pix pendentes direto na Pagar.me (no máximo a cada 30 s por restaurante).
+const ultimaConferencia = new Map<string, number>();
+async function conferirPixPendentes(restauranteId: string) {
+  const antes = ultimaConferencia.get(restauranteId) ?? 0;
+  if (Date.now() - antes < 30_000) return;
+  ultimaConferencia.set(restauranteId, Date.now());
+  if (ultimaConferencia.size > 5000) ultimaConferencia.delete(ultimaConferencia.keys().next().value as string);
+
+  const { data } = await supabaseAdmin
+    .from("pedidos")
+    .select("pagarme_order_id")
+    .eq("restaurante_id", restauranteId)
+    .eq("payment_method", "pix")
+    .neq("payment_status", "approved")
+    .not("pagarme_order_id", "is", null)
+    .gte("created_at", new Date(Date.now() - 2 * 3600 * 1000).toISOString())
+    .limit(10);
+
+  for (const p of data ?? []) {
+    try {
+      await confirmarPedidoPagarme(String(p.pagarme_order_id));
+    } catch (e: any) {
+      console.error("[painel/pedidos] conferir pix", e?.message ?? e);
+    }
+  }
+}
 
 const STATUS_PERMITIDOS = [
   "pendente",
@@ -27,6 +56,8 @@ export async function GET(req: NextRequest) {
     const desde = req.nextUrl.searchParams.get("desde");
     const ate = req.nextUrl.searchParams.get("ate");
     const limite = Math.min(Number(req.nextUrl.searchParams.get("limite") || 300), 2000);
+
+    await conferirPixPendentes(String(dono.restaurante.id)).catch(() => {});
 
     let consulta = supabaseAdmin
       .from("pedidos")

@@ -30,10 +30,21 @@ export async function confirmarPedidoPagarme(orderId: string) {
 
   if (!pedido) return;
 
+  // O pedido da Pagar.me tem que ser deste pedido (gravado por nós ao gerar o Pix).
+  const pedidoDoPix = order?.metadata?.pedido_id;
+  if (pedidoDoPix != null && String(pedidoDoPix) !== String(pedido.id)) {
+    console.warn("[pix] pedido da Pagar.me não bate com o pedido do banco", pedido.id);
+    return;
+  }
+
   const status: string = order?.status;
 
   if (status === "paid") {
-    const pagoCentavos = Number(order?.amount ?? 0);
+    // Valor que entrou de fato (cobranças pagas); se a Pagar.me não informar, usa o total do pedido.
+    const cobrancasPagas = (order?.charges ?? []).filter((c: any) => c?.status === "paid");
+    const pagoCentavos = cobrancasPagas.length
+      ? cobrancasPagas.reduce((t: number, c: any) => t + Number(c?.paid_amount ?? c?.amount ?? 0), 0)
+      : Number(order?.amount ?? 0);
     const esperadoCentavos = Math.round(Number(pedido.total) * 100);
 
     if (pagoCentavos < esperadoCentavos) {
