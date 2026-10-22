@@ -108,6 +108,81 @@ export async function getEstadoAssinatura(restauranteId: string) {
   return montarEstado(await getLinhaAssinatura(restauranteId));
 }
 
+/**
+ * O teste grátis conta a partir do PRIMEIRO acesso do dono ao painel,
+ * não do cadastro. Na primeira vez (assinatura em "trial" e
+ * teste_iniciado_em ainda vazio) o prazo passa a ser o maior entre o
+ * prazo atual e agora + DIAS_TESTE_GRATIS.
+ *
+ * Retorna true se mudou o prazo; false se não mudou (já tinha começado,
+ * não está em teste, deu erro ou a coluna ainda não existe no banco).
+ */
+export async function iniciarTesteNoPrimeiroAcesso(restauranteId: string): Promise<boolean> {
+  try {
+    const { data: linha, error } = await supabaseAdmin
+      .from("assinaturas")
+      .select("status, acesso_ate, teste_iniciado_em")
+      .eq("restaurante_id", restauranteId)
+      .maybeSingle();
+
+    if (error || !linha) return false;
+    if (linha.status !== "trial" || linha.teste_iniciado_em) return false;
+
+    const agora = Date.now();
+    const atual = new Date(linha.acesso_ate).getTime() || 0;
+    const novoAcesso = new Date(Math.max(atual, agora + DIAS_TESTE_GRATIS * DIA_MS));
+
+    // .is(null) garante que só a primeira requisição muda (sem corrida).
+    const { data: alterada, error: erroUpdate } = await supabaseAdmin
+      .from("assinaturas")
+      .update({
+        acesso_ate: novoAcesso.toISOString(),
+        teste_iniciado_em: new Date(agora).toISOString(),
+        updated_at: new Date(agora).toISOString(),
+      })
+      .eq("restaurante_id", restauranteId)
+      .eq("status", "trial")
+      .is("teste_iniciado_em", null)
+      .select("restaurante_id")
+      .maybeSingle();
+
+    if (erroUpdate || !alterada) return false;
+    return true;
+  } catch (e) {
+    console.error("[assinatura] iniciar teste no primeiro acesso", e);
+    return false;
+  }
+}
+
+/**
+ * Dono da plataforma dá mais dias de teste grátis a um restaurante.
+ * Soma ao prazo atual (ou a partir de hoje, se já venceu) e deixa em "trial".
+ */
+export async function darDiasDeTeste(restauranteId: string, dias: number) {
+  const linha = await getLinhaAssinatura(restauranteId);
+
+  if (linha.status === "ativa") {
+    throw new Error("Este restaurante já é assinante.");
+  }
+
+  const base = Math.max(Date.now(), new Date(linha.acesso_ate).getTime() || 0);
+  const novoAcesso = new Date(base + dias * DIA_MS);
+
+  const { error } = await supabaseAdmin
+    .from("assinaturas")
+    .update({
+      status: "trial",
+      acesso_ate: novoAcesso.toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("restaurante_id", restauranteId)
+    .neq("status", "ativa");
+
+  if (error) throw error;
+
+  return novoAcesso;
+}
+
 /** Regra única usada pelo checkout: o restaurante pode receber pedidos? */
 export async function restaurantePodeReceberPedidos(restauranteId: string) {
   try {

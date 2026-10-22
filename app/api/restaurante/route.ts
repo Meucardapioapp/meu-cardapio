@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { erroInterno, getEquipeAutenticada, naoAutenticado } from "@/lib/server/auth";
 import { dadosBancariosCompletos, getDadosFinanceiros } from "@/lib/server/recebedor";
-import { getEstadoAssinatura } from "@/lib/server/assinatura";
+import { getEstadoAssinatura, iniciarTesteNoPrimeiroAcesso } from "@/lib/server/assinatura";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { TERMOS_VERSAO } from "@/lib/legal";
 
@@ -44,6 +44,10 @@ export async function GET(req: NextRequest) {
     let assinatura = null;
     try {
       assinatura = await getEstadoAssinatura(dono.restaurante.id);
+      // Teste grátis conta a partir do primeiro acesso do dono ao painel.
+      if (await iniciarTesteNoPrimeiroAcesso(dono.restaurante.id)) {
+        assinatura = await getEstadoAssinatura(dono.restaurante.id);
+      }
     } catch (e) {
       console.error("[api/restaurante] assinatura", e);
     }

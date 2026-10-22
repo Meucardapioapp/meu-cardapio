@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   CalendarClock,
   CreditCard,
+  Gift,
   Download,
   ExternalLink,
   Flame,
@@ -264,7 +265,7 @@ export default function PlataformaPage() {
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [busca, setBusca] = useState("");
   const [ordem, setOrdem] = useState<Ordem>("cadastro");
-  const [aberto, setAberto] = useState<Cliente | null>(null);
+  const [abertoId, setAbertoId] = useState<string | null>(null);
 
   async function carregar() {
     setCarregando(true);
@@ -337,6 +338,8 @@ export default function PlataformaPage() {
   }
 
   const r = dados.resumo;
+  // Sempre a versão mais recente do restaurante aberto (depois de recarregar).
+  const aberto = abertoId ? dados.clientes.find((c) => c.id === abertoId) ?? null : null;
   const f = (x: Filtro) => ({
     filtro: x,
     ativo: filtro === x,
@@ -507,7 +510,7 @@ export default function PlataformaPage() {
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {lista.map((c) => (
-                  <tr key={c.id} className="cursor-pointer hover:bg-zinc-50" onClick={() => setAberto(c)}>
+                  <tr key={c.id} className="cursor-pointer hover:bg-zinc-50" onClick={() => setAbertoId(c.id)}>
                     <td className="px-4 py-3">
                       <p className="font-semibold">{c.nome}</p>
                       <p className="text-xs text-zinc-500">
@@ -535,7 +538,7 @@ export default function PlataformaPage() {
           {/* Cartões (celular) */}
           <div className="divide-y divide-zinc-100 lg:hidden">
             {lista.map((c) => (
-              <div key={c.id} className="p-4" onClick={() => setAberto(c)}>
+              <div key={c.id} className="p-4" onClick={() => setAbertoId(c.id)}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-semibold">{c.nome}</p>
@@ -567,7 +570,7 @@ export default function PlataformaPage() {
         </p>
       </div>
 
-      {aberto && <Detalhe c={aberto} onFechar={() => setAberto(null)} />}
+      {aberto && <Detalhe c={aberto} onFechar={() => setAbertoId(null)} onAtualizar={carregar} />}
     </main>
   );
 }
@@ -630,7 +633,58 @@ function Contato({ c }: { c: Cliente }) {
   );
 }
 
-function Detalhe({ c, onFechar }: { c: Cliente; onFechar: () => void }) {
+function DarDiasTeste({ c, onAtualizar }: { c: Cliente; onAtualizar: () => Promise<void> }) {
+  const [enviando, setEnviando] = useState<number | null>(null);
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function dar(dias: number) {
+    if (!window.confirm(`Dar mais ${dias} dias de teste grátis para ${c.nome}?`)) return;
+    setEnviando(dias);
+    setAviso(null);
+    try {
+      const r = await apiFetch("/api/plataforma/teste", {
+        method: "POST",
+        body: JSON.stringify({ restauranteId: c.id, dias }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!r.ok || !d?.success) {
+        setAviso({ ok: false, texto: d?.error || "Não foi possível dar os dias." });
+        return;
+      }
+      setAviso({ ok: true, texto: `Pronto! Acesso até ${data(d.acessoAte)}.` });
+      await onAtualizar();
+    } catch {
+      setAviso({ ok: false, texto: "Sem conexão. Tente de novo." });
+    } finally {
+      setEnviando(null);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-zinc-200 p-3">
+      <p className="flex items-center gap-1.5 text-sm font-bold">
+        <Gift size={16} style={{ color: COR }} /> Dar mais dias de teste grátis
+      </p>
+      <p className="mt-1 text-xs text-zinc-500">Soma ao prazo atual (ou a partir de hoje, se já venceu) e volta para teste grátis.</p>
+      <div className="mt-2 flex gap-2">
+        {[7, 15, 30].map((dias) => (
+          <button
+            key={dias}
+            type="button"
+            disabled={enviando !== null}
+            onClick={() => dar(dias)}
+            className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-zinc-200 py-2 text-sm font-bold disabled:opacity-60"
+          >
+            {enviando === dias ? <Loader2 size={14} className="animate-spin" /> : null}+{dias} dias
+          </button>
+        ))}
+      </div>
+      {aviso && <p className={`mt-2 text-xs font-semibold ${aviso.ok ? "text-emerald-700" : "text-red-600"}`}>{aviso.texto}</p>}
+    </div>
+  );
+}
+
+function Detalhe({ c, onFechar, onAtualizar }: { c: Cliente; onFechar: () => void; onAtualizar: () => Promise<void> }) {
   const [copiado, setCopiado] = useState("");
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onFechar();
@@ -685,6 +739,8 @@ function Detalhe({ c, onFechar }: { c: Cliente; onFechar: () => void }) {
               </div>
             ))}
           </dl>
+
+          {c.situacao !== "pagante" && <DarDiasTeste key={c.id} c={c} onAtualizar={onAtualizar} />}
 
           {zap(c) && (
             <div>
