@@ -1,0 +1,4 @@
+Backup feito antes da atualização de segurança de 23/10/2026.
+Contém o package.json e o package-lock.json como estavam (Next.js 16.4.0).
+Para voltar atrás: copie estes dois arquivos de volta para a pasta meu-cardapio
+e rode "npm ci" no terminal.
