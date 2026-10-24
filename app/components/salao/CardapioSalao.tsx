@@ -192,7 +192,7 @@ export default function CardapioSalao({
                         <p className="text-xs text-[#6D1F2F]">+ adicionais: toque no nome</p>
                       ) : null}
                     </button>
-                    <p className="shrink-0 text-sm font-bold text-zinc-700">{reais(p.preco)}</p>
+                    <p className="shrink-0 text-sm font-bold text-zinc-700">{p.preco > 0 ? reais(p.preco) : ""}</p>
                     {qtd > 0 && !precisaEscolher(p) ? (
                       <div className="flex shrink-0 items-center">
                         <button onClick={() => somar(p, -1)} aria-label="Menos" className="h-10 w-10 rounded-xl bg-zinc-100 flex items-center justify-center">
@@ -358,7 +358,7 @@ function EscolherOpcoes({
         <div className="flex items-start justify-between gap-3 border-b p-4">
           <div>
             <p className="text-lg font-black">{produto.nome}</p>
-            <p className="text-sm text-zinc-500">{reais(produto.preco)}</p>
+            {produto.preco > 0 && <p className="text-sm text-zinc-500">{reais(produto.preco)}</p>}
           </div>
           <button onClick={onFechar} aria-label="Fechar" className="h-9 w-9 shrink-0 rounded-full bg-zinc-100 flex items-center justify-center">
             <X size={18} />

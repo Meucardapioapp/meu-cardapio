@@ -18,7 +18,9 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/utils/apiFetch";
 import { normalizarRegra, type RegraPreco } from "@/lib/precos";
+import { precoAPartirDe } from "@/lib/dinheiro";
 
 /* ============================================================
    Tipos e utilidades
@@ -307,10 +309,26 @@ function FormularioProduto() {
 
   /* ---------- validação e salvar ---------- */
 
+  /** Há alguma escolha obrigatória em que todas as opções têm preço? */
+  function precoVemDasEscolhas() {
+    return grupos.some((g) => {
+      const opcoes = g.opcoes.filter((o) => o.nome.trim());
+      return opcoes.length > 0 && opcoes.every((o) => paraNumero(o.preco) > 0);
+    });
+  }
+
   function validar(): string | null {
     if (!nome.trim()) return "Dê um nome para o produto (passo 1).";
     if (!categoria) return "Escolha a categoria do produto (passo 1).";
-    if (paraNumero(preco) <= 0) return "Informe o preço do produto (passo 1).";
+    // Preço R$ 0,00 só quando o valor vem de uma escolha obrigatória em que
+    // TODAS as opções têm preço (ex.: tamanho da pizza, acompanhamento).
+    // Assim o cliente nunca consegue pedir o produto de graça.
+    if (paraNumero(preco) <= 0) {
+      if (!precoVemDasEscolhas()) {
+        return "Informe o preço do produto (passo 1). Ele só pode ficar em R$ 0,00 se, no passo 2, houver uma escolha obrigatória com preço em todas as opções.";
+      }
+      if (promocao) return "Com o preço em R$ 0,00, desmarque \"Está em promoção?\" (passo 1).";
+    }
     if (paraNumero(promoPreco) > 0 && paraNumero(promoPreco) >= paraNumero(preco)) {
       return "O preço da promoção precisa ser menor que o preço normal.";
     }
@@ -372,79 +390,39 @@ function FormularioProduto() {
         });
       }
 
-      let id = produtoId;
+      // Tudo é gravado de uma vez pelo servidor ("tudo ou nada"): se algo
+      // falhar no meio, nada fica salvo pela metade e a mensagem é verdadeira.
+      const corpo = {
+        id: produtoId || null,
+        produto: dados,
+        grupos: grupos.map((g) => ({
+          nome: g.nome.trim(),
+          ...regraParaBanco(g),
+          ...(g.regra !== "uma" && g.cobranca !== "soma" ? { regra_preco: g.cobranca } : {}),
+          opcoes: g.opcoes
+            .filter((o) => o.nome.trim())
+            .map((o) => ({ nome: o.nome.trim(), descricao: o.descricao.trim() || null, preco: paraNumero(o.preco) })),
+        })),
+        adicionais: extras
+          .filter((e) => e.nome.trim())
+          .map((e) => ({
+            nome: e.nome.trim(),
+            preco: paraNumero(e.preco),
+            ...(e.descricao.trim() ? { descricao: e.descricao.trim().slice(0, 300) } : {}),
+          })),
+      };
 
-      if (id) {
-        const { error } = await supabase.from("produtos").update(dados).eq("id", id);
-        if (error) throw error;
+      // Produto novo: anota os que já existem com o mesmo nome, para saber
+      // depois se a gravação chegou ao servidor mesmo que a internet caia.
+      const idsAntes = produtoId ? null : await idsComNome(restauranteId, dados.nome);
 
-        const { data: antigos } = await supabase.from("grupos_obrigatorios").select("id").eq("produto_id", id);
-        const idsAntigos = (antigos ?? []).map((g) => g.id);
-        if (idsAntigos.length) await supabase.from("grupo_obrigatorio_opcoes").delete().in("grupo_id", idsAntigos);
-        await supabase.from("grupos_obrigatorios").delete().eq("produto_id", id);
-        await supabase.from("adicionais").delete().eq("produto_id", id);
-      } else {
-        const { data, error } = await supabase
-          .from("produtos")
-          .insert({ ...dados, restaurante_id: restauranteId, destaque: "normal", ativo: true })
-          .select("id")
-          .single();
-        if (error) throw error;
-        id = data.id;
-      }
-
-      for (const [ordem, g] of grupos.entries()) {
-        const { data: grupoCriado, error } = await supabase
-          .from("grupos_obrigatorios")
-          .insert({
-            produto_id: id,
-            nome: g.nome.trim(),
-            ordem,
-            ...regraParaBanco(g),
-            // só envia quando não é o padrão (funciona antes do SQL 08)
-            ...(g.regra !== "uma" && g.cobranca !== "soma" ? { regra_preco: g.cobranca } : {}),
-          })
-          .select("id")
-          .single();
-        if (error) throw error;
-
-        const opcoes = g.opcoes
-          .filter((o) => o.nome.trim())
-          .map((o, i) => ({
-            grupo_id: grupoCriado.id,
-            nome: o.nome.trim(),
-            descricao: o.descricao.trim() || null,
-            preco: paraNumero(o.preco),
-            imagem: "",
-            ordem: i,
-          }));
-
-        if (opcoes.length) {
-          const { error: erroOpcoes } = await supabase.from("grupo_obrigatorio_opcoes").insert(opcoes);
-          if (erroOpcoes) throw erroOpcoes;
-        }
-      }
-
-      const extrasValidos = extras
-        .filter((e) => e.nome.trim())
-        .map((e) => ({
-          produto_id: id,
-          nome: e.nome.trim(),
-          preco: paraNumero(e.preco),
-          // Ingredientes só vão quando preenchidos (funciona mesmo antes do SQL 12).
-          ...(e.descricao.trim() ? { descricao: e.descricao.trim().slice(0, 300) } : {}),
-        }));
-
-      if (extrasValidos.length) {
-        const { error } = await supabase.from("adicionais").insert(extrasValidos);
-        if (error) throw error;
-      }
+      await enviarProduto(corpo, restauranteId, dados.nome, idsAntes);
 
       toast.success(produtoId ? "Produto atualizado!" : "Produto criado! Ele já aparece no cardápio.");
       window.location.href = "/admin/produtos";
     } catch (e: any) {
       console.error(e);
-      toast.error(e?.message?.startsWith("Não foi") ? e.message : "Não foi possível salvar. Tente de novo.");
+      toast.error(e instanceof ErroParaMostrar || e?.message?.startsWith("Não foi") ? e.message : "Não foi possível salvar. Tente de novo.");
       setSalvando(false);
     }
   }
@@ -458,6 +436,15 @@ function FormularioProduto() {
   }
 
   const precoAtual = paraNumero(preco);
+  // Igual ao cardápio: preço base + opção mais barata de cada escolha obrigatória.
+  const precoPrevia = precoAPartirDe({
+    preco: precoAtual,
+    gruposObrigatorios: grupos.map((g) => ({
+      ...regraParaBanco(g),
+      regra_preco: g.regra === "uma" ? "soma" : g.cobranca,
+      grupo_obrigatorio_opcoes: g.opcoes.filter((o) => o.nome.trim()).map((o) => ({ preco: paraNumero(o.preco) })),
+    })),
+  });
 
   return (
     <div className="max-w-6xl mx-auto pb-28">
@@ -540,7 +527,7 @@ function FormularioProduto() {
                   </Link>
                 )}
               </Campo>
-              <Campo rotulo="Preço">
+              <Campo rotulo="Preço" dica="Se o valor vem das escolhas (ex.: tamanho), deixe R$ 0,00 ou em branco.">
                 <Dinheiro valor={preco} aoMudar={setPreco} />
               </Campo>
             </div>
@@ -896,7 +883,8 @@ function FormularioProduto() {
               <p className="text-lg font-black">{nome || "Nome do produto"}</p>
               {descricao && <p className="text-sm text-zinc-500 mt-1">{descricao}</p>}
               <p className="mt-2">
-                <span className="text-xl font-black text-[#6D1F2F]">{reais(precoAtual)}</span>
+                {precoPrevia.variavel && <span className="mr-1.5 text-xs font-medium text-zinc-500">a partir de</span>}
+                <span className="text-xl font-black text-[#6D1F2F]">{reais(precoPrevia.valor)}</span>
                 {promocao && paraNumero(precoAntigo) > 0 && (
                   <span className="ml-2 text-sm text-zinc-400 line-through">{reais(paraNumero(precoAntigo))}</span>
                 )}
@@ -985,6 +973,43 @@ function Passo({ numero, titulo, subtitulo }: { numero: number; titulo: string; 
   );
 }
 
+/** Erro com mensagem pronta para mostrar ao dono. */
+class ErroParaMostrar extends Error {}
+
+async function idsComNome(restauranteId: string, nome: string) {
+  const { data } = await supabase.from("produtos").select("id").eq("restaurante_id", restauranteId).eq("nome", nome);
+  return new Set((data ?? []).map((p: { id: string | number }) => String(p.id)));
+}
+
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Envia o produto ao servidor. Se a internet cair no meio:
+ *  - produto novo: confere se ele chegou a ser criado (não duplica);
+ *  - edição: tenta mais uma vez (salvar de novo dá o mesmo resultado).
+ */
+async function enviarProduto(corpo: unknown, restauranteId: string, nome: string, idsAntes: Set<string> | null) {
+  for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    let resposta: Response;
+    try {
+      resposta = await apiFetch("/api/painel/produtos", { method: "POST", body: JSON.stringify(corpo) });
+    } catch {
+      await esperar(1500);
+      if (idsAntes) {
+        const depois = await idsComNome(restauranteId, nome).catch(() => null);
+        if (depois && [...depois].some((id) => !idsAntes.has(id))) return; // foi salvo
+        throw new ErroParaMostrar("A internet caiu e o produto não foi salvo. Confira a conexão e tente de novo.");
+      }
+      if (tentativa < 2) continue;
+      throw new ErroParaMostrar("A internet caiu e as alterações não foram salvas. Confira a conexão e tente de novo.");
+    }
+
+    const d = await resposta.json().catch(() => null);
+    if (resposta.ok && d?.success) return;
+    throw new ErroParaMostrar(d?.error || "Não foi possível salvar. Tente de novo.");
+  }
+}
+
 function Campo({ rotulo, dica, children }: { rotulo: string; dica?: string; children: React.ReactNode }) {
   return (
     <label className="block">
@@ -996,12 +1021,21 @@ function Campo({ rotulo, dica, children }: { rotulo: string; dica?: string; chil
 }
 
 function Dinheiro({ valor, aoMudar }: { valor: string; aoMudar: (v: string) => void }) {
+  function mudar(texto: string) {
+    const digitos = texto.replace(/\D/g, "");
+    let novo = mascaraDinheiro(texto);
+    // Só zeros: mostra "0,00" (antes o campo apagava e não deixava digitar zero).
+    if (!novo && digitos) novo = "0,00";
+    // Apertou apagar em "0,00": limpa o campo em vez de ficar preso no zero.
+    if (novo === valor && texto.length < valor.length) novo = "";
+    aoMudar(novo);
+  }
   return (
     <div className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
       <input
         value={valor}
-        onChange={(e) => aoMudar(mascaraDinheiro(e.target.value))}
+        onChange={(e) => mudar(e.target.value)}
         inputMode="numeric"
         placeholder="0,00"
         className="campo"
