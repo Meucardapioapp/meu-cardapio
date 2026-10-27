@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { acessoNegado, erroInterno, isDonoDaPlataforma } from "@/lib/server/auth";
 import { PLANOS } from "@/lib/planos";
+import { ehDemo } from "@/lib/demo";
 
 /**
  * Painel da plataforma (só o dono, OWNER_USER_ID): todos os restaurantes
@@ -66,6 +67,14 @@ export async function GET(req: NextRequest) {
         () => [] as any[]
       ),
     ]);
+
+    // Cardápios de demonstração do próprio MeuCardápioApp não são clientes:
+    // ficam fora de todas as contas (cadastros, vendas, receita).
+    const demoIds = new Set((restaurantes as any[]).filter((r) => ehDemo(r.slug)).map((r) => String(r.id)));
+    const ehCliente = (x: any) => !demoIds.has(String(x.restaurante_id));
+    restaurantes.splice(0, restaurantes.length, ...(restaurantes as any[]).filter((r) => !demoIds.has(String(r.id))));
+    pagamentos.splice(0, pagamentos.length, ...(pagamentos as any[]).filter(ehCliente));
+    pedidos.splice(0, pedidos.length, ...(pedidos as any[]).filter(ehCliente));
 
     const assinaturaDe = new Map(assinaturas.map((a: any) => [String(a.restaurante_id), a]));
     const produtosDe = new Map<string, number>();

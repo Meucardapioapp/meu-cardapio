@@ -6,6 +6,8 @@ import FAQ from "./components/landing/faq/FAQ";
 import Precos from "./components/landing/Precos";
 import Footer from "./components/landing/Footer/Footer";
 import WhatsAppFloating from "./components/WhatsAppFloating";
+import PixelComConsentimento from "./components/PixelComConsentimento";
+import { PIXEL_PLATAFORMA } from "@/lib/pixel-plataforma";
 
 export default function Home() {
   return (
@@ -31,6 +33,9 @@ export default function Home() {
 
       {/* FOOTER */}
       <Footer />
+
+      {/* META PIXEL DO MEUCARDÁPIOAPP (só depois de aceitar os cookies) */}
+      {PIXEL_PLATAFORMA && <PixelComConsentimento pixelId={PIXEL_PLATAFORMA} />}
 
       {/* WHATSAPP FLUTUANTE */}
       <WhatsAppFloating />

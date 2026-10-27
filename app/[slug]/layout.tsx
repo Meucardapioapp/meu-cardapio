@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { restaurantePodeReceberPedidos } from "@/lib/server/assinatura";
 import CardapioIndisponivel from "../components/CardapioIndisponivel";
 import PixelComConsentimento from "../components/PixelComConsentimento";
+import { ehDemo } from "@/lib/demo";
 
 import {
   RestaurantProvider,
@@ -21,6 +22,8 @@ export default async function Layout({
   params,
 }: Props) {
   const { slug } = await params;
+  // Cardápio de demonstração do MeuCardápioApp: sempre no ar, com aviso.
+  const demo = ehDemo(slug);
 
   // =====================================================
   // BUSCAR RESTAURANTE + META PIXEL
@@ -59,7 +62,7 @@ export default async function Layout({
 
   // Plano vencido (ou teste grátis acabou): cardápio fica fora do ar
   // até o pagamento ser confirmado.
-  if (restaurante && !(await restaurantePodeReceberPedidos(String(restaurante.id)))) {
+  if (restaurante && !demo && !(await restaurantePodeReceberPedidos(String(restaurante.id)))) {
     return (
       <CardapioIndisponivel
         nome={restaurante.nome_restaurante || ""}
@@ -84,6 +87,15 @@ export default async function Layout({
 
       {/* Pixel do Meta: só carrega depois que o cliente aceita os cookies de marketing. */}
       {pixelId && <PixelComConsentimento pixelId={pixelId} />}
+
+      {demo && (
+        <div className="bg-zinc-900 px-4 py-2 text-center text-xs text-white">
+          Cardápio de demonstração do MeuCardápioApp: os pedidos não são entregues.{" "}
+          <a href="/cadastro" className="font-bold underline">
+            Crie o seu grátis
+          </a>
+        </div>
+      )}
 
       {children}
     </RestaurantProvider>

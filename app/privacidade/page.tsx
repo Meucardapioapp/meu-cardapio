@@ -76,7 +76,7 @@ export default function PrivacidadePage() {
       <ul>
         <li><strong>Supabase</strong> (banco de dados, login e fotos) e <strong>Vercel</strong> (hospedagem do site).</li>
         <li><strong>Pagar.me</strong> (pagamentos por Pix e cartão, cobrança do plano e repasses).</li>
-        <li><strong>Meta</strong>: WhatsApp (mensagens de pedido, quando ativado) e Pixel do Meta (só se o restaurante ativar e você aceitar os cookies de marketing).</li>
+        <li><strong>Meta</strong>: WhatsApp (mensagens de pedido, quando ativado) e Pixel do Meta (no cardápio, só se o restaurante ativar; no nosso site, para medir anúncios; sempre só depois de você aceitar os cookies de marketing).</li>
         <li><strong>Resend</strong> (e-mails do sistema), <strong>Cloudflare</strong> (verificação anti-robô no cadastro e login).</li>
         <li><strong>OpenStreetMap / ViaCEP</strong> (busca de endereço por CEP, mapa e cálculo de distância).</li>
         <li>Serviços de notificação do próprio navegador ou celular (Google, Apple, Mozilla), quando você ativa os avisos do painel.</li>
@@ -94,8 +94,10 @@ export default function PrivacidadePage() {
           endereço e código de acesso da sua conta no cardápio, preferências da tela.
         </li>
         <li>
-          <strong>Marketing</strong> (Pixel do Meta): só funcionam se o restaurante ativar <em>e</em> você tocar em
-          “Aceitar”. Você pode mudar a escolha a qualquer momento em “Cookies”, no rodapé do cardápio.
+          <strong>Marketing</strong> (Pixel do Meta): no cardápio, só funcionam se o restaurante ativar <em>e</em> você
+          tocar em “Aceitar”. No site do MeuCardápioApp (página inicial e cadastro), usamos o Pixel do Meta para medir
+          nossos anúncios, também só depois do seu “Aceitar”. Você pode mudar a escolha a qualquer momento em “Cookies”,
+          no rodapé do cardápio, ou limpando os dados do site no navegador.
         </li>
       </ul>
 

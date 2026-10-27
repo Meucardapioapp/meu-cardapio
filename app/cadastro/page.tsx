@@ -9,6 +9,8 @@ import { supabase } from "@/lib/supabase"
 import Toast from "@/app/components/ui/toast"
 import MedidorSenha from "@/app/components/MedidorSenha"
 import { senhaValida } from "@/lib/senha"
+import PixelComConsentimento from "@/app/components/PixelComConsentimento"
+import { PIXEL_PLATAFORMA, rastrearPixel } from "@/lib/pixel-plataforma"
 
 
 function gerarSlug(texto: string) {
@@ -274,6 +276,9 @@ function buscarCidade(valor: string) {
       options: tokenLogin ? { captchaToken: tokenLogin } : undefined,
     })
 
+    // Meta Pixel: conta o cadastro concluído (é o que os anúncios otimizam).
+    rastrearPixel("CompleteRegistration", { content_name: "cadastro_restaurante" })
+
     // O painel guia o próximo passo (o item certo do menu fica piscando).
     router.push("/admin")
 
@@ -313,6 +318,7 @@ function buscarCidade(valor: string) {
     )}
 
     <main className="min-h-screen bg-[#F8F6F4] px-4 py-10">
+      {PIXEL_PLATAFORMA && <PixelComConsentimento pixelId={PIXEL_PLATAFORMA} />}
 
       <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[32px] border border-[#ECE7E3] bg-white shadow-2xl lg:grid-cols-2">
 
