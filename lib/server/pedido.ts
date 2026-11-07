@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { normalizarRegra, precosEfetivos } from "@/lib/precos";
 import { agoraNoFuso } from "@/lib/horario";
 import { precoAgora } from "@/lib/promocao";
+import { estaPausado, minimoDisponivel } from "@/lib/complementos";
 
 /**
  * Recalcula o pedido inteiro com os preços do banco.
@@ -73,14 +74,14 @@ export async function calcularItens(
 
   const { data: adicionais, error: erroAdicionais } = await supabaseAdmin
     .from("adicionais")
-    .select("id, produto_id, nome, preco")
+    .select("*")
     .in("produto_id", produtoIds);
 
   if (erroAdicionais) throw erroAdicionais;
 
   const { data: grupos, error: erroGrupos } = await supabaseAdmin
     .from("grupos_obrigatorios")
-    .select("*, grupo_obrigatorio_opcoes(id, nome, preco)")
+    .select("*, grupo_obrigatorio_opcoes(*)")
     .in("produto_id", produtoIds);
 
   if (erroGrupos) throw erroGrupos;
@@ -138,6 +139,12 @@ export async function calcularItens(
         );
       }
 
+      if (estaPausado(encontrado)) {
+        throw new PedidoInvalidoError(
+          `O adicional "${texto(encontrado.nome, 60)}" acabou. Tire do item para continuar.`
+        );
+      }
+
       return {
         id: String(encontrado.id),
         nome: String(encontrado.nome),
@@ -158,6 +165,12 @@ export async function calcularItens(
           (grupo.nome === sel.grupo || !sel.grupo
             ? opcoes.find((o: any) => o.nome === sel.nome)
             : undefined);
+
+        if (opcao && estaPausado(opcao)) {
+          throw new PedidoInvalidoError(
+            `"${texto(opcao.nome, 60)}" acabou. Escolha outra opção em ${texto(produto.nome, 60)}.`
+          );
+        }
 
         if (opcao) {
           return {
@@ -184,7 +197,8 @@ export async function calcularItens(
 
     for (const grupo of gruposDoProduto as any[]) {
       const qtd = obrigatoriosEscolhidos.filter((o) => o.grupoId === String(grupo.id)).length;
-      const minimo = Number(grupo.minimo ?? 0);
+      // Com opções pausadas, o mínimo cai para o que ainda está disponível.
+      const minimo = minimoDisponivel(grupo, grupo.grupo_obrigatorio_opcoes ?? []);
       const maximo = Number(grupo.maximo ?? 999);
 
       if (qtd < minimo || (maximo !== 999 && qtd > maximo)) {

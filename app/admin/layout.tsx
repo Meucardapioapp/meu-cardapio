@@ -14,6 +14,7 @@ import {
   Lock,
   Menu,
   MessageCircle,
+  Wallet,
   UtensilsCrossed,
   X,
 } from "lucide-react";
@@ -56,6 +57,7 @@ const GRUPOS_MENU: { titulo: string; itens: ItemMenu[] }[] = [
     itens: [
       { nome: "Editar Cardápio", link: "/admin/aparencia" },
       { nome: "Editar Produtos", link: "/admin/produtos" },
+      { nome: "Meus complementos", link: "/admin/complementos" },
       { nome: "Categorias", link: "/admin/categorias" },
       { nome: "Horários", link: "/admin/horarios" },
       { nome: "Link do cardápio", link: "/admin/link-cardapio" },
@@ -101,8 +103,12 @@ const ABAS_CELULAR = [
 const telaDoAtendente = (pathname: string) =>
   pathname.startsWith("/admin/pedidos") || pathname === "/admin/salao" || pathname === "/admin/notificacoes";
 
-/** Telas que continuam abertas com o plano vencido. */
-const LIBERADAS_SEM_PLANO = ["/admin/plano", "/admin/configuracoes"];
+/**
+ * Telas que continuam abertas com o plano vencido.
+ * Saques e dados bancários ficam sempre liberados: o dinheiro das vendas é do
+ * restaurante, e ele precisa conseguir sacar mesmo sem renovar o plano.
+ */
+const LIBERADAS_SEM_PLANO = ["/admin/plano", "/admin/configuracoes", "/admin/saques", "/admin/dados-bancarios"];
 
 function tituloDaPagina(pathname: string) {
   for (const grupo of GRUPOS_MENU) {
@@ -325,6 +331,13 @@ function TelaBloqueio({ assinatura }: { assinatura: EstadoAssinatura }) {
       >
         {eraTeste ? "Escolher meu plano" : "Reativar meu plano"} <ArrowRight size={18} />
       </Link>
+      <Link
+        href="/admin/saques"
+        className="mt-3 flex h-11 items-center justify-center gap-2 rounded-xl border font-semibold text-zinc-700"
+      >
+        <Wallet size={16} /> Sacar meu saldo
+      </Link>
+      <p className="mt-2 text-xs text-zinc-500">O saldo das suas vendas continua seu: você pode sacar mesmo sem renovar.</p>
       <a
         href={LINK_SUPORTE}
         target="_blank"

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, ImageOff, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageOff, PauseCircle, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Produto = {
@@ -186,12 +186,20 @@ export default function ProdutosPage() {
             {produtos.length} produtos · {totalAtivos} visíveis no cardápio
           </p>
         </div>
-        <Link
-          href="/admin/produtos/novo-produto"
-          className="h-12 px-5 rounded-xl bg-[#6D1F2F] text-white font-bold flex items-center justify-center gap-2"
-        >
-          <Plus size={18} /> Novo produto
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/admin/complementos"
+            className="h-12 px-5 rounded-xl border border-zinc-200 bg-white font-bold text-zinc-700 flex items-center justify-center gap-2"
+          >
+            <PauseCircle size={18} /> Meus complementos
+          </Link>
+          <Link
+            href="/admin/produtos/novo-produto"
+            className="h-12 px-5 rounded-xl bg-[#6D1F2F] text-white font-bold flex items-center justify-center gap-2"
+          >
+            <Plus size={18} /> Novo produto
+          </Link>
+        </div>
       </div>
 
       {categorias.length === 0 && !carregando && (

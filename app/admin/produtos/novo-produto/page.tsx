@@ -9,6 +9,9 @@ import {
   ArrowLeft,
   Camera,
   CheckCircle2,
+  Copy,
+  Library,
+  PauseCircle,
   HelpCircle,
   ListChecks,
   Loader2,
@@ -21,6 +24,7 @@ import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/utils/apiFetch";
 import { normalizarRegra, type RegraPreco } from "@/lib/precos";
 import { precoAPartirDe } from "@/lib/dinheiro";
+import { chaveComplemento } from "@/lib/complementos";
 
 /* ============================================================
    Tipos e utilidades
@@ -40,6 +44,9 @@ type Grupo = {
 };
 
 type Extra = { chave: string; nome: string; descricao: string; preco: string };
+
+/** Complemento já usado em algum produto do restaurante ("Meus complementos"). */
+type Cadastrado = { nome: string; preco: number; descricao: string; pausado: boolean; produtos: string[] };
 
 const novaChave = () => crypto.randomUUID();
 
@@ -73,6 +80,29 @@ function regraParaBanco(g: Grupo) {
   if (g.regra === "uma") return { minimo: 1, maximo: 1 };
   if (g.regra === "livre") return { minimo: 1, maximo: 999 };
   return { minimo: 1, maximo: Math.max(2, g.maximo) };
+}
+
+/** Escolha obrigatória como vem do banco → formato do formulário. */
+function grupoDoBanco(g: any): Grupo {
+  return {
+    chave: novaChave(),
+    nome: g.nome,
+    ...regraDoBanco(Number(g.minimo ?? 1), Number(g.maximo ?? 1)),
+    cobranca: normalizarRegra(g.regra_preco),
+    opcoes: [...(g.grupo_obrigatorio_opcoes ?? [])]
+      .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
+      .map((o: any) => ({
+        chave: novaChave(),
+        nome: o.nome,
+        descricao: o.descricao || "",
+        preco: paraTexto(o.preco),
+      })),
+  };
+}
+
+/** Adicional como vem do banco → formato do formulário. */
+function extraDoBanco(a: any): Extra {
+  return { chave: novaChave(), nome: a.nome, descricao: a.descricao || "", preco: paraTexto(a.preco) };
 }
 
 function textoRegra(g: Grupo) {
@@ -130,6 +160,23 @@ function FormularioProduto() {
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [extras, setExtras] = useState<Extra[]>([]);
   const [ajuda, setAjuda] = useState(false);
+  const [copiar, setCopiar] = useState<null | "grupos" | "adicionais">(null);
+  const [cadastrados, setCadastrados] = useState<Cadastrado[]>([]);
+  // Onde entram os complementos escolhidos: numa escolha (chave do grupo) ou nos adicionais.
+  const [usarCadastrados, setUsarCadastrados] = useState<null | { grupo: string } | { adicionais: true }>(null);
+
+  useEffect(() => {
+    apiFetch("/api/painel/complementos")
+      .then((r) => r.json())
+      .then((d) => d?.success && setCadastrados(d.complementos ?? []))
+      .catch(() => {});
+  }, []);
+
+  const emFalta = useMemo(
+    () => new Set(cadastrados.filter((c) => c.pausado).map((c) => chaveComplemento(c.nome))),
+    [cadastrados]
+  );
+  const estaEmFalta = (nome: string) => Boolean(nome.trim()) && emFalta.has(chaveComplemento(nome));
   const inputFoto = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -192,24 +239,8 @@ function FormularioProduto() {
       const gs: any[] | null = gruposRes.data as any;
       const ads: any[] | null = adicionaisRes.data as any;
 
-      setGrupos(
-        (gs ?? []).map((g: any) => ({
-          chave: novaChave(),
-          nome: g.nome,
-          ...regraDoBanco(Number(g.minimo ?? 1), Number(g.maximo ?? 1)),
-          cobranca: normalizarRegra(g.regra_preco),
-          opcoes: [...(g.grupo_obrigatorio_opcoes ?? [])]
-            .sort((a: any, b: any) => (a.ordem ?? 0) - (b.ordem ?? 0))
-            .map((o: any) => ({
-              chave: novaChave(),
-              nome: o.nome,
-              descricao: o.descricao || "",
-              preco: paraTexto(o.preco),
-            })),
-        }))
-      );
-
-      setExtras((ads ?? []).map((a: any) => ({ chave: novaChave(), nome: a.nome, descricao: a.descricao || "", preco: paraTexto(a.preco) })));
+      setGrupos((gs ?? []).map(grupoDoBanco));
+      setExtras((ads ?? []).map(extraDoBanco));
       setCarregando(false);
     }
 
@@ -270,6 +301,58 @@ function FormularioProduto() {
     setGrupos((g) =>
       g.map((x) => (x.chave === grupo ? { ...x, opcoes: x.opcoes.filter((o) => o.chave !== opcao) } : x))
     );
+  }
+
+  /* ---------- usar complementos já cadastrados ---------- */
+
+  function usarEscolhidos(escolhidos: Cadastrado[]) {
+    const alvo = usarCadastrados;
+    if (!alvo) return;
+    const paraTexto2 = (n: number) => (n > 0 ? paraTexto(n) : "");
+
+    if ("grupo" in alvo) {
+      setGrupos((gs) =>
+        gs.map((g) => {
+          if (g.chave !== alvo.grupo) return g;
+          const jaTem = new Set(g.opcoes.map((o) => chaveComplemento(o.nome)));
+          const novos = escolhidos
+            .filter((c) => !jaTem.has(chaveComplemento(c.nome)))
+            .map((c) => ({ chave: novaChave(), nome: c.nome, descricao: c.descricao || "", preco: paraTexto2(c.preco) }));
+          return { ...g, opcoes: [...g.opcoes.filter((o) => o.nome.trim()), ...novos] };
+        })
+      );
+    } else {
+      const jaTem = new Set(extras.map((e) => chaveComplemento(e.nome)));
+      const novos = escolhidos
+        .filter((c) => !jaTem.has(chaveComplemento(c.nome)))
+        .map((c) => ({ chave: novaChave(), nome: c.nome, descricao: c.descricao || "", preco: paraTexto2(c.preco) }));
+      setExtras((x) => [...x.filter((e) => e.nome.trim()), ...novos]);
+    }
+
+    toast.success(
+      escolhidos.length === 1 ? "1 complemento adicionado. Confira o preço e salve." : `${escolhidos.length} complementos adicionados. Confira os preços e salve.`
+    );
+    setUsarCadastrados(null);
+  }
+
+  /* ---------- copiar de outro produto ---------- */
+
+  function copiarDe(produtoNome: string, gs: Grupo[], ads: Extra[]) {
+    if (copiar === "grupos") {
+      setGrupos((atual) => [...atual, ...gs]);
+      toast.success(`${gs.length === 1 ? "1 escolha copiada" : `${gs.length} escolhas copiadas`} de ${produtoNome}. Confira e salve.`);
+    } else {
+      // Não repete adicional que já está no produto.
+      const jaTem = new Set(extras.map((e) => e.nome.trim().toLowerCase()));
+      const novos = ads.filter((a) => !jaTem.has(a.nome.trim().toLowerCase()));
+      setExtras((atual) => [...atual.filter((e) => e.nome.trim()), ...novos]);
+      toast.success(
+        novos.length
+          ? `${novos.length === 1 ? "1 adicional copiado" : `${novos.length} adicionais copiados`} de ${produtoNome}. Confira e salve.`
+          : "Esses adicionais já estão neste produto."
+      );
+    }
+    setCopiar(null);
   }
 
   /* ---------- foto ---------- */
@@ -401,7 +484,11 @@ function FormularioProduto() {
           ...(g.regra !== "uma" && g.cobranca !== "soma" ? { regra_preco: g.cobranca } : {}),
           opcoes: g.opcoes
             .filter((o) => o.nome.trim())
-            .map((o) => ({ nome: o.nome.trim(), descricao: o.descricao.trim() || null, preco: paraNumero(o.preco) })),
+            .map((o) => ({
+              nome: o.nome.trim(),
+              descricao: o.descricao.trim() || null,
+              preco: paraNumero(o.preco),
+            })),
         })),
         adicionais: extras
           .filter((e) => e.nome.trim())
@@ -744,7 +831,7 @@ function FormularioProduto() {
                   <p className="mt-4 text-xs font-semibold text-zinc-600">Opções</p>
                   <div className="mt-1 space-y-2">
                     {g.opcoes.map((o) => (
-                      <div key={o.chave} className="grid grid-cols-[1fr_auto] gap-2 rounded-xl bg-zinc-50 p-2">
+                      <div key={o.chave} className={`grid grid-cols-[1fr_auto] gap-2 rounded-xl p-2 ${estaEmFalta(o.nome) ? "bg-amber-50 ring-1 ring-amber-200" : "bg-zinc-50"}`}>
                         <div className="grid gap-2 sm:grid-cols-[1fr_130px] min-w-0">
                           <input
                             value={o.nome}
@@ -768,6 +855,11 @@ function FormularioProduto() {
                             placeholder="Ingredientes (opcional) — Ex.: massa, molho, muçarela, calabresa e cebola"
                             className="campo bg-white text-sm sm:col-span-2"
                           />
+                          {estaEmFalta(o.nome) && (
+                            <div className="sm:col-span-2">
+                              <AvisoEmFalta />
+                            </div>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -781,13 +873,24 @@ function FormularioProduto() {
                     ))}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => adicionarOpcao(g.chave)}
-                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
-                  >
-                    <Plus size={16} /> Adicionar opção
-                  </button>
+                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                    <button
+                      type="button"
+                      onClick={() => adicionarOpcao(g.chave)}
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
+                    >
+                      <Plus size={16} /> Adicionar opção
+                    </button>
+                    {cadastrados.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setUsarCadastrados({ grupo: g.chave })}
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
+                      >
+                        <Library size={16} /> Usar complementos já cadastrados
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -814,6 +917,14 @@ function FormularioProduto() {
                   </button>
                 ))}
               </div>
+
+              <button
+                type="button"
+                onClick={() => setCopiar("grupos")}
+                className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
+              >
+                <Copy size={16} /> Copiar escolhas de outro produto
+              </button>
             </div>
           </section>
 
@@ -827,7 +938,7 @@ function FormularioProduto() {
 
             <div className="mt-4 space-y-2">
               {extras.map((e) => (
-                <div key={e.chave} className="rounded-xl bg-zinc-50 p-2 space-y-2">
+                <div key={e.chave} className={`rounded-xl p-2 space-y-2 ${estaEmFalta(e.nome) ? "bg-amber-50 ring-1 ring-amber-200" : "bg-zinc-50"}`}>
                 <div className="grid grid-cols-[1fr_120px_auto] gap-2 items-center">
                   <input
                     value={e.nome}
@@ -858,6 +969,7 @@ function FormularioProduto() {
                   placeholder="Ingredientes (opcional) — Ex.: bacon em cubos, cheddar"
                   className="campo bg-white text-sm w-full"
                 />
+                {estaEmFalta(e.nome) && <AvisoEmFalta />}
                 </div>
               ))}
             </div>
@@ -868,6 +980,24 @@ function FormularioProduto() {
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
             >
               <PlusCircle size={16} /> Adicionar adicional
+            </button>
+
+            {cadastrados.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setUsarCadastrados({ adicionais: true })}
+                className="mt-3 ml-0 sm:ml-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
+              >
+                <Library size={16} /> Usar complementos já cadastrados
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setCopiar("adicionais")}
+              className="mt-3 ml-0 sm:ml-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6D1F2F]"
+            >
+              <Copy size={16} /> Copiar adicionais de outro produto
             </button>
           </section>
         </div>
@@ -897,7 +1027,7 @@ function FormularioProduto() {
                     <span className="text-[10px] font-semibold bg-red-50 text-red-500 px-2 py-0.5 rounded-full">Obrigatório</span>
                   </div>
                   <p className="text-xs text-zinc-500">{textoRegra(g)}</p>
-                  {g.opcoes.filter((o) => o.nome.trim()).map((o) => (
+                  {g.opcoes.filter((o) => o.nome.trim() && !estaEmFalta(o.nome)).map((o) => (
                     <div key={o.chave} className="mt-1.5 flex justify-between gap-2 text-sm rounded-lg border px-3 py-2">
                       <span className="min-w-0">
                         {o.nome}
@@ -909,10 +1039,10 @@ function FormularioProduto() {
                 </div>
               ))}
 
-              {extras.some((e) => e.nome.trim()) && (
+              {extras.some((e) => e.nome.trim() && !estaEmFalta(e.nome)) && (
                 <div className="mt-4">
                   <p className="font-bold text-sm">Adicionais</p>
-                  {extras.filter((e) => e.nome.trim()).map((e) => (
+                  {extras.filter((e) => e.nome.trim() && !estaEmFalta(e.nome)).map((e) => (
                     <div key={e.chave} className="mt-1.5 flex justify-between gap-2 text-sm rounded-lg border px-3 py-2">
                       <span className="min-w-0">
                         + {e.nome}
@@ -945,6 +1075,28 @@ function FormularioProduto() {
           </button>
         </div>
       </div>
+
+      {usarCadastrados && (
+        <UsarCadastrados
+          lista={cadastrados}
+          jaNoProduto={
+            "grupo" in usarCadastrados
+              ? (grupos.find((g) => g.chave === usarCadastrados.grupo)?.opcoes ?? []).map((o) => o.nome)
+              : extras.map((e) => e.nome)
+          }
+          aoFechar={() => setUsarCadastrados(null)}
+          aoUsar={usarEscolhidos}
+        />
+      )}
+
+      {copiar && (
+        <CopiarDeProduto
+          modo={copiar}
+          produtoAtual={produtoId}
+          aoFechar={() => setCopiar(null)}
+          aoEscolher={copiarDe}
+        />
+      )}
 
       <style>{`
         .campo { width: 100%; height: 44px; border: 1px solid #e4e4e7; border-radius: 12px; padding: 0 12px; font-size: 16px; background: #fff; outline: none; }
@@ -1008,6 +1160,255 @@ async function enviarProduto(corpo: unknown, restauranteId: string, nome: string
     if (resposta.ok && d?.success) return;
     throw new ErroParaMostrar(d?.error || "Não foi possível salvar. Tente de novo.");
   }
+}
+
+/** Escolher, com caixinhas, complementos que já existem em outros produtos. */
+function UsarCadastrados({
+  lista,
+  jaNoProduto,
+  aoFechar,
+  aoUsar,
+}: {
+  lista: Cadastrado[];
+  jaNoProduto: string[];
+  aoFechar: () => void;
+  aoUsar: (escolhidos: Cadastrado[]) => void;
+}) {
+  const ja = useMemo(() => new Set(jaNoProduto.map(chaveComplemento)), [jaNoProduto]);
+  const disponiveis = useMemo(() => lista.filter((c) => !ja.has(chaveComplemento(c.nome))), [lista, ja]);
+  const [marcados, setMarcados] = useState<Set<string>>(new Set());
+  const [busca, setBusca] = useState("");
+
+  const b = busca.trim().toLowerCase();
+  const filtrada = disponiveis.filter((c) => !b || c.nome.toLowerCase().includes(b));
+  const todosMarcados = filtrada.length > 0 && filtrada.every((c) => marcados.has(c.nome));
+
+  function alternar(nome: string) {
+    setMarcados((m) => {
+      const n = new Set(m);
+      if (n.has(nome)) n.delete(nome);
+      else n.add(nome);
+      return n;
+    });
+  }
+
+  function alternarTodos() {
+    setMarcados((m) => {
+      const n = new Set(m);
+      for (const c of filtrada) {
+        if (todosMarcados) n.delete(c.nome);
+        else n.add(c.nome);
+      }
+      return n;
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4" onClick={aoFechar}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="w-full sm:max-w-md max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-white p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black text-zinc-900">Usar complementos já cadastrados</h2>
+            <p className="text-sm text-zinc-500">Marque os que este produto vai ter. Depois você pode mudar os preços.</p>
+          </div>
+          <button type="button" onClick={aoFechar} aria-label="Fechar" className="w-9 h-9 shrink-0 rounded-lg hover:bg-zinc-100 flex items-center justify-center">
+            <X size={18} />
+          </button>
+        </div>
+
+        {disponiveis.length > 0 && (
+          <>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar complemento" className="campo mt-3" />
+            <button type="button" onClick={alternarTodos} className="mt-2 self-start text-sm font-semibold text-[#6D1F2F]">
+              {todosMarcados ? "Desmarcar todos" : "Selecionar todos"}
+            </button>
+          </>
+        )}
+
+        <div className="mt-2 flex-1 overflow-y-auto space-y-1.5">
+          {disponiveis.length === 0 && (
+            <p className="py-6 text-center text-sm text-zinc-500">Todos os complementos cadastrados já estão aqui.</p>
+          )}
+          {filtrada.map((c) => {
+            const marcado = marcados.has(c.nome);
+            return (
+              <label
+                key={c.nome}
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 ${marcado ? "border-[#6D1F2F] bg-[#6D1F2F]/5" : ""}`}
+              >
+                <input type="checkbox" checked={marcado} onChange={() => alternar(c.nome)} className="h-5 w-5 accent-[#6D1F2F]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold truncate">{c.nome}</span>
+                  <span className="block text-xs text-zinc-500 truncate">
+                    {c.preco > 0 ? `+ ${reais(c.preco)}` : "Sem custo"} · usado em {c.produtos.length === 1 ? "1 produto" : `${c.produtos.length} produtos`}
+                  </span>
+                </span>
+                {c.pausado && <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">Em falta</span>}
+              </label>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          disabled={!marcados.size}
+          onClick={() => aoUsar(lista.filter((c) => marcados.has(c.nome)))}
+          className="mt-3 h-12 rounded-xl bg-[#6D1F2F] font-bold text-white disabled:opacity-50"
+        >
+          {marcados.size ? `Adicionar ${marcados.size} ${marcados.size === 1 ? "complemento" : "complementos"}` : "Marque os complementos"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Lista os outros produtos e copia as escolhas ou os adicionais de um deles. */
+function CopiarDeProduto({
+  modo,
+  produtoAtual,
+  aoFechar,
+  aoEscolher,
+}: {
+  modo: "grupos" | "adicionais";
+  produtoAtual: string | null;
+  aoFechar: () => void;
+  aoEscolher: (produtoNome: string, grupos: Grupo[], adicionais: Extra[]) => void;
+}) {
+  const [lista, setLista] = useState<{ id: string; nome: string; qtd: number }[] | null>(null);
+  const [busca, setBusca] = useState("");
+  const [copiando, setCopiando] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function carregar() {
+      const restauranteId = localStorage.getItem("restaurante_id");
+      if (!restauranteId) return setLista([]);
+      const { data: produtos } = await supabase
+        .from("produtos")
+        .select("id, nome")
+        .eq("restaurante_id", restauranteId)
+        .order("nome");
+      const outros = (produtos ?? []).filter((p: any) => String(p.id) !== String(produtoAtual ?? ""));
+      const ids = outros.map((p: any) => p.id);
+      const { data: filhos } = ids.length
+        ? modo === "grupos"
+          ? await supabase.from("grupos_obrigatorios").select("produto_id").in("produto_id", ids)
+          : await supabase.from("adicionais").select("produto_id").in("produto_id", ids)
+        : { data: [] as any[] };
+      const contagem = new Map<string, number>();
+      for (const f of filhos ?? []) contagem.set(String((f as any).produto_id), (contagem.get(String((f as any).produto_id)) ?? 0) + 1);
+      setLista(
+        outros
+          .map((p: any) => ({ id: String(p.id), nome: String(p.nome), qtd: contagem.get(String(p.id)) ?? 0 }))
+          .filter((p) => p.qtd > 0)
+      );
+    }
+    carregar();
+  }, [modo, produtoAtual]);
+
+  async function escolher(p: { id: string; nome: string }) {
+    setCopiando(p.id);
+    try {
+      if (modo === "grupos") {
+        const { data, error } = await supabase
+          .from("grupos_obrigatorios")
+          .select("*, grupo_obrigatorio_opcoes(*)")
+          .eq("produto_id", p.id)
+          .order("ordem");
+        if (error) throw error;
+        aoEscolher(p.nome, (data ?? []).map(grupoDoBanco), []);
+      } else {
+        const { data, error } = await supabase.from("adicionais").select("*").eq("produto_id", p.id).order("nome");
+        if (error) throw error;
+        aoEscolher(p.nome, [], (data ?? []).map(extraDoBanco));
+      }
+    } catch {
+      toast.error("Não foi possível copiar. Tente de novo.");
+      setCopiando(null);
+    }
+  }
+
+  const b = busca.trim().toLowerCase();
+  const filtrada = (lista ?? []).filter((p) => !b || p.nome.toLowerCase().includes(b));
+  const coisa = modo === "grupos" ? "escolha" : "adicional";
+  const coisas = modo === "grupos" ? "escolhas" : "adicionais";
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4" onClick={aoFechar}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="w-full sm:max-w-md max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-white p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-black text-zinc-900">Copiar {coisas} de outro produto</h2>
+            <p className="text-sm text-zinc-500">
+              Escolha o produto. As {coisas} dele entram aqui e você pode mudar o que quiser antes de salvar.
+            </p>
+          </div>
+          <button type="button" onClick={aoFechar} aria-label="Fechar" className="w-9 h-9 shrink-0 rounded-lg hover:bg-zinc-100 flex items-center justify-center">
+            <X size={18} />
+          </button>
+        </div>
+
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar produto"
+          className="campo mt-3"
+        />
+
+        <div className="mt-3 flex-1 overflow-y-auto space-y-2">
+          {lista === null && (
+            <div className="py-8 flex justify-center">
+              <Loader2 className="animate-spin text-[#6D1F2F]" />
+            </div>
+          )}
+          {lista !== null && filtrada.length === 0 && (
+            <p className="py-6 text-center text-sm text-zinc-500">
+              {lista.length ? "Nenhum produto com esse nome." : `Nenhum outro produto tem ${coisas} cadastrados ainda.`}
+            </p>
+          )}
+          {filtrada.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              disabled={copiando !== null}
+              onClick={() => escolher(p)}
+              className="w-full flex items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left hover:border-[#6D1F2F] disabled:opacity-60"
+            >
+              <span className="min-w-0">
+                <span className="block font-bold truncate">{p.nome}</span>
+                <span className="block text-xs text-zinc-500">
+                  {p.qtd} {p.qtd === 1 ? coisa : coisas}
+                </span>
+              </span>
+              {copiando === p.id ? (
+                <Loader2 size={18} className="animate-spin text-[#6D1F2F]" />
+              ) : (
+                <span className="shrink-0 text-sm font-semibold text-[#6D1F2F]">Copiar</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Complemento pausado em "Meus complementos": não aparece no cardápio. */
+function AvisoEmFalta() {
+  return (
+    <Link href="/admin/complementos" className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700">
+      <PauseCircle size={14} /> Em falta: pausado em todos os produtos (mudar em Meus complementos)
+    </Link>
+  );
 }
 
 function Campo({ rotulo, dica, children }: { rotulo: string; dica?: string; children: React.ReactNode }) {

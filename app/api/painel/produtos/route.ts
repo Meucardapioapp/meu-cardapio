@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { erroInterno, getDonoAutenticado, naoAutenticado } from "@/lib/server/auth";
 import { limitar } from "@/lib/server/rate-limit";
 import { mensagemDeErroBanco } from "@/lib/server/erros";
+import { chaveComplemento } from "@/lib/complementos";
+import { carregarComplementos, nomesPausados, temColunaPausado } from "@/lib/server/complementos";
 
 /**
  * Salva um produto INTEIRO (dados, escolhas obrigatórias, opções e
@@ -51,6 +53,7 @@ const esquema = z.object({
               nome: texto(150).min(1),
               descricao: texto(500).nullable().optional(),
               preco: dinheiro,
+              pausado: z.boolean().optional(),
             })
           )
           .min(1)
@@ -64,6 +67,7 @@ const esquema = z.object({
         nome: texto(150).min(1),
         preco: dinheiro,
         descricao: texto(300).optional(),
+        pausado: z.boolean().optional(),
       })
     )
     .max(200),
@@ -81,7 +85,28 @@ function erroBanco(e: unknown, generica: string) {
 }
 
 /** Grava as escolhas, opções e adicionais. Devolve o que criou (para desfazer se precisar). */
-async function gravarFilhos(produtoId: string | number, corpo: Corpo) {
+/**
+ * Complemento pausado vale para o restaurante todo: se o "Chocolate" está
+ * pausado, ele entra pausado em qualquer produto novo ou editado.
+ * null = banco ainda sem a coluna (antes do SQL 23): o campo nem é enviado.
+ */
+type Pausados = Set<string> | null;
+
+async function lerPausados(restauranteId: string | number): Promise<Pausados> {
+  try {
+    const itens = await carregarComplementos(restauranteId);
+    return (await temColunaPausado(itens)) ? nomesPausados(itens) : null;
+  } catch (e) {
+    console.error("[painel/produtos] pausados", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+async function gravarFilhos(produtoId: string | number, corpo: Corpo, pausados: Pausados) {
+  // Todas as linhas levam o campo (true/false): num envio de várias linhas,
+  // campo que falta em uma vira "vazio" no banco.
+  const marca = (nome: string) => (pausados ? { pausado: pausados.has(chaveComplemento(nome)) } : {});
+
   const criados = { grupos: [] as (string | number)[], adicionais: [] as (string | number)[] };
 
   try {
@@ -109,6 +134,7 @@ async function gravarFilhos(produtoId: string | number, corpo: Corpo) {
         preco: o.preco,
         imagem: "",
         ordem: i,
+        ...marca(o.nome),
       }));
       const { error: erroOpcoes } = await supabaseAdmin.from("grupo_obrigatorio_opcoes").insert(opcoes);
       if (erroOpcoes) throw erroOpcoes;
@@ -124,6 +150,7 @@ async function gravarFilhos(produtoId: string | number, corpo: Corpo) {
             preco: a.preco,
             // Ingredientes só vão quando preenchidos (funciona mesmo antes do SQL 12).
             ...(a.descricao?.trim() ? { descricao: a.descricao.trim().slice(0, 300) } : {}),
+            ...marca(a.nome),
           }))
         )
         .select("id");
@@ -172,6 +199,7 @@ export async function POST(req: NextRequest) {
     }
 
     const dados = { ...corpo.produto, nome: corpo.produto.nome.trim(), descricao: corpo.produto.descricao.trim() };
+    const pausados = await lerPausados(restauranteId);
 
     // ---------------- produto novo ----------------
     if (corpo.id == null || corpo.id === "") {
@@ -183,7 +211,7 @@ export async function POST(req: NextRequest) {
       if (error) return erroBanco(error, "Não foi possível salvar o produto. Tente de novo.");
 
       try {
-        await gravarFilhos(novo.id, corpo);
+        await gravarFilhos(novo.id, corpo, pausados);
       } catch (e) {
         // Desfaz: nada fica salvo pela metade.
         await supabaseAdmin.from("produtos").delete().eq("id", novo.id).eq("restaurante_id", restauranteId);
@@ -219,7 +247,7 @@ export async function POST(req: NextRequest) {
     // Grava as opções novas ANTES de apagar as antigas: se algo falhar,
     // as antigas continuam lá e o produto volta a ser como era.
     try {
-      await gravarFilhos(antigo.id, corpo);
+      await gravarFilhos(antigo.id, corpo, pausados);
     } catch (e) {
       const volta: Record<string, unknown> = {};
       for (const campo of Object.keys(dados)) volta[campo] = (antigo as Record<string, unknown>)[campo];

@@ -7,6 +7,7 @@ import { restaurantePodeReceberPedidos } from "@/lib/server/assinatura";
 import { getOperacao } from "@/lib/server/operacao";
 import { agoraNoFuso } from "@/lib/horario";
 import { promocaoAtiva, rotuloPromocao } from "@/lib/promocao";
+import { estaPausado, semPausados } from "@/lib/complementos";
 
 /**
  * Tudo o que o cardápio público precisa, em poucas consultas paralelas
@@ -154,6 +155,7 @@ export const carregarCardapio = cache(async (slug: string) => {
 
   const adicionaisPorProduto = new Map<string, any[]>();
   for (const a of adicionaisRes.data ?? []) {
+    if (estaPausado(a)) continue; // complemento pausado (acabou): some do cardápio
     const k = String(a.produto_id);
     if (!adicionaisPorProduto.has(k)) adicionaisPorProduto.set(k, []);
     adicionaisPorProduto.get(k)!.push(a);
@@ -166,6 +168,16 @@ export const carregarCardapio = cache(async (slug: string) => {
     gruposPorProduto.get(k)!.push(g);
   }
 
+  // Opções pausadas saem do cardápio. Produto cuja escolha obrigatória ficou
+  // sem nenhuma opção (ex.: todos os sabores pausados) some até voltar.
+  const indisponiveis = new Set<string>();
+  for (const [k, gs] of gruposPorProduto) {
+    const r = semPausados(gs, "grupo_obrigatorio_opcoes");
+    gruposPorProduto.set(k, r.grupos);
+    if (r.indisponivel) indisponiveis.add(k);
+  }
+  const produtosVisiveis = produtos.filter((p: any) => !indisponiveis.has(String(p.id)));
+
   return {
     restaurante: restaurantePublico,
     aparencia: aparenciaRes.data?.[0] ?? null,
@@ -174,8 +186,8 @@ export const carregarCardapio = cache(async (slug: string) => {
     pedidosAtivos: planoAtivo && !operacao.pausado,
     avaliacao,
     taxaMinima,
-    maisPedidos: idsMaisPedidos.filter((pid) => produtos.some((p: any) => String(p.id) === pid)).slice(0, 6),
-    produtos: produtos.map((produto: any) => {
+    maisPedidos: idsMaisPedidos.filter((pid) => produtosVisiveis.some((p: any) => String(p.id) === pid)).slice(0, 6),
+    produtos: produtosVisiveis.map((produto: any) => {
       const promoHoje = promocaoAtiva(produto, agora);
       return {
       id: produto.id,

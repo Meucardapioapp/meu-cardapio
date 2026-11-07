@@ -4,6 +4,7 @@ import { acessoSalao, respostaErro, semAcesso } from "@/lib/server/salao-auth";
 import { getConfigSalao } from "@/lib/server/salao";
 import { agoraNoFuso } from "@/lib/horario";
 import { precoAgora } from "@/lib/promocao";
+import { estaPausado, semPausados } from "@/lib/complementos";
 
 /** Cardápio do salão: o mesmo do delivery, sem fotos (rápido no celular do garçom). */
 export async function GET(req: NextRequest) {
@@ -31,10 +32,10 @@ export async function GET(req: NextRequest) {
 
     const [{ data: adicionais }, { data: grupos }] = ids.length
       ? await Promise.all([
-          supabaseAdmin.from("adicionais").select("id, produto_id, nome, preco").in("produto_id", ids),
+          supabaseAdmin.from("adicionais").select("*").in("produto_id", ids),
           supabaseAdmin
             .from("grupos_obrigatorios")
-            .select("id, produto_id, nome, minimo, maximo, regra_preco, ordem, grupo_obrigatorio_opcoes(id, nome, preco)")
+            .select("*, grupo_obrigatorio_opcoes(*)")
             .in("produto_id", ids)
             .order("ordem", { ascending: true }),
         ])
@@ -48,16 +49,18 @@ export async function GET(req: NextRequest) {
       success: true,
       config: { taxa_percentual: config.taxa_percentual, taxa_ligada_padrao: config.taxa_ligada_padrao },
       categorias: categoriasFinais,
-      produtos: lista.map((p: any) => ({
+      produtos: lista
+        .map((p: any) => ({ p, r: semPausados((grupos ?? []).filter((g: any) => String(g.produto_id) === String(p.id)), "grupo_obrigatorio_opcoes") }))
+        .filter(({ r }) => !r.indisponivel)
+        .map(({ p, r }) => ({
         id: String(p.id),
         nome: p.nome,
         preco: precoAgora(p, agora),
         categoria: String(p.categoria || "Outros"),
         adicionais: (adicionais ?? [])
-          .filter((a: any) => String(a.produto_id) === String(p.id))
+          .filter((a: any) => String(a.produto_id) === String(p.id) && !estaPausado(a))
           .map((a: any) => ({ id: String(a.id), nome: a.nome, preco: Number(a.preco || 0) })),
-        grupos: (grupos ?? [])
-          .filter((g: any) => String(g.produto_id) === String(p.id))
+        grupos: r.grupos
           .map((g: any) => ({
             id: String(g.id),
             nome: g.nome,
