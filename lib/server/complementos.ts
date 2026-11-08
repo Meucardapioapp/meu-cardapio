@@ -1,16 +1,18 @@
 import "server-only";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { chaveComplemento, estaPausado } from "@/lib/complementos";
+import { GRUPO_ADICIONAIS, chaveDoComplemento, estaPausado } from "@/lib/complementos";
 
 /**
  * Todos os complementos do restaurante: opções das escolhas obrigatórias e
- * adicionais de todos os produtos. O nome é o que liga um ao outro: o
- * "Chocolate" do Açaí 300ml e o do Açaí 500ml são o mesmo complemento.
+ * adicionais de todos os produtos. Grupo + nome ligam um ao outro: o
+ * "Chocolate" em "Coberturas" do Açaí 300ml e do Açaí 500ml são o mesmo
+ * complemento; o "Morango" de "Frutas" e o de "Cremes" são diferentes.
  */
 export type ItemComplemento = {
   id: string | number;
   nome: string;
+  grupo: string;
   preco: number;
   descricao: string;
   pausado?: boolean;
@@ -30,7 +32,7 @@ export async function carregarComplementos(restauranteId: string | number) {
   const nomeProduto = new Map((produtos ?? []).map((p: any) => [String(p.id), String(p.nome)]));
 
   const [gruposRes, adicionaisRes] = await Promise.all([
-    supabaseAdmin.from("grupos_obrigatorios").select("id, produto_id, grupo_obrigatorio_opcoes(*)").in("produto_id", ids),
+    supabaseAdmin.from("grupos_obrigatorios").select("id, produto_id, nome, grupo_obrigatorio_opcoes(*)").in("produto_id", ids),
     supabaseAdmin.from("adicionais").select("*").in("produto_id", ids),
   ]);
   if (gruposRes.error) throw gruposRes.error;
@@ -42,6 +44,7 @@ export async function carregarComplementos(restauranteId: string | number) {
       itens.push({
         id: o.id,
         nome: o.nome,
+        grupo: String((g as any).nome || "").trim() || "Escolha",
         preco: Number(o.preco || 0),
         descricao: o.descricao || "",
         pausado: o.pausado,
@@ -54,6 +57,7 @@ export async function carregarComplementos(restauranteId: string | number) {
     itens.push({
       id: a.id,
       nome: a.nome,
+      grupo: GRUPO_ADICIONAIS,
       preco: Number(a.preco || 0),
       descricao: a.descricao || "",
       pausado: a.pausado,
@@ -71,7 +75,7 @@ export async function temColunaPausado(itens: ItemComplemento[]) {
   return !error;
 }
 
-/** Nomes (normalizados) dos complementos pausados do restaurante. */
+/** Complementos pausados do restaurante (grupo + nome, normalizados). */
 export function nomesPausados(itens: ItemComplemento[]) {
-  return new Set(itens.filter((i) => estaPausado(i)).map((i) => chaveComplemento(i.nome)));
+  return new Set(itens.filter((i) => estaPausado(i)).map((i) => chaveDoComplemento(i.grupo, i.nome)));
 }

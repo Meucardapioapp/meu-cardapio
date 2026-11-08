@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { ArrowLeft, Loader2, PauseCircle, Search } from "lucide-react";
 import { apiFetch } from "@/utils/apiFetch";
 
-type Complemento = { nome: string; pausado: boolean; parcial: boolean; produtos: string[]; preco: number };
+type Complemento = { nome: string; grupo: string; pausado: boolean; parcial: boolean; produtos: string[]; preco: number };
+
+const chave = (c: Complemento) => `${c.grupo}::${c.nome}`;
 
 /**
  * Pausar complementos que acabaram (ex.: leite condensado).
@@ -17,7 +19,7 @@ export default function ComplementosPage() {
   const [carregando, setCarregando] = useState(true);
   const [colunaExiste, setColunaExiste] = useState(true);
   const [busca, setBusca] = useState("");
-  const [salvando, setSalvando] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState<string | null>(null); // chave do complemento salvando
 
   useEffect(() => {
     apiFetch("/api/painel/complementos")
@@ -33,23 +35,23 @@ export default function ComplementosPage() {
 
   const filtrados = useMemo(() => {
     const b = busca.trim().toLowerCase();
-    return b ? lista.filter((c) => c.nome.toLowerCase().includes(b)) : lista;
+    return b ? lista.filter((c) => c.nome.toLowerCase().includes(b) || c.grupo.toLowerCase().includes(b)) : lista;
   }, [lista, busca]);
 
   const pausados = lista.filter((c) => c.pausado).length;
 
   async function alternar(c: Complemento) {
     const pausar = !c.pausado;
-    setSalvando(c.nome);
+    setSalvando(chave(c));
     try {
       const r = await apiFetch("/api/painel/complementos", {
         method: "POST",
-        body: JSON.stringify({ nome: c.nome, pausado: pausar }),
+        body: JSON.stringify({ nome: c.nome, grupo: c.grupo, pausado: pausar }),
       });
       const d = await r.json().catch(() => null);
       if (!r.ok || !d?.success) throw new Error(d?.error || "Não foi possível alterar.");
-      setLista((l) => l.map((x) => (x.nome === c.nome ? { ...x, pausado: pausar, parcial: false } : x)));
-      toast.success(pausar ? `${c.nome} pausado: saiu do cardápio.` : `${c.nome} voltou para o cardápio.`);
+      setLista((l) => l.map((x) => (chave(x) === chave(c) ? { ...x, pausado: pausar, parcial: false } : x)));
+      toast.success(pausar ? `${c.nome} (${c.grupo}) pausado: saiu do cardápio.` : `${c.nome} (${c.grupo}) voltou para o cardápio.`);
     } catch (e: any) {
       toast.error(e?.message || "Não foi possível alterar.");
     } finally {
@@ -86,7 +88,7 @@ export default function ComplementosPage() {
         <input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar complemento (ex.: leite condensado)"
+          placeholder="Buscar complemento ou grupo (ex.: morango, frutas)"
           className="w-full h-11 rounded-xl border border-zinc-200 bg-white pl-10 pr-3 text-base"
         />
       </div>
@@ -108,12 +110,13 @@ export default function ComplementosPage() {
           const ativo = !c.pausado;
           return (
             <div
-              key={c.nome}
+              key={chave(c)}
               className={`flex items-center gap-3 rounded-2xl border bg-white p-3 ${ativo ? "" : "border-amber-200 bg-amber-50/60"}`}
             >
               <div className="min-w-0 flex-1">
                 <p className={`font-bold ${ativo ? "text-zinc-900" : "text-zinc-500 line-through"}`}>
                   {c.nome}
+                  <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-600 no-underline">{c.grupo}</span>
                   {c.preco > 0 && <span className="ml-2 text-xs font-medium text-zinc-500 no-underline">+ {c.preco.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>}
                 </p>
                 <p className="text-xs text-zinc-500 truncate">
@@ -126,12 +129,12 @@ export default function ComplementosPage() {
                 role="switch"
                 aria-checked={ativo}
                 aria-label={ativo ? `Pausar ${c.nome}` : `Ativar ${c.nome}`}
-                disabled={salvando === c.nome || !colunaExiste}
+                disabled={salvando === chave(c) || !colunaExiste}
                 onClick={() => alternar(c)}
                 className="flex shrink-0 items-center gap-2 disabled:opacity-50"
               >
                 <span className={`text-xs font-semibold ${ativo ? "text-green-700" : "text-amber-700"}`}>
-                  {salvando === c.nome ? "Salvando…" : ativo ? "Disponível" : "Pausado"}
+                  {salvando === chave(c) ? "Salvando…" : ativo ? "Disponível" : "Pausado"}
                 </span>
                 <span className={`relative w-10 h-6 rounded-full transition ${ativo ? "bg-green-500" : "bg-zinc-300"}`}>
                   <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${ativo ? "left-[18px]" : "left-0.5"}`} />

@@ -24,7 +24,7 @@ import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/utils/apiFetch";
 import { normalizarRegra, type RegraPreco } from "@/lib/precos";
 import { precoAPartirDe } from "@/lib/dinheiro";
-import { chaveComplemento } from "@/lib/complementos";
+import { GRUPO_ADICIONAIS, chaveComplemento, chaveDoComplemento } from "@/lib/complementos";
 
 /* ============================================================
    Tipos e utilidades
@@ -46,7 +46,7 @@ type Grupo = {
 type Extra = { chave: string; nome: string; descricao: string; preco: string };
 
 /** Complemento já usado em algum produto do restaurante ("Meus complementos"). */
-type Cadastrado = { nome: string; preco: number; descricao: string; pausado: boolean; produtos: string[] };
+type Cadastrado = { nome: string; grupo: string; preco: number; descricao: string; pausado: boolean; produtos: string[] };
 
 const novaChave = () => crypto.randomUUID();
 
@@ -172,11 +172,12 @@ function FormularioProduto() {
       .catch(() => {});
   }, []);
 
+  // Pausado vale por grupo + nome ("Morango" de Frutas ≠ "Morango" de Cremes).
   const emFalta = useMemo(
-    () => new Set(cadastrados.filter((c) => c.pausado).map((c) => chaveComplemento(c.nome))),
+    () => new Set(cadastrados.filter((c) => c.pausado).map((c) => chaveDoComplemento(c.grupo, c.nome))),
     [cadastrados]
   );
-  const estaEmFalta = (nome: string) => Boolean(nome.trim()) && emFalta.has(chaveComplemento(nome));
+  const estaEmFalta = (grupo: string, nome: string) => Boolean(nome.trim()) && emFalta.has(chaveDoComplemento(grupo, nome));
   const inputFoto = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -828,10 +829,17 @@ function FormularioProduto() {
                     </div>
                   )}
 
+                  {g.regra !== "uma" && g.cobranca === "soma" && (
+                    <p className="mt-3 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                      O cliente pode escolher a mesma opção mais de uma vez (ex.: 3x bolacha) usando − 1 +. Cada vez conta no limite
+                      {g.regra === "ate" ? ` de ${g.maximo}` : ""} e o preço soma no item.
+                    </p>
+                  )}
+
                   <p className="mt-4 text-xs font-semibold text-zinc-600">Opções</p>
                   <div className="mt-1 space-y-2">
                     {g.opcoes.map((o) => (
-                      <div key={o.chave} className={`grid grid-cols-[1fr_auto] gap-2 rounded-xl p-2 ${estaEmFalta(o.nome) ? "bg-amber-50 ring-1 ring-amber-200" : "bg-zinc-50"}`}>
+                      <div key={o.chave} className={`grid grid-cols-[1fr_auto] gap-2 rounded-xl p-2 ${estaEmFalta(g.nome, o.nome) ? "bg-amber-50 ring-1 ring-amber-200" : "bg-zinc-50"}`}>
                         <div className="grid gap-2 sm:grid-cols-[1fr_130px] min-w-0">
                           <input
                             value={o.nome}
@@ -855,7 +863,7 @@ function FormularioProduto() {
                             placeholder="Ingredientes (opcional) — Ex.: massa, molho, muçarela, calabresa e cebola"
                             className="campo bg-white text-sm sm:col-span-2"
                           />
-                          {estaEmFalta(o.nome) && (
+                          {estaEmFalta(g.nome, o.nome) && (
                             <div className="sm:col-span-2">
                               <AvisoEmFalta />
                             </div>
@@ -938,7 +946,7 @@ function FormularioProduto() {
 
             <div className="mt-4 space-y-2">
               {extras.map((e) => (
-                <div key={e.chave} className={`rounded-xl p-2 space-y-2 ${estaEmFalta(e.nome) ? "bg-amber-50 ring-1 ring-amber-200" : "bg-zinc-50"}`}>
+                <div key={e.chave} className={`rounded-xl p-2 space-y-2 ${estaEmFalta(GRUPO_ADICIONAIS, e.nome) ? "bg-amber-50 ring-1 ring-amber-200" : "bg-zinc-50"}`}>
                 <div className="grid grid-cols-[1fr_120px_auto] gap-2 items-center">
                   <input
                     value={e.nome}
@@ -969,7 +977,7 @@ function FormularioProduto() {
                   placeholder="Ingredientes (opcional) — Ex.: bacon em cubos, cheddar"
                   className="campo bg-white text-sm w-full"
                 />
-                {estaEmFalta(e.nome) && <AvisoEmFalta />}
+                {estaEmFalta(GRUPO_ADICIONAIS, e.nome) && <AvisoEmFalta />}
                 </div>
               ))}
             </div>
@@ -1027,7 +1035,7 @@ function FormularioProduto() {
                     <span className="text-[10px] font-semibold bg-red-50 text-red-500 px-2 py-0.5 rounded-full">Obrigatório</span>
                   </div>
                   <p className="text-xs text-zinc-500">{textoRegra(g)}</p>
-                  {g.opcoes.filter((o) => o.nome.trim() && !estaEmFalta(o.nome)).map((o) => (
+                  {g.opcoes.filter((o) => o.nome.trim() && !estaEmFalta(g.nome, o.nome)).map((o) => (
                     <div key={o.chave} className="mt-1.5 flex justify-between gap-2 text-sm rounded-lg border px-3 py-2">
                       <span className="min-w-0">
                         {o.nome}
@@ -1039,10 +1047,10 @@ function FormularioProduto() {
                 </div>
               ))}
 
-              {extras.some((e) => e.nome.trim() && !estaEmFalta(e.nome)) && (
+              {extras.some((e) => e.nome.trim() && !estaEmFalta(GRUPO_ADICIONAIS, e.nome)) && (
                 <div className="mt-4">
                   <p className="font-bold text-sm">Adicionais</p>
-                  {extras.filter((e) => e.nome.trim() && !estaEmFalta(e.nome)).map((e) => (
+                  {extras.filter((e) => e.nome.trim() && !estaEmFalta(GRUPO_ADICIONAIS, e.nome)).map((e) => (
                     <div key={e.chave} className="mt-1.5 flex justify-between gap-2 text-sm rounded-lg border px-3 py-2">
                       <span className="min-w-0">
                         + {e.nome}
@@ -1177,11 +1185,12 @@ function UsarCadastrados({
   const ja = useMemo(() => new Set(jaNoProduto.map(chaveComplemento)), [jaNoProduto]);
   const disponiveis = useMemo(() => lista.filter((c) => !ja.has(chaveComplemento(c.nome))), [lista, ja]);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
+  const id = (c: Cadastrado) => `${c.grupo}::${c.nome}`;
   const [busca, setBusca] = useState("");
 
   const b = busca.trim().toLowerCase();
-  const filtrada = disponiveis.filter((c) => !b || c.nome.toLowerCase().includes(b));
-  const todosMarcados = filtrada.length > 0 && filtrada.every((c) => marcados.has(c.nome));
+  const filtrada = disponiveis.filter((c) => !b || c.nome.toLowerCase().includes(b) || c.grupo.toLowerCase().includes(b));
+  const todosMarcados = filtrada.length > 0 && filtrada.every((c) => marcados.has(id(c)));
 
   function alternar(nome: string) {
     setMarcados((m) => {
@@ -1196,8 +1205,8 @@ function UsarCadastrados({
     setMarcados((m) => {
       const n = new Set(m);
       for (const c of filtrada) {
-        if (todosMarcados) n.delete(c.nome);
-        else n.add(c.nome);
+        if (todosMarcados) n.delete(id(c));
+        else n.add(id(c));
       }
       return n;
     });
@@ -1235,15 +1244,17 @@ function UsarCadastrados({
             <p className="py-6 text-center text-sm text-zinc-500">Todos os complementos cadastrados já estão aqui.</p>
           )}
           {filtrada.map((c) => {
-            const marcado = marcados.has(c.nome);
+            const marcado = marcados.has(id(c));
             return (
               <label
-                key={c.nome}
+                key={id(c)}
                 className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 ${marcado ? "border-[#6D1F2F] bg-[#6D1F2F]/5" : ""}`}
               >
-                <input type="checkbox" checked={marcado} onChange={() => alternar(c.nome)} className="h-5 w-5 accent-[#6D1F2F]" />
+                <input type="checkbox" checked={marcado} onChange={() => alternar(id(c))} className="h-5 w-5 accent-[#6D1F2F]" />
                 <span className="min-w-0 flex-1">
-                  <span className="block font-semibold truncate">{c.nome}</span>
+                  <span className="block font-semibold truncate">
+                    {c.nome} <span className="font-normal text-zinc-500">· {c.grupo}</span>
+                  </span>
                   <span className="block text-xs text-zinc-500 truncate">
                     {c.preco > 0 ? `+ ${reais(c.preco)}` : "Sem custo"} · usado em {c.produtos.length === 1 ? "1 produto" : `${c.produtos.length} produtos`}
                   </span>
@@ -1257,7 +1268,17 @@ function UsarCadastrados({
         <button
           type="button"
           disabled={!marcados.size}
-          onClick={() => aoUsar(lista.filter((c) => marcados.has(c.nome)))}
+          onClick={() => {
+            // Mesmo nome em grupos diferentes entra uma vez só.
+            const vistos = new Set<string>();
+            aoUsar(
+              lista.filter((c) => {
+                if (!marcados.has(id(c)) || vistos.has(chaveComplemento(c.nome))) return false;
+                vistos.add(chaveComplemento(c.nome));
+                return true;
+              })
+            );
+          }}
           className="mt-3 h-12 rounded-xl bg-[#6D1F2F] font-bold text-white disabled:opacity-50"
         >
           {marcados.size ? `Adicionar ${marcados.size} ${marcados.size === 1 ? "complemento" : "complementos"}` : "Marque os complementos"}

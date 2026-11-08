@@ -14,6 +14,16 @@ export const chaveComplemento = (nome: unknown) =>
     .replace(/\s+/g, " ")
     .toLowerCase();
 
+/** Nome do "grupo" dos adicionais (fora das escolhas obrigatórias). */
+export const GRUPO_ADICIONAIS = "Adicionais";
+
+/**
+ * Identidade de um complemento: o grupo + o nome. "Morango" em "Frutas" e
+ * "Morango" em "Cremes" são complementos diferentes; pausar um não pausa o outro.
+ */
+export const chaveDoComplemento = (grupo: unknown, nome: unknown) =>
+  `${chaveComplemento(grupo || GRUPO_ADICIONAIS)}::${chaveComplemento(nome)}`;
+
 /**
  * Tira as opções pausadas de cada escolha obrigatória.
  * Se uma escolha obrigatória ficar sem nenhuma opção, o produto não pode ser

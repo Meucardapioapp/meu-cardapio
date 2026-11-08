@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { agoraLocal, statusDaLoja } from "@/lib/horario"
 
 export default function HorariosPage() {
 
@@ -285,6 +286,12 @@ const horarioInicioHoje =
 const horarioFimHoje =
   horarios[`${hoje}_fim` as keyof typeof horarios];
 
+/** Fecha depois da meia-noite (ex.: 14:00 até 02:00)? */
+function passaDaMeiaNoite(inicio: string, fim: string) {
+  if (!inicio || !fim) return false;
+  return converterHorarioParaMinutos(fim) <= converterHorarioParaMinutos(inicio);
+}
+
 function converterHorarioParaMinutos(horario: string) {
   if (!horario) return 0;
 
@@ -307,11 +314,16 @@ const minutosFim =
 const temHorarioHoje =
   Boolean(horarioInicioHoje && horarioFimHoje);
 
-const estaAbertoAgora =
-  hojeAtivo &&
-  temHorarioHoje &&
-  minutosAgora >= minutosInicio &&
-  minutosAgora < minutosFim;
+// Mesma regra do cardápio: aceita horário que passa da meia-noite
+// (ex.: 14:00 até 02:00 fecha às 2h do dia seguinte).
+const comoNoBanco: Record<string, unknown> = {};
+for (const d of diasSemana) {
+  comoNoBanco[`${d}_ativo`] = diasAtivos[d];
+  comoNoBanco[`horario_${d}_inicio`] = horarios[`${d}_inicio` as keyof typeof horarios];
+  comoNoBanco[`horario_${d}_fim`] = horarios[`${d}_fim` as keyof typeof horarios];
+}
+const situacao = statusDaLoja(comoNoBanco, agoraLocal(agora));
+const estaAbertoAgora = situacao.aberta;
 
 
 // ======================================================
@@ -362,7 +374,11 @@ function calcularProximaAbertura() {
   return "Nenhum horário configurado";
 }
 
-const proximaAbertura = calcularProximaAbertura();
+const proximaAbertura = estaAbertoAgora
+  ? "Aberto agora"
+  : situacao.proximaAbertura
+  ? situacao.proximaAbertura.charAt(0).toUpperCase() + situacao.proximaAbertura.slice(1)
+  : calcularProximaAbertura();
 
 return (
   <>
@@ -494,11 +510,14 @@ return (
 
     </div>
 
-    {hojeAtivo && temHorarioHoje ? (
+    {estaAbertoAgora ? (
       <p className="text-zinc-600 mt-2">
-        {estaAbertoAgora
-          ? `Fecha às ${horarioFimHoje}`
-          : minutosAgora < minutosInicio
+        Fecha às {situacao.fechaAs}
+        {converterHorarioParaMinutos(situacao.fechaAs) < minutosAgora ? " (de madrugada)" : ""}
+      </p>
+    ) : hojeAtivo && temHorarioHoje ? (
+      <p className="text-zinc-600 mt-2">
+        {minutosAgora < minutosInicio
           ? `Abre hoje às ${horarioInicioHoje}`
           : `Fechou hoje às ${horarioFimHoje}`}
       </p>
@@ -577,6 +596,9 @@ return (
 
       <p className="text-xs font-semibold text-zinc-600 mb-2">
         Horário de funcionamento
+      </p>
+      <p className="text-xs text-zinc-500 -mt-1 mb-2 max-w-xs">
+        Fecha depois da meia-noite? Coloque normalmente, ex.: 14:00 até 02:00. O sistema entende que fecha no dia seguinte.
       </p>
 
       <div className="flex items-center gap-2">
@@ -821,6 +843,17 @@ return (
         }
         className="flex-1 min-w-0 max-w-44 h-12 rounded-2xl border border-zinc-300 bg-white px-3 text-base font-semibold text-zinc-900 shadow-sm"
       />
+
+      {passaDaMeiaNoite(
+        horarios[dia.inicio as keyof typeof horarios],
+        horarios[dia.fim as keyof typeof horarios]
+      ) && (
+        <span className="shrink-0 text-xs font-semibold text-[#6D1F2F]">
+          do dia
+          <br />
+          seguinte
+        </span>
+      )}
 
     </div>
 

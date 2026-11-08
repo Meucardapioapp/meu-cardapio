@@ -3,7 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { erroInterno, getDonoAutenticado, naoAutenticado } from "@/lib/server/auth";
 import { limitar } from "@/lib/server/rate-limit";
-import { chaveComplemento, estaPausado } from "@/lib/complementos";
+import { chaveDoComplemento, estaPausado } from "@/lib/complementos";
 import { carregarComplementos, temColunaPausado } from "@/lib/server/complementos";
 
 /**
@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
 
     type Resumo = {
       nome: string;
+      grupo: string;
       total: number;
       pausados: number;
       produtos: Set<string>;
@@ -32,11 +33,12 @@ export async function GET(req: NextRequest) {
     };
     const porNome = new Map<string, Resumo>();
     for (const i of itens) {
-      const k = chaveComplemento(i.nome);
-      if (!k) continue;
+      if (!String(i.nome ?? "").trim()) continue;
+      const k = chaveDoComplemento(i.grupo, i.nome);
       if (!porNome.has(k)) {
         porNome.set(k, {
           nome: String(i.nome).trim(),
+          grupo: i.grupo,
           total: 0,
           pausados: 0,
           produtos: new Set(),
@@ -58,6 +60,7 @@ export async function GET(req: NextRequest) {
     const complementos = [...porNome.values()]
       .map((c) => ({
         nome: c.nome,
+        grupo: c.grupo,
         // Pausado em algum produto = pausado (o próximo toque acerta todos).
         pausado: c.pausados > 0,
         parcial: c.pausados > 0 && c.pausados < c.total,
@@ -67,7 +70,7 @@ export async function GET(req: NextRequest) {
         comoOpcao: c.comoOpcao,
         comoAdicional: c.comoAdicional,
       }))
-      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") || a.grupo.localeCompare(b.grupo, "pt-BR"));
 
     return NextResponse.json({ success: true, colunaExiste, complementos });
   } catch (error) {
@@ -75,7 +78,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-const esquema = z.object({ nome: z.string().min(1).max(150), pausado: z.boolean() });
+const esquema = z.object({ nome: z.string().min(1).max(150), grupo: z.string().max(150).default(""), pausado: z.boolean() });
 
 export async function POST(req: NextRequest) {
   try {
@@ -89,8 +92,9 @@ export async function POST(req: NextRequest) {
     const lido = esquema.safeParse(await req.json().catch(() => null));
     if (!lido.success) return NextResponse.json({ success: false, error: "Complemento inválido." }, { status: 400 });
 
-    const alvo = chaveComplemento(lido.data.nome);
-    const itens = (await carregarComplementos(dono.restaurante.id)).filter((i) => chaveComplemento(i.nome) === alvo);
+    // Só o complemento deste grupo: pausar "Morango" em Frutas não pausa o Morango dos Cremes.
+    const alvo = chaveDoComplemento(lido.data.grupo, lido.data.nome);
+    const itens = (await carregarComplementos(dono.restaurante.id)).filter((i) => chaveDoComplemento(i.grupo, i.nome) === alvo);
     if (!itens.length) return NextResponse.json({ success: false, error: "Complemento não encontrado." }, { status: 404 });
 
     const opcoes = itens.filter((i) => i.tabela === "opcao").map((i) => i.id);

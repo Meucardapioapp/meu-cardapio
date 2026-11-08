@@ -8,6 +8,7 @@ type Adicional = {
 }
 
 import type { CartItem } from "../types"
+import { agruparAdicionais } from "@/lib/adicionais";
 
 type Props = {
   cart: CartItem[]
@@ -160,7 +161,7 @@ export default function Cart({
 
                       <div className="mt-3 space-y-1">
 
-                        {item.adicionaisSelecionados.map(
+                        {agruparAdicionais(item.adicionaisSelecionados).map(
                           (adicional, index) => (
 
                             <div
@@ -174,11 +175,11 @@ export default function Cart({
                             >
 
                               <span>
-                                + {adicional.nome}
+                                + {adicional.qtd > 1 ? `${adicional.qtd}x ` : ""}{adicional.nome}
                               </span>
 
                               <span>
-                                R$ {Number(adicional.preco).toFixed(2)}
+                                R$ {(Number(adicional.preco) * adicional.qtd).toFixed(2)}
                               </span>
 
                             </div>

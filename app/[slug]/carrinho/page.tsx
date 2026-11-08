@@ -1,5 +1,6 @@
 "use client";
 
+import { textoAdicionais, textoEscolhas } from "@/lib/adicionais";
 import { useEffect, useMemo, useState } from "react";
 import { buscarCardapio, cardapioGuardado } from "@/lib/cardapio-cliente";
 import { useParams, useRouter } from "next/navigation";
@@ -285,12 +286,12 @@ export default function CarrinhoPage() {
                       </div>
                       {(item.obrigatoriosSelecionados ?? []).length > 0 && (
                         <p className="mt-0.5 text-xs leading-4 text-zinc-500">
-                          {(item.obrigatoriosSelecionados ?? []).map((o: any) => o.nome).join(" · ")}
+                          {textoEscolhas(item.obrigatoriosSelecionados)}
                         </p>
                       )}
                       {(item.adicionaisSelecionados ?? []).length > 0 && (
                         <p className="mt-0.5 text-xs leading-4 text-zinc-500">
-                          + {(item.adicionaisSelecionados ?? []).map((a: any) => a.nome).join(", ")}
+                          + {textoAdicionais(item.adicionaisSelecionados)}
                         </p>
                       )}
                       {item.observacao && <p className="mt-0.5 text-xs italic leading-4 text-zinc-500">“{item.observacao}”</p>}

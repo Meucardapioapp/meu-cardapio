@@ -1,5 +1,6 @@
 "use client";
 
+import { agruparAdicionais } from "@/lib/adicionais";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -758,11 +759,13 @@ export default function PedidosPage() {
                           {reais(Number(item.preco) * Number(item.quantity || 1))}
                         </p>
                       </div>
-                      {item.obrigatoriosSelecionados?.map((o: any, j: number) => (
-                        <p key={`o${j}`} className="text-sm text-zinc-600">• {o.grupo}: {o.nome}</p>
+                      {agruparAdicionais(item.obrigatoriosSelecionados).map((o, j) => (
+                        <p key={`o${j}`} className="text-sm text-zinc-600">
+                          • {(item.obrigatoriosSelecionados ?? []).find((x: any) => x.nome === o.nome)?.grupo}: {o.qtd > 1 ? `${o.qtd}x ` : ""}{o.nome}
+                        </p>
                       ))}
-                      {item.adicionaisSelecionados?.map((a: any, j: number) => (
-                        <p key={`a${j}`} className="text-sm text-zinc-600">+ {a.nome}</p>
+                      {agruparAdicionais(item.adicionaisSelecionados).map((a, j) => (
+                        <p key={`a${j}`} className="text-sm text-zinc-600">+ {a.qtd > 1 ? `${a.qtd}x ` : ""}{a.nome}</p>
                       ))}
                       {item.observacao && (
                         <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-2 py-1 mt-1">Obs: {item.observacao}</p>

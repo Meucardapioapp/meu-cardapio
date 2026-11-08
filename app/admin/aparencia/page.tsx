@@ -672,6 +672,9 @@ export default function AparenciaPage() {
                                 <input type="time" value={h.inicio} onChange={(e) => mudar({ inicio: e.target.value })} className="h-10 rounded-lg border px-2 text-base" />
                                 até
                                 <input type="time" value={h.fim} onChange={(e) => mudar({ fim: e.target.value })} className="h-10 rounded-lg border px-2 text-base" />
+                                {h.fim && h.inicio && h.fim <= h.inicio && (
+                                  <span className="text-xs font-semibold text-[#6D1F2F]">do dia seguinte</span>
+                                )}
                               </span>
                             ) : (
                               <span className="ml-auto text-sm text-zinc-400">Fechado</span>

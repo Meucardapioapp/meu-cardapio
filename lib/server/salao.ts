@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { calcularItens, PedidoInvalidoError, type ItemCalculado } from "@/lib/server/pedido";
 import { contabilizarPedido } from "@/lib/server/fidelidade";
+import { agruparAdicionais } from "@/lib/adicionais";
 
 /**
  * Restaurante (salão): comandas por mesa, itens lançados pelo garçom (ou
@@ -79,8 +80,11 @@ export async function setoresDosProdutos(restauranteId: string, produtoIds: stri
 /** "Sabor: Calabresa", "+ Bacon"… (o que a cozinha precisa saber do item). */
 function detalhesDoItem(item: ItemCalculado) {
   return [
-    ...item.obrigatoriosSelecionados.map((o) => `${o.grupo}: ${o.nome}`),
-    ...item.adicionaisSelecionados.map((a) => `+ ${a.nome}`),
+    ...agruparAdicionais(item.obrigatoriosSelecionados).map((o) => {
+      const grupo = item.obrigatoriosSelecionados.find((x) => x.nome === o.nome)?.grupo;
+      return `${grupo}: ${o.qtd > 1 ? `${o.qtd}x ` : ""}${o.nome}`;
+    }),
+    ...agruparAdicionais(item.adicionaisSelecionados).map((a) => `+ ${a.qtd > 1 ? `${a.qtd}x ` : ""}${a.nome}`),
   ];
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { textoAdicionais, textoEscolhas } from "@/lib/adicionais";
 import { useEffect, useMemo, useState } from "react";
 import { buscarCardapio, cardapioGuardado } from "@/lib/cardapio-cliente";
 import { useParams, useRouter } from "next/navigation";
@@ -728,10 +729,10 @@ export default function PagamentoPage() {
                 <span className="min-w-0 text-zinc-700">
                   <strong>{item.quantity}x</strong> {item.nome}
                   {(item.obrigatoriosSelecionados ?? []).length > 0 && (
-                    <span className="block text-xs text-zinc-500">{(item.obrigatoriosSelecionados ?? []).map((o: any) => o.nome).join(" · ")}</span>
+                    <span className="block text-xs text-zinc-500">{textoEscolhas(item.obrigatoriosSelecionados)}</span>
                   )}
                   {(item.adicionaisSelecionados ?? []).length > 0 && (
-                    <span className="block text-xs text-zinc-500">+ {(item.adicionaisSelecionados ?? []).map((x: any) => x.nome).join(", ")}</span>
+                    <span className="block text-xs text-zinc-500">+ {textoAdicionais(item.adicionaisSelecionados)}</span>
                   )}
                 </span>
                 <span className="shrink-0 text-zinc-700">{reais(precoUnitario(item) * Number(item.quantity))}</span>

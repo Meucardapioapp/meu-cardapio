@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { erroInterno, getDonoAutenticado, naoAutenticado } from "@/lib/server/auth";
 import { limitar } from "@/lib/server/rate-limit";
 import { mensagemDeErroBanco } from "@/lib/server/erros";
-import { chaveComplemento } from "@/lib/complementos";
+import { GRUPO_ADICIONAIS, chaveDoComplemento } from "@/lib/complementos";
 import { carregarComplementos, nomesPausados, temColunaPausado } from "@/lib/server/complementos";
 
 /**
@@ -47,6 +47,7 @@ const esquema = z.object({
         minimo: z.number().int().min(0).max(999),
         maximo: z.number().int().min(1).max(999),
         regra_preco: z.enum(["soma", "maior", "media"]).optional(),
+        permite_repetir: z.boolean().optional(),
         opcoes: z
           .array(
             z.object({
@@ -105,7 +106,7 @@ async function lerPausados(restauranteId: string | number): Promise<Pausados> {
 async function gravarFilhos(produtoId: string | number, corpo: Corpo, pausados: Pausados) {
   // Todas as linhas levam o campo (true/false): num envio de várias linhas,
   // campo que falta em uma vira "vazio" no banco.
-  const marca = (nome: string) => (pausados ? { pausado: pausados.has(chaveComplemento(nome)) } : {});
+  const marca = (grupo: string, nome: string) => (pausados ? { pausado: pausados.has(chaveDoComplemento(grupo, nome)) } : {});
 
   const criados = { grupos: [] as (string | number)[], adicionais: [] as (string | number)[] };
 
@@ -121,6 +122,8 @@ async function gravarFilhos(produtoId: string | number, corpo: Corpo, pausados: 
           maximo: g.maximo,
           // só envia quando não é o padrão (funciona antes do SQL 08)
           ...(g.regra_preco && g.regra_preco !== "soma" ? { regra_preco: g.regra_preco } : {}),
+          // só envia quando ligado (funciona antes do SQL 24)
+          ...(g.permite_repetir ? { permite_repetir: true } : {}),
         })
         .select("id")
         .single();
@@ -134,7 +137,7 @@ async function gravarFilhos(produtoId: string | number, corpo: Corpo, pausados: 
         preco: o.preco,
         imagem: "",
         ordem: i,
-        ...marca(o.nome),
+        ...marca(g.nome, o.nome),
       }));
       const { error: erroOpcoes } = await supabaseAdmin.from("grupo_obrigatorio_opcoes").insert(opcoes);
       if (erroOpcoes) throw erroOpcoes;
@@ -150,7 +153,7 @@ async function gravarFilhos(produtoId: string | number, corpo: Corpo, pausados: 
             preco: a.preco,
             // Ingredientes só vão quando preenchidos (funciona mesmo antes do SQL 12).
             ...(a.descricao?.trim() ? { descricao: a.descricao.trim().slice(0, 300) } : {}),
-            ...marca(a.nome),
+            ...marca(GRUPO_ADICIONAIS, a.nome),
           }))
         )
         .select("id");

@@ -5,6 +5,7 @@ import { Check, Minus, Plus, X } from "lucide-react";
 import type { ProdutoFormatado } from "../types";
 import { normalizarRegra, precosEfetivos } from "@/lib/precos";
 import { precoAPartirDe, reais } from "@/lib/dinheiro";
+import { MAX_REPETICOES_ADICIONAL, grupoPermiteRepetir, podeRepetir } from "@/lib/adicionais";
 
 type Adicional = { id?: string; nome: string; preco: number };
 
@@ -126,7 +127,11 @@ export default function ProductModal({
   if (!open || !product) return null;
 
   const totalAdicionais = adicionais.reduce((t, a) => t + Number(a.preco || 0), 0);
-  const totalOpcoes = [...precoPorOpcao.values()].reduce((t, v) => t + v, 0);
+  // Cada vez que a opção foi escolhida conta (ex.: 2x Nutella).
+  const totalOpcoes = grupos.reduce(
+    (t: number, g: any) => t + (escolhas[g.id] || []).reduce((s: number, id: string) => s + (precoPorOpcao.get(String(id)) ?? 0), 0),
+    0
+  );
   const unitario = Number(product.preco || 0) + totalAdicionais + totalOpcoes;
   const outras = sugestoes.filter((s) => String(s.id) !== String(product.id)).slice(0, 6);
   const totalExtras = outras.reduce((t, x) => t + Number(x.preco || 0) * (extras[String(x.id)] || 0), 0);
@@ -161,6 +166,34 @@ export default function ProductModal({
     setAdicionais((lista) => (lista.some((x) => x.nome === a.nome) ? lista.filter((x) => x.nome !== a.nome) : [...lista, a]));
   }
 
+  /** Quantas vezes o adicional foi escolhido (ex.: 3x Nutella). */
+  const vezesAdicional = (a: Adicional) => adicionais.filter((x) => x.nome === a.nome).length;
+
+  function mudarAdicional(a: Adicional, delta: number) {
+    setAdicionais((lista) => {
+      const vezes = lista.filter((x) => x.nome === a.nome).length;
+      if (delta > 0) return vezes >= MAX_REPETICOES_ADICIONAL ? lista : [...lista, a];
+      const i = lista.map((x) => x.nome).lastIndexOf(a.nome);
+      return i < 0 ? lista : [...lista.slice(0, i), ...lista.slice(i + 1)];
+    });
+  }
+
+  /** Mais/menos de uma opção que pode repetir (ex.: 2x Nutella num grupo "até 5"). */
+  function mudarOpcao(g: any, opcaoId: string, delta: number) {
+    setFaltando(null);
+    setEscolhas((atual) => {
+      const lista = atual[g.id] || [];
+      const vezes = lista.filter((id) => id === opcaoId).length;
+      if (delta > 0) {
+        if (g.maximo !== 999 && lista.length >= g.maximo) return atual;
+        if (vezes >= MAX_REPETICOES_ADICIONAL) return atual;
+        return { ...atual, [g.id]: [...lista, opcaoId] };
+      }
+      const i = lista.lastIndexOf(opcaoId);
+      return i < 0 ? atual : { ...atual, [g.id]: [...lista.slice(0, i), ...lista.slice(i + 1)] };
+    });
+  }
+
   /** Confere as escolhas obrigatórias; se faltar algo, leva até lá. */
   function escolhasOk() {
     const pendente = grupos.find((g: any) => !completo(g));
@@ -176,9 +209,10 @@ export default function ProductModal({
     if (bloqueado || !product) return;
     if (!escolhasOk()) return;
 
+    // Uma linha por vez escolhida (2x Nutella = 2 linhas), na ordem do cardápio.
     const obrigatorios = grupos.flatMap((g: any) =>
       g.opcoes
-        .filter((o: any) => (escolhas[g.id] || []).includes(o.id))
+        .flatMap((o: any) => (escolhas[g.id] || []).filter((id: string) => id === o.id).map(() => o))
         .map((o: any) => ({
           id: o.id,
           grupo: g.nome,
@@ -315,6 +349,22 @@ export default function ProductModal({
                     const marcada = marcadas.includes(o.id);
                     const desabilitada = !marcada && cheio;
                     const preco = Number(o.preco || 0);
+                    if (grupoPermiteRepetir(g)) {
+                      const vezes = marcadas.filter((id: string) => id === o.id).length;
+                      return (
+                        <LinhaQuantidade
+                          key={o.id}
+                          nome={o.nome}
+                          descricao={o.descricao}
+                          imagem={o.imagem}
+                          preco={preco}
+                          vezes={vezes}
+                          podeMais={!cheio && vezes < MAX_REPETICOES_ADICIONAL}
+                          cor={corPrincipal}
+                          aoMudar={(d) => mudarOpcao(g, o.id, d)}
+                        />
+                      );
+                    }
                     return (
                       <button
                         key={o.id}
@@ -353,6 +403,22 @@ export default function ProductModal({
               <div className="divide-y divide-zinc-100">
                 {(product.adicionais ?? []).map((a: any, i: number) => {
                   const marcado = adicionais.some((x) => x.nome === a.nome);
+                  // Adicional cobrado: o cliente escolhe quantas vezes (− 1 +).
+                  if (podeRepetir(a.preco)) {
+                    const vezes = vezesAdicional(a);
+                    return (
+                      <LinhaQuantidade
+                        key={a.id ?? i}
+                        nome={a.nome}
+                        descricao={a.descricao}
+                        preco={Number(a.preco)}
+                        vezes={vezes}
+                        podeMais={vezes < MAX_REPETICOES_ADICIONAL}
+                        cor={corPrincipal}
+                        aoMudar={(d) => mudarAdicional(a, d)}
+                      />
+                    );
+                  }
                   return (
                     <button
                       key={a.id ?? i}
@@ -475,6 +541,84 @@ export default function ProductModal({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Linha com − quantidade + (estilo iFood): para opções e adicionais cobrados. */
+function LinhaQuantidade({
+  nome,
+  descricao,
+  imagem,
+  preco,
+  vezes,
+  podeMais,
+  cor,
+  aoMudar,
+}: {
+  nome: string;
+  descricao?: string;
+  imagem?: string;
+  preco: number;
+  vezes: number;
+  podeMais: boolean;
+  cor: string;
+  aoMudar: (delta: number) => void;
+}) {
+  return (
+    <div
+      className={`flex w-full items-center gap-3 px-5 py-3.5 ${vezes === 0 && podeMais ? "cursor-pointer active:bg-zinc-50" : ""} ${vezes === 0 && !podeMais ? "opacity-40" : ""}`}
+      onClick={() => vezes === 0 && podeMais && aoMudar(1)}
+    >
+      {imagem && <img src={imagem} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-xl object-cover" />}
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-medium leading-snug">{nome}</p>
+        {descricao && <p className="mt-0.5 text-xs leading-4 text-zinc-500">{descricao}</p>}
+        <p className="mt-0.5 text-sm font-semibold text-zinc-700">
+          + {reais(preco)}
+          {vezes > 1 && <span className="ml-1 font-normal text-zinc-500">({vezes}x = {reais(preco * vezes)})</span>}
+        </p>
+      </div>
+      {vezes === 0 ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            aoMudar(1);
+          }}
+          disabled={!podeMais}
+          aria-label={`Adicionar ${nome}`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 disabled:opacity-40"
+          style={{ borderColor: cor, color: cor }}
+        >
+          <Plus size={18} strokeWidth={2.5} />
+        </button>
+      ) : (
+        <div className="flex h-9 shrink-0 items-center rounded-full border-2" style={{ borderColor: cor }}>
+          <button
+            type="button"
+            onClick={() => aoMudar(-1)}
+            aria-label={`Tirar um ${nome}`}
+            className="flex h-full w-9 items-center justify-center"
+            style={{ color: cor }}
+          >
+            <Minus size={16} strokeWidth={2.5} />
+          </button>
+          <span className="min-w-[1.25rem] text-center text-[15px] font-bold" aria-live="polite">
+            {vezes}
+          </span>
+          <button
+            type="button"
+            onClick={() => aoMudar(1)}
+            disabled={!podeMais}
+            aria-label={`Mais um ${nome}`}
+            className="flex h-full w-9 items-center justify-center disabled:opacity-30"
+            style={{ color: cor }}
+          >
+            <Plus size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

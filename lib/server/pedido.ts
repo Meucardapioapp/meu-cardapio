@@ -6,6 +6,7 @@ import { normalizarRegra, precosEfetivos } from "@/lib/precos";
 import { agoraNoFuso } from "@/lib/horario";
 import { precoAgora } from "@/lib/promocao";
 import { estaPausado, minimoDisponivel } from "@/lib/complementos";
+import { MAX_REPETICOES_ADICIONAL, grupoPermiteRepetir, podeRepetir } from "@/lib/adicionais";
 
 /**
  * Recalcula o pedido inteiro com os preços do banco.
@@ -152,6 +153,18 @@ export async function calcularItens(
       };
     });
 
+    // Mesmo adicional mais de uma vez (ex.: 3x Nutella): só os cobrados, até o limite.
+    {
+      const vezes = new Map<string, number>();
+      for (const a of adicionaisEscolhidos) vezes.set(a.id, (vezes.get(a.id) ?? 0) + 1);
+      for (const a of adicionaisEscolhidos) {
+        const n = vezes.get(a.id) ?? 0;
+        if (n > 1 && (!podeRepetir(a.preco) || n > MAX_REPETICOES_ADICIONAL)) {
+          throw new PedidoInvalidoError(`"${texto(a.nome, 60)}" não pode ser repetido tantas vezes em ${texto(produto.nome, 60)}.`);
+        }
+      }
+    }
+
     // ----- grupos obrigatórios -----
     const gruposDoProduto = (grupos ?? []).filter(
       (g: any) => String(g.produto_id) === String(produto.id)
@@ -196,7 +209,21 @@ export async function calcularItens(
     }
 
     for (const grupo of gruposDoProduto as any[]) {
-      const qtd = obrigatoriosEscolhidos.filter((o) => o.grupoId === String(grupo.id)).length;
+      const doGrupo = obrigatoriosEscolhidos.filter((o) => o.grupoId === String(grupo.id));
+      const qtd = doGrupo.length;
+
+      // Opção repetida (ex.: 2x Nutella): só se o grupo permite repetir.
+      const vezes = new Map<string, number>();
+      for (const o of doGrupo) vezes.set(o.id, (vezes.get(o.id) ?? 0) + 1);
+      for (const o of doGrupo) {
+        const n = vezes.get(o.id) ?? 0;
+        if (n > 1) {
+          if (!grupoPermiteRepetir(grupo) || n > MAX_REPETICOES_ADICIONAL) {
+            throw new PedidoInvalidoError(`"${texto(o.nome, 60)}" não pode ser repetido em "${grupo.nome}".`);
+          }
+        }
+      }
+
       // Com opções pausadas, o mínimo cai para o que ainda está disponível.
       const minimo = minimoDisponivel(grupo, grupo.grupo_obrigatorio_opcoes ?? []);
       const maximo = Number(grupo.maximo ?? 999);
