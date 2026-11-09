@@ -89,18 +89,19 @@ export default function Impressao() {
         *{box-sizing:border-box}
         html,body{margin:0;padding:0;width:100%;background:#fff}
         @page{size:auto;margin:2mm}
-        .comanda{width:100%;max-width:64mm;margin:0 auto;padding:2mm;font-family:"Courier New",Courier,monospace;color:#000;font-size:12px;line-height:1.25}
+        .comanda{width:100%;max-width:64mm;margin:0 auto;padding:2mm;font-family:"Courier New",Courier,monospace;color:#000;font-size:12px;line-height:1.25;font-weight:bold}
+        .comanda *{font-weight:bold !important;color:#000 !important}
         .c{text-align:center}
         .b{font-weight:bold}
-        .sep{border:none;border-top:1px dashed #000;margin:6px 0}
-        .sep-fina{border:none;border-top:1px dotted #000;margin:5px 0}
+        .sep{border:none;border-top:2px dashed #000;margin:6px 0}
+        .sep-fina{border:none;border-top:1px dashed #000;margin:5px 0}
         .linha{display:flex;justify-content:space-between;gap:6px}
         .linha>span:first-child{flex:1;min-width:0;overflow-wrap:anywhere}
         .linha>span:nth-child(2){flex-shrink:0;text-align:right;white-space:nowrap}
         .rot{font-size:11px;font-weight:bold;text-transform:uppercase}
         .grupo{padding-left:6px;margin-top:2px}
         .opcao{padding-left:14px}
-        .tipo{display:inline-block;border:1px solid #000;padding:1px 8px;font-weight:bold;margin-top:3px}
+        .tipo{display:inline-block;border:2px solid #000;padding:1px 8px;font-weight:bold;margin-top:3px}
       `}</style>
 
       <div className="c b" style={{ fontSize: 14 }}>{restaurante?.nome}</div>
