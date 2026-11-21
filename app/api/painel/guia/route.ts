@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         supabaseAdmin.from("aparencia").select("logo_url, banner_url").eq("restaurante_id", id).limit(1).maybeSingle(),
         supabaseAdmin.from("produtos").select("id", { count: "exact", head: true }).eq("restaurante_id", id),
         supabaseAdmin.from("bairros_entrega").select("id", { count: "exact", head: true }).eq("restaurante_id", id),
-        supabaseAdmin.from("configuracoes_pagamento").select("restaurante_id").eq("restaurante_id", id).maybeSingle(),
+        supabaseAdmin.from("configuracoes_pagamento").select("*").eq("restaurante_id", id).maybeSingle(),
         supabaseAdmin.from("restaurantes").select("endereco").eq("id", id).maybeSingle(),
         getRecebedorId(id).catch(() => null),
       ]);
@@ -46,7 +46,10 @@ export async function GET(req: NextRequest) {
     if ((produtos.count ?? 0) > 0) feitos.add("produtos");
     if ((bairros.count ?? 0) > 0) feitos.add("entrega");
     if (pagamentos.data) feitos.add("pagamentos");
-    if (String((restaurante.data as any)?.endereco ?? "").trim()) feitos.add("retirada");
+    // Endereço preenchido, ou "Só trabalho com delivery" (não precisa de endereço de retirada).
+    if (String((restaurante.data as any)?.endereco ?? "").trim() || (pagamentos.data as any)?.retirada === false) {
+      feitos.add("retirada");
+    }
     if (recebedor) feitos.add("dados-bancarios");
 
     return NextResponse.json({ success: true, feitos: [...feitos] });

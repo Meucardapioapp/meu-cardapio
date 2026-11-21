@@ -192,7 +192,7 @@ export default function CobrancaEntrega({ children }: { children: ReactNode }) {
               <button
                 onClick={() => enviar({ acao: "localizar_endereco" }, "endereco", "Localização encontrada pelo endereço.")}
                 disabled={ocupado !== null || !temEndereco}
-                title={temEndereco ? "" : "Cadastre o endereço em Endereço para retirada"}
+                title={temEndereco ? "" : "Cadastre o endereço em Endereço e retirada"}
                 className="h-11 px-4 rounded-xl border font-bold flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {ocupado === "endereco" ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}

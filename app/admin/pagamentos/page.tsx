@@ -6,6 +6,7 @@ import { apiFetch } from "@/utils/apiFetch";
 import { Banknote, CreditCard, Loader2, Lock, Save, Zap } from "lucide-react";
 import { FaPix } from "react-icons/fa6";
 import { toast } from "sonner";
+import LigarPixOnline from "@/app/admin/components/LigarPixOnline";
 
 type TipoChave = "cpf" | "cnpj" | "celular" | "email" | "aleatoria";
 
@@ -237,7 +238,12 @@ export default function PagamentosPage() {
             </p>
           </div>
           {pixCadastrado && !editandoPix && (
-            <Interruptor ligado={pixAtivo} onClick={() => !salvandoPix && ligarPix(!pixAtivo)} rotulo="Pix na sua chave" />
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <Interruptor ligado={pixAtivo} onClick={() => !salvandoPix && ligarPix(!pixAtivo)} rotulo="Pix na sua chave" />
+              <span className={`text-[11px] font-semibold ${pixAtivo ? "text-green-700" : "text-zinc-500"}`}>
+                {pixAtivo ? "No cardápio" : "Desligado"}
+              </span>
+            </div>
           )}
         </div>
 
@@ -363,6 +369,7 @@ export default function PagamentosPage() {
             </a>
           </div>
         </div>
+        {pixOnline && <LigarPixOnline className="mt-4" />}
       </section>
     </div>
   );

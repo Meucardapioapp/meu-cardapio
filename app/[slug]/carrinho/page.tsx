@@ -127,6 +127,12 @@ export default function CarrinhoPage() {
   const uf = restaurante?.uf || paraUF(restaurante?.estado);
   const status = aparencia ? statusDaLoja(aparencia, agoraNoFuso(uf)) : null;
   const pausado = dados ? dados.pedidosAtivos === false : false;
+  // "Só trabalho com delivery": esconde a opção de retirar.
+  const aceitaRetirada = dados ? dados.aceitaRetirada !== false : true;
+
+  useEffect(() => {
+    if (!aceitaRetirada && tipo === "retirada" && !mesa) setTipo("entrega");
+  }, [aceitaRetirada, tipo, mesa]);
   const lojaAberta = !pausado && (status ? status.aberta : true);
   const pedidoMinimo = Number(aparencia?.pedido_minimo || 0);
   const taxaMinima: number | null = dados?.taxaMinima ?? null;
@@ -376,11 +382,14 @@ export default function CarrinhoPage() {
               </div>
             ) : (
               <div className="mt-5 rounded-3xl bg-white p-4">
-                <p className="text-[15px] font-bold">Como você quer receber?</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <p className="text-[15px] font-bold">{aceitaRetirada ? "Como você quer receber?" : "Entrega no seu endereço"}</p>
+                {!aceitaRetirada && (
+                  <p className="mt-1 text-sm text-zinc-500">Este restaurante trabalha só com entrega.</p>
+                )}
+                <div className={`mt-3 grid gap-2 ${aceitaRetirada ? "grid-cols-2" : "grid-cols-1"}`}>
                   {[
                     { id: "entrega" as const, titulo: "Entrega", sub: taxaMinima == null ? "no seu endereço" : taxaMinima > 0 ? `a partir de ${reais(taxaMinima)}` : "grátis", Icone: Bike },
-                    { id: "retirada" as const, titulo: "Retirar", sub: "sem taxa", Icone: Store },
+                    ...(aceitaRetirada ? [{ id: "retirada" as const, titulo: "Retirar", sub: "sem taxa", Icone: Store }] : []),
                   ].map(({ id, titulo, sub, Icone }) => {
                     const ativo = tipo === id;
                     return (

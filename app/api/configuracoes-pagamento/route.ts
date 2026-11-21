@@ -1,10 +1,10 @@
 import { limitar } from "@/lib/server/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getRecebedorId } from "@/lib/server/recebedor";
 import { restaurantePodeReceberPedidos } from "@/lib/server/assinatura";
 import { getOperacao } from "@/lib/server/operacao";
 import { pixChaveAtivo } from "@/lib/server/pixChave";
+import { lerFormasPedido } from "@/lib/server/formasPedido";
 
 /**
  * Formas de pagamento aceitas pelo restaurante (público, usado no checkout).
@@ -22,12 +22,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [{ data }, recebedor, planoAtivo, operacao, pixChave] = await Promise.all([
-      supabaseAdmin
-        .from("configuracoes_pagamento")
-        .select("dinheiro, cartao_entrega")
-        .eq("restaurante_id", restauranteId)
-        .maybeSingle(),
+    const [formas, recebedor, planoAtivo, operacao, pixChave] = await Promise.all([
+      lerFormasPedido(restauranteId),
       getRecebedorId(restauranteId).catch(() => null),
       restaurantePodeReceberPedidos(restauranteId),
       getOperacao(restauranteId),
@@ -37,9 +33,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       // Sem configuração salva: aceita dinheiro e cartão na entrega.
-      dinheiro: data ? Boolean(data.dinheiro) : true,
-      cartao_entrega: data ? Boolean(data.cartao_entrega) : true,
-      pix_online: Boolean(recebedor),
+      dinheiro: formas.dinheiro,
+      cartao_entrega: formas.cartao_entrega,
+      // Pix online: precisa da conta na Pagar.me E estar ligado pelo dono.
+      pix_online: Boolean(recebedor) && formas.pix_online,
+      retirada: formas.retirada,
       pix_chave: pixChave,
       pedidos_ativos: pedidosAtivos,
       pausado: operacao.pausado,

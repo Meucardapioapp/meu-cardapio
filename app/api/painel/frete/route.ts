@@ -89,7 +89,7 @@ export async function PUT(req: NextRequest) {
         const endereco = await enderecoDoRestaurante(restauranteId);
         if (!endereco.rua || !endereco.cidade) {
           return NextResponse.json(
-            { success: false, error: "Cadastre primeiro o endereço do restaurante (menu Endereço para retirada)." },
+            { success: false, error: "Cadastre primeiro o endereço do restaurante (menu Endereço e retirada)." },
             { status: 400 }
           );
         }

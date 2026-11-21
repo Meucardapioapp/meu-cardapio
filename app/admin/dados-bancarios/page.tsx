@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/utils/apiFetch";
 import { formatarCpfCnpj } from "@/lib/validacoes";
+import LigarPixOnline from "@/app/admin/components/LigarPixOnline";
 import {
   BANCOS,
   BANCOS_AGENCIA_SEM_DIGITO,
@@ -369,6 +370,8 @@ function CartaoResumo({
           <Info size={13} /> Estes são os dados que estão na Pagar.me. Eles somem da tela sozinhos em 3 minutos.
         </p>
       )}
+
+      {info.pixOnline && <LigarPixOnline className="mt-4" />}
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button

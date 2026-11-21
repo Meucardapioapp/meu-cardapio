@@ -18,6 +18,7 @@ import { getRecebedorId } from "@/lib/server/recebedor";
 import { limitar, limitarChave } from "@/lib/server/rate-limit";
 import { mensagemDeErroBanco } from "@/lib/server/erros";
 import { lancarPedidoDoQr } from "@/lib/server/salao";
+import { lerFormasPedido } from "@/lib/server/formasPedido";
 
 const METODOS = ["pix", "cash", "card_delivery", "pix_chave"] as const;
 type Metodo = (typeof METODOS)[number];
@@ -105,8 +106,15 @@ export async function POST(req: NextRequest) {
     }
 
     // ---------- forma de pagamento permitida ----------
+    const formas = await lerFormasPedido(restauranteId);
+
+    // "Só trabalho com delivery": não aceita retirada (mesa continua valendo).
+    if (tipoPedido === "retirada" && !mesa && !formas.retirada) {
+      return erro("Este restaurante só faz entrega. Escolha Entrega e informe o endereço.");
+    }
+
     if (metodo === "pix") {
-      if (!(await getRecebedorId(restauranteId))) {
+      if (!formas.pix_online || !(await getRecebedorId(restauranteId))) {
         return erro("Pix online indisponível neste restaurante.");
       }
     } else if (metodo === "pix_chave") {
@@ -114,14 +122,8 @@ export async function POST(req: NextRequest) {
         return erro("Pix na chave do restaurante indisponível.");
       }
     } else {
-      const { data: config } = await supabaseAdmin
-        .from("configuracoes_pagamento")
-        .select("dinheiro, cartao_entrega")
-        .eq("restaurante_id", restauranteId)
-        .maybeSingle();
-
-      const aceitaDinheiro = config ? Boolean(config.dinheiro) : true;
-      const aceitaCartao = config ? Boolean(config.cartao_entrega) : true;
+      const aceitaDinheiro = formas.dinheiro;
+      const aceitaCartao = formas.cartao_entrega;
 
       if (metodo === "cash" && !aceitaDinheiro) {
         return erro("Pagamento em dinheiro indisponível.");

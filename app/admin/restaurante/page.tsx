@@ -9,6 +9,7 @@ import {
   Truck
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { apiFetch } from "@/utils/apiFetch"
 import Toast from "@/app/components/ui/toast"
 
 
@@ -22,6 +23,10 @@ export default function RestaurantePage() {
   const [estado, setEstado] = useState("")
 
 
+
+  // "Só trabalho com delivery": o cardápio não oferece retirada.
+  const [soDelivery, setSoDelivery] = useState(false)
+  const [salvandoModo, setSalvandoModo] = useState(false)
 
   const [loadingCep, setLoadingCep] = useState(false)
   const [loadingSalvar, setLoadingSalvar] =
@@ -37,7 +42,38 @@ const [toast, setToast] = useState<{
 
 useEffect(() => {
   carregarEndereco()
+  apiFetch("/api/painel/formas-pedido")
+    .then((r) => r.json())
+    .then((d) => d?.success && setSoDelivery(d.retirada === false))
+    .catch(() => {})
 }, [])
+
+async function mudarSoDelivery() {
+  if (salvandoModo) return
+  const novo = !soDelivery
+  setSalvandoModo(true)
+  try {
+    const r = await apiFetch("/api/painel/formas-pedido", {
+      method: "POST",
+      body: JSON.stringify({ campo: "retirada", ativo: !novo }),
+    })
+    const d = await r.json().catch(() => null)
+    if (!r.ok || !d?.success) throw new Error(d?.error || "Não foi possível alterar.")
+    setSoDelivery(novo)
+    setToast({
+      tipo: "sucesso",
+      titulo: novo ? "Só delivery" : "Retirada ligada",
+      mensagem: novo
+        ? "Seu cardápio agora mostra só a opção de entrega."
+        : "Seus clientes podem escolher entre entrega e retirada.",
+    })
+  } catch (e: any) {
+    setToast({ tipo: "erro", titulo: "Erro", mensagem: e?.message || "Não foi possível alterar." })
+  } finally {
+    setSalvandoModo(false)
+    setTimeout(() => setToast(null), 5000)
+  }
+}
 
 async function carregarEndereco() {
   try {
@@ -191,6 +227,40 @@ return (
      
 
        
+      {/* SÓ DELIVERY */}
+
+      <button
+        type="button"
+        role="switch"
+        aria-checked={soDelivery}
+        onClick={mudarSoDelivery}
+        disabled={salvandoModo}
+        className={`w-full flex items-center gap-4 rounded-3xl border-2 p-5 text-left transition disabled:opacity-60 ${
+          soDelivery ? "border-[#7A1F3D] bg-[#7A1F3D]/5" : "border-zinc-200 bg-white"
+        }`}
+      >
+        <span className="w-12 h-12 rounded-2xl bg-[#F8F1F3] flex items-center justify-center shrink-0">
+          <Truck size={24} className="text-[#7A1F3D]" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block font-bold text-lg text-zinc-900">Só trabalho com delivery</span>
+          <span className="block text-sm text-zinc-500">
+            {soDelivery
+              ? "Ligado: não atendo retirada. O cardápio mostra só a entrega."
+              : "Ligue se você não atende retirada no local. O cliente só vai poder pedir para entregar."}
+          </span>
+        </span>
+        <span className={`relative w-14 h-8 shrink-0 rounded-full transition ${soDelivery ? "bg-green-600" : "bg-zinc-300"}`}>
+          <span className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow transition-all ${soDelivery ? "left-7" : "left-1"}`} />
+        </span>
+      </button>
+
+      {soDelivery && (
+        <p className="-mt-4 text-sm text-zinc-500 px-2">
+          O endereço abaixo fica opcional. Preencha só se você cobra a entrega por distância (km): ele é o ponto de saída do motoboy.
+        </p>
+      )}
+
       {/* FORMULÁRIO */}
 
       <div className="bg-white rounded-3xl border p-8">
@@ -326,12 +396,13 @@ className="h-14 rounded-2xl"
       >
 
         <p className="font-bold text-green-700">
-          Endereço configurado
+          Para que serve este endereço
         </p>
 
         <p className="text-green-600 mt-1">
-          Este endereço será utilizado para calcular entregas e
-          verificar a área atendida.
+          {soDelivery
+            ? "Como você só trabalha com delivery, ele serve apenas para calcular a taxa de entrega por distância."
+            : "Aparece para o cliente que escolhe retirar no local e é usado para calcular a taxa de entrega por distância."}
         </p>
 
       </div>

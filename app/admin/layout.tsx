@@ -75,7 +75,7 @@ const GRUPOS_MENU: { titulo: string; itens: ItemMenu[] }[] = [
     titulo: "Configurações",
     itens: [
       { nome: "Taxa de entrega", link: "/admin/entrega" },
-      { nome: "Endereço para retirada", link: "/admin/restaurante" },
+      { nome: "Endereço e retirada", link: "/admin/restaurante" },
       { nome: "Formas de pagamento", link: "/admin/pagamentos" },
       { nome: "Dados bancários (Pix online)", link: "/admin/dados-bancarios" },
       { nome: "Pixel do Meta", link: "/admin/integracoes" },

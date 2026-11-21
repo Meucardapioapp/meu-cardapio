@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { lerRestaurantePublico } from "@/lib/restaurantePublico";
 import { restaurantePodeReceberPedidos } from "@/lib/server/assinatura";
 import { getOperacao } from "@/lib/server/operacao";
+import { lerFormasPedido } from "@/lib/server/formasPedido";
 import { agoraNoFuso } from "@/lib/horario";
 import { promocaoAtiva, rotuloPromocao } from "@/lib/promocao";
 import { estaPausado, semPausados } from "@/lib/complementos";
@@ -113,7 +114,7 @@ export const carregarCardapio = cache(async (slug: string) => {
   const id = String(restaurante.id);
   const restaurantePublico = somentePublico(restaurante);
 
-  const [aparenciaRes, categoriasRes, produtosRes, operacao, planoAtivo, idsMaisPedidos, avaliacao, taxasRes] = await Promise.all([
+  const [aparenciaRes, categoriasRes, produtosRes, operacao, planoAtivo, idsMaisPedidos, avaliacao, taxasRes, formas] = await Promise.all([
     supabaseAdmin.from("aparencia").select("*").eq("restaurante_id", id).limit(1),
     supabaseAdmin.from("categorias").select("id, nome, ordem").eq("restaurante_id", id).order("ordem", { ascending: true }),
     supabaseAdmin
@@ -133,6 +134,7 @@ export const carregarCardapio = cache(async (slug: string) => {
       .eq("restaurante_id", id)
       .order("valor", { ascending: true })
       .limit(1),
+    lerFormasPedido(id).catch(() => null),
   ]);
   const taxas = taxasRes.data;
   const taxaMinima = taxas?.length ? Number(taxas[0].valor || 0) : null;
@@ -184,6 +186,8 @@ export const carregarCardapio = cache(async (slug: string) => {
     categorias: (categoriasRes.data ?? []).map((c: any) => String(c.nome)),
     operacao,
     pedidosAtivos: planoAtivo && !operacao.pausado,
+    // false = "Só trabalho com delivery": o carrinho não oferece retirada.
+    aceitaRetirada: formas ? formas.retirada : true,
     avaliacao,
     taxaMinima,
     maisPedidos: idsMaisPedidos.filter((pid) => produtosVisiveis.some((p: any) => String(p.id) === pid)).slice(0, 6),

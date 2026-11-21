@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buscarCardapio, cardapioGuardado } from "@/lib/cardapio-cliente";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Check, LocateFixed, Loader2, MapPin } from "lucide-react";
+import { ArrowLeft, Check, Loader2, MapPin } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { agoraNoFuso, statusDaLoja } from "@/lib/horario";
@@ -143,52 +143,6 @@ export default function EnderecoPage() {
     setBairro(e.bairro || "");
     setBuscaBairro(e.bairro || "");
     setErros({});
-  }
-
-  // ---------- usar minha localização ----------
-  const [localizando, setLocalizando] = useState(false);
-  const [avisoLocal, setAvisoLocal] = useState("");
-  function usarLocalizacao() {
-    setAvisoLocal("");
-    if (!navigator.geolocation) return setAvisoLocal("Este celular não informa a localização. Digite o endereço.");
-    setLocalizando(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const r = await fetch("/api/localizacao", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-          });
-          const d = await r.json();
-          if (!d?.success) return setAvisoLocal(d?.error || "Não achamos seu endereço. Digite abaixo.");
-          const e = d.endereco;
-          if (e.rua) setRua(e.rua);
-          if (e.numero) setNumero(e.numero);
-          if (e.cep) setCep(String(e.cep).replace(/\D/g, "").replace(/^(\d{5})(\d)/, "$1-$2"));
-          if (e.bairro) {
-            if (modoFrete === "bairro") {
-              const achado = bairros.find((b) => semAcento(b.bairro).trim() === semAcento(e.bairro).trim());
-              setBuscaBairro(achado ? achado.bairro : e.bairro);
-              setBairro(achado ? achado.bairro : "");
-              if (!achado) setListaBairroAberta(true);
-            } else setBairro(e.bairro);
-          }
-          setErros({});
-          setAvisoLocal(e.numero ? "Confira o endereço antes de continuar." : "Confira a rua e digite o número.");
-          if (!e.numero) setTimeout(() => document.getElementById("campo-numero")?.focus(), 50);
-        } catch {
-          setAvisoLocal("Sem conexão. Digite o endereço.");
-        } finally {
-          setLocalizando(false);
-        }
-      },
-      () => {
-        setLocalizando(false);
-        setAvisoLocal("Não conseguimos sua localização. Digite o endereço.");
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
-    );
   }
 
   // ---------- frete ----------
@@ -358,18 +312,6 @@ export default function EnderecoPage() {
 
         <section className="space-y-3 rounded-3xl bg-white p-4">
           <p className="text-[15px] font-bold">Endereço de entrega</p>
-
-          <button
-            type="button"
-            onClick={usarLocalizacao}
-            disabled={localizando}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition active:scale-[0.99] disabled:opacity-60"
-            style={{ borderColor: `${corPrincipal}55`, color: corPrincipal, backgroundColor: `${corPrincipal}0A` }}
-          >
-            {localizando ? <Loader2 size={17} className="animate-spin" /> : <LocateFixed size={17} />}
-            {localizando ? "Buscando seu endereço..." : "Usar minha localização"}
-          </button>
-          {avisoLocal && <p className="-mt-1 text-xs text-zinc-500">{avisoLocal}</p>}
 
           {enderecosSalvos.length > 1 && (
             <div className="scrollbar-hide -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
