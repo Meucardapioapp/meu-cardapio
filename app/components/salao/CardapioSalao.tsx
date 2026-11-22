@@ -3,14 +3,18 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft, Loader2, Minus, Plus, Search, Send, Trash2, X } from "lucide-react";
 import { normalizarRegra, precosEfetivos } from "@/lib/precos";
+import { aplicarGratis, contaNoGratis, regraGratisDe } from "@/lib/complementosGratis";
 
-export type OpcaoSalao = { id: string; nome: string; preco: number };
+export type OpcaoSalao = { id: string; nome: string; preco: number; naoConta?: boolean };
 export type GrupoSalao = { id: string; nome: string; minimo: number; maximo: number; regra: string; opcoes: OpcaoSalao[] };
 export type ProdutoSalao = {
   id: string;
   nome: string;
   preco: number;
   categoria: string;
+  /** Complementos grátis no total (ex.: açaí com 3); null = sem limite. */
+  complementosGratis?: number | null;
+  precoComplementoExtra?: number;
   adicionais: OpcaoSalao[];
   grupos: GrupoSalao[];
 };
@@ -41,10 +45,16 @@ const precisaEscolher = (p: ProdutoSalao) => p.grupos.some((g) => g.minimo > 0);
 
 function precoDaLinha(l: Pick<Linha, "produto" | "obrigatorios" | "adicionais">) {
   let total = l.produto.preco + l.adicionais.reduce((s, a) => s + a.preco, 0);
+  const linhas: { preco: number; conta: boolean }[] = [];
   for (const g of l.produto.grupos) {
-    const doGrupo = l.obrigatorios.filter((o) => o.grupoId === g.id).map((o) => o.preco);
-    total += precosEfetivos(doGrupo, normalizarRegra(g.regra)).reduce((s, v) => s + v, 0);
+    const escolhidas = l.obrigatorios.filter((o) => o.grupoId === g.id);
+    const doGrupo = escolhidas.map((o) => o.preco);
+    precosEfetivos(doGrupo, normalizarRegra(g.regra)).forEach((v, i) =>
+      linhas.push({ preco: v, conta: contaNoGratis(doGrupo[i], g.regra, escolhidas[i].naoConta) })
+    );
   }
+  // Complementos grátis no total: os que passam do limite custam o extra (o servidor confere).
+  total += aplicarGratis(linhas, regraGratisDe(l.produto)).reduce((s, v) => s + v.preco, 0);
   return Math.round(total * 100) / 100;
 }
 

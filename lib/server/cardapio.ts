@@ -207,6 +207,9 @@ export const carregarCardapio = cache(async (slug: string) => {
       sugerirNoCarrinho: produto.sugerir_no_carrinho === true,
       adicionais: adicionaisPorProduto.get(String(produto.id)) ?? [],
       gruposObrigatorios: gruposPorProduto.get(String(produto.id)) ?? [],
+      // Complementos grátis no total (null = produto funciona como sempre).
+      complementosGratis: produto.complementos_gratis ?? null,
+      precoComplementoExtra: Number(produto.preco_complemento_extra || 0),
       };
     }),
   };

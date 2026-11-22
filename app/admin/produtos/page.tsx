@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, ImageOff, PauseCircle, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ImageOff, PauseCircle, Pencil, Plus, Search, Trash2, Copy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type Produto = {
@@ -368,6 +368,13 @@ export default function ProdutosPage() {
                         className="h-9 px-3 rounded-lg border border-zinc-200 text-sm font-semibold flex items-center gap-1"
                       >
                         <Pencil size={14} /> Editar
+                      </Link>
+                      <Link
+                        href={`/admin/produtos/novo-produto?duplicar=${p.id}`}
+                        aria-label={`Duplicar ${p.nome}`}
+                        className="h-9 px-3 rounded-lg border border-zinc-200 text-sm font-semibold flex items-center gap-1"
+                      >
+                        <Copy size={14} /> Duplicar
                       </Link>
                       <button
                         onClick={() => setExcluir(p)}

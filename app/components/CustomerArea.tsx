@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import EditProfile from "./customer/EditProfile";
 import EditAddresses from "./customer/EditAddresses";
 import LoginCustomer from "./customer/LoginCustomer";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { reais } from "@/lib/dinheiro";
 import {
   User,
@@ -13,16 +14,19 @@ import {
   X,
   MapPin,
   Package,
-  Mail,
+  Ticket,
   LogOut,
-  Calendar,
   Wallet,
   ChevronRight,
+  Pencil,
+  Check,
 } from "lucide-react";
 
 type Props = {
   open: boolean;
   onClose: () => void;
+  /** Cor da loja (deixa a tela com a identidade do restaurante). */
+  corPrincipal?: string;
   /** Abre já rolado até "Últimos pedidos". */
   foco?: "pedidos";
   /** Monta o carrinho com os itens de um pedido antigo. */
@@ -42,46 +46,83 @@ const NOME_STATUS: Record<string, string> = {
   cancelado: "Cancelado",
 };
 
+const corDoStatus = (status: string) =>
+  status === "Entregue"
+    ? "bg-green-100 text-green-700"
+    : status === "Cancelado" || status === "Recusado"
+    ? "bg-red-100 text-red-700"
+    : status === "Saiu para entrega"
+    ? "bg-blue-100 text-blue-700"
+    : "bg-amber-100 text-amber-700";
+
 export default function CustomerArea({
   open,
   onClose,
+  corPrincipal,
   foco,
   onPedirDeNovo,
   semPedidos = false,
   onVerPedidos,
 }: Props) {
-    const router = useRouter();
-    const pathname = usePathname();
+  const router = useRouter();
+  const pathname = usePathname();
+  const cor = corPrincipal || "#18181b";
+
   const [loading, setLoading] = useState(true);
   const [dados, setDados] = useState<any>(null);
+  const [fidelidade, setFidelidade] = useState<any>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [confirmarExclusao, setConfirmarExclusao] = useState(false);
+  const [apagando, setApagando] = useState(false);
+
+  const slugAtual = () => window.location.pathname.split("/")[1];
+  const tokenAtual = () => localStorage.getItem(`cliente_token-${slugAtual()}`) || "";
+
+  async function carregarFidelidade(rid: string | undefined, token: string) {
+    if (!rid) return;
+    try {
+      const r = await fetch(`/api/fidelidade?restauranteId=${encodeURIComponent(rid)}`, {
+        headers: { "x-cliente-token": token },
+      });
+      const f = await r.json().catch(() => null);
+      if (f?.success && f.programa) setFidelidade(f);
+    } catch {}
+  }
+
+  async function recarregar() {
+    const token = tokenAtual();
+    if (!token) return;
+    const r = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token } });
+    const d = await r.json().catch(() => null);
+    if (d?.success) {
+      setDados(d);
+      carregarFidelidade(d.cliente?.restaurante_id, token);
+    }
+  }
 
   useEffect(() => {
     async function carregarCliente() {
       setDados(null);
-setLoading(true);
-      const slug = window.location.pathname.split("/")[1];
+      setFidelidade(null);
+      setLoading(true);
 
-const token = localStorage.getItem(
-  `cliente_token-${slug}`
-);
-
-if (!token) {
-  setLoginOpen(true);
-  setLoading(false);
-  setDados(null);
-  return;
-}
+      const token = tokenAtual();
+      if (!token) {
+        setLoginOpen(true);
+        setLoading(false);
+        return;
+      }
 
       try {
-        const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
-
+        const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token } });
         const resultado = await response.json();
 
         if (resultado.success) {
           setDados(resultado);
+          // Fidelidade (programa + selos do cliente), se o restaurante tiver.
+          carregarFidelidade(resultado.cliente?.restaurante_id, token);
         } else {
           setDados(null);
         }
@@ -92,935 +133,457 @@ if (!token) {
       setLoading(false);
     }
 
-    if (open) {
-      carregarCliente();
-    }
- }, [open, pathname]);
+    if (open) carregarCliente();
+  }, [open, pathname]);
 
   async function apagarMeusDados() {
-    const slug = window.location.pathname.split("/")[1];
-    const token = localStorage.getItem(`cliente_token-${slug}`) || "";
-    const resposta = window.prompt(
-      "Isso apaga seu cadastro, endereços e selos de fidelidade deste restaurante. Os pedidos ficam sem seu nome e telefone. Para confirmar, digite APAGAR:"
-    );
-    if (resposta?.trim().toUpperCase() !== "APAGAR") return;
-    const r = await fetch("/api/cliente/excluir", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-cliente-token": token },
-      body: JSON.stringify({ confirmar: "APAGAR" }),
-    });
-    const d = await r.json().catch(() => null);
-    if (!d?.success) {
-      window.alert(d?.error || "Não foi possível apagar agora.");
-      return;
-    }
-    localStorage.removeItem(`cliente_token-${slug}`);
+    setApagando(true);
+    const token = tokenAtual();
     try {
-      for (const k of Object.keys(localStorage)) if (k.includes(slug) && /endereco|cliente|dados/i.test(k)) localStorage.removeItem(k);
-    } catch {}
-    setDados(null);
-    window.alert("Pronto: seus dados foram apagados.");
+      const r = await fetch("/api/cliente/excluir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-cliente-token": token },
+        body: JSON.stringify({ confirmar: "APAGAR" }),
+      });
+      const d = await r.json().catch(() => null);
+      if (!d?.success) {
+        window.alert(d?.error || "Não foi possível apagar agora.");
+        return;
+      }
+      const slug = slugAtual();
+      localStorage.removeItem(`cliente_token-${slug}`);
+      try {
+        for (const k of Object.keys(localStorage))
+          if (k.includes(slug) && /endereco|cliente|dados/i.test(k)) localStorage.removeItem(k);
+      } catch {}
+      setDados(null);
+      setConfirmarExclusao(false);
+      onClose();
+    } finally {
+      setApagando(false);
+    }
   }
 
   function sair() {
-    const slug = window.location.pathname.split("/")[1];
-
-localStorage.removeItem(
-  `cliente_token-${slug}`
-);
+    localStorage.removeItem(`cliente_token-${slugAtual()}`);
     setDados(null);
+    onClose();
   }
 
-  const totalPedidos = dados?.pedidos?.length || 0;
-
-  const totalGasto = Number(
-    dados?.cliente?.total_gasto || 0
-  ).toFixed(2);
+  const totalPedidos = Number(dados?.cliente?.total_pedidos || dados?.pedidos?.length || 0);
+  const totalGasto = Number(dados?.cliente?.total_gasto || 0);
+  const inicial = String(dados?.cliente?.nome || "?").trim().charAt(0).toUpperCase();
 
   const clienteDesde = useMemo(() => {
     if (!dados?.cliente?.created_at) return "";
-
-    return new Date(
-      dados.cliente.created_at
-    ).toLocaleDateString("pt-BR", {
-      month: "long",
-      year: "numeric",
-    });
+    return new Date(dados.cliente.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   }, [dados]);
+
+  const fidelInfo = useMemo(() => {
+    if (!fidelidade?.programa) return null;
+    const necessarios = Number(fidelidade.programa.pedidosNecessarios || 10);
+    const selos = Number(fidelidade.cliente?.selos || 0);
+    const premio = String(fidelidade.programa.textoPremio || "recompensa");
+    return { necessarios, selos, premio, disponivel: selos >= necessarios };
+  }, [fidelidade]);
 
   useEffect(() => {
     if (!open || foco !== "pedidos" || loading || !dados) return;
-    const t = setTimeout(() => document.getElementById("meus-pedidos")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    const t = setTimeout(
+      () => document.getElementById("meus-pedidos")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      120
+    );
     return () => clearTimeout(t);
   }, [open, foco, loading, dados]);
 
   if (!open) return null;
+
+  const principalId = dados?.enderecos?.find((e: any) => e.principal)?.id ?? dados?.enderecos?.[0]?.id;
+
   return (
     <>
-      {/* Overlay */}
+      <div className="fixed inset-0 z-[9998] bg-black/50" onClick={onClose} />
 
-      <div
-        className="fixed inset-0 bg-black/50 z-[9998]"
-        onClick={onClose}
-      />
-
-      {/* Tela inteira */}
-
-      <div
-        className="
-          fixed
-          inset-0
-          z-[9999]
-          bg-zinc-50
-          overflow-y-auto
-        "
-      >
+      <div className="fixed inset-0 z-[9999] overflow-y-auto bg-zinc-50">
         {/* Cabeçalho */}
-
-        <div
-          className="
-            sticky
-            top-0
-            z-50
-
-            bg-white/95
-            backdrop-blur-xl
-
-            border-b
-            border-zinc-200
-          "
-        >
-          <div
-            className="
-              max-w-2xl
-              mx-auto
-
-              h-20
-
-              px-6
-
-              flex
-              items-center
-              justify-between
-            "
-          >
+        <div className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur-xl">
+          <div className="mx-auto flex h-16 max-w-2xl items-center justify-between px-5">
             <div>
-
-              <h1 className="text-3xl font-black">
-                Minha Conta
-              </h1>
-
-              <p className="text-sm text-zinc-500 mt-1">
-                Seus dados, endereços e fidelidade.
-              </p>
-
+              <h1 className="text-xl font-black leading-tight">Minha conta</h1>
+              <p className="text-xs text-zinc-500">Seus dados, endereços e fidelidade</p>
             </div>
-
             <button
               onClick={onClose}
-              className="
-                w-12
-                h-12
-
-                rounded-full
-
-                bg-zinc-100
-
-                hover:bg-zinc-200
-
-                transition
-
-                flex
-                items-center
-                justify-center
-              "
+              aria-label="Fechar"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 transition hover:bg-zinc-200"
             >
-              <X size={22} />
+              <X size={20} />
             </button>
           </div>
         </div>
 
-        {/* Conteúdo */}
-
-        <div className="max-w-2xl mx-auto px-6 py-8"> 
-
-
-        {/* ===========================
-    LOADING
-=========================== */}
-
-{loading && (
-  <div className="py-24 flex justify-center">
-    <div className="animate-pulse text-zinc-500">
-      Carregando sua conta...
-    </div>
-  </div>
-)}
-
-{/* ===========================
-    SEM CLIENTE
-=========================== */}
-
-{!loading && !dados && (
-  <div className="rounded-3xl bg-white border border-zinc-200 p-8 shadow-sm">
-
-    <div
-      className="
-        w-20
-        h-20
-        rounded-full
-        bg-zinc-100
-        flex
-        items-center
-        justify-center
-      "
-    >
-      <User size={38} />
-    </div>
-
-    <h2 className="text-3xl font-black mt-6">
-      Bem-vindo 👋
-    </h2>
-
-    <p className="text-zinc-500 mt-3 leading-7">
-      Faça seu primeiro pedido e seus dados serão
-      salvos automaticamente. Depois disso você
-      poderá acompanhar pedidos, editar seus
-      endereços e comprar novamente com apenas
-      alguns toques.
-    </p>
-
-    <button
-      onClick={onClose}
-      className="
-        mt-8
-
-        h-14
-        w-full
-
-        rounded-2xl
-
-        bg-black
-
-        text-white
-
-        font-semibold
-
-        flex
-        items-center
-        justify-center
-        gap-2
-      "
-    >
-      <Phone size={20} />
-
-      Fazer meu primeiro pedido
-
-      <ArrowRight size={18} />
-    </button>
-
-  </div>
-)}
-
-{/* ===========================
-    CLIENTE LOGADO
-=========================== */}
-
-{!loading && dados && (
-<>
-
-<div
-  className="
-    rounded-[34px]
-
-    bg-gradient-to-br
-    from-zinc-900
-    via-zinc-800
-    to-zinc-900
-
-    text-white
-
-    p-7
-
-    shadow-2xl
-  "
->
-
-<div className="flex items-start justify-between">
-
-<div className="flex gap-5">
-
-<div
-className="
-w-20
-h-20
-
-rounded-full
-
-bg-white/10
-
-border
-border-white/20
-
-flex
-items-center
-justify-center
-"
->
-
-<User size={36} />
-
-</div>
-
-<div>
-
-<h2 className="text-3xl font-black">
-
-{dados.cliente.nome}
-
-</h2>
-
-<p className="text-zinc-300 mt-2">
-
-Cliente desde {clienteDesde || "Hoje"}
-
-</p>
-
-</div>
-
-</div>
-
-<button
-className="
-w-11
-h-11
-
-rounded-full
-
-bg-white/10
-
-flex
-items-center
-justify-center
-"
->
-
-<ChevronRight />
-
-</button>
-
-</div>
-
-
-
-<div className="mt-8 border-t border-white/10 pt-6">
-
-  <div className="flex items-center justify-between">
-
-    <div className="flex items-center gap-3">
-
-      <Phone size={18} />
-
-      <span className="font-semibold">
-        {dados.cliente.telefone}
-      </span>
-
-    </div>
-
-    <ChevronRight
-      size={18}
-      className="text-zinc-400"
-    />
-
-  </div>
-
-</div>
-
-<div className="mt-6 border-t border-white/10 pt-6">
-
-  <div className="flex items-start justify-between">
-
-    <div>
-
-      <h3 className="font-bold text-xl">
-        Endereço principal
-      </h3>
-
-      {dados.enderecos.length > 0 ? (
-
-        <>
-
-          <p className="mt-3">
-            {dados.enderecos[0].rua},{" "}
-            {dados.enderecos[0].numero}
-          </p>
-
-          <p className="text-zinc-300">
-            {dados.enderecos[0].bairro}
-          </p>
-
-          <p className="text-zinc-300">
-            {dados.enderecos[0].cidade} -{" "}
-            {dados.enderecos[0].estado}
-          </p>
-
-          <span className="inline-block mt-3 rounded-full bg-white/10 px-3 py-1 text-xs">
-            Usado nos pedidos
-          </span>
-
-        </>
-
-      ) : (
-
-        <p className="mt-3 text-zinc-400">
-          Nenhum endereço cadastrado
-        </p>
-
-      )}
-
-    </div>
-
-    <ChevronRight
-      size={18}
-      className="text-zinc-400 mt-1"
-    />
-
-  </div>
-
-</div>
-
-
-
-<div className="grid grid-cols-2 gap-4 mt-8">
-
-  <button
-    onClick={() => setEditOpen(true)}
-    className="rounded-2xl bg-white/10 hover:bg-white/15 transition p-5 text-left"
-  >
-    <User size={24} className="mb-3" />
-
-    <p className="font-semibold">
-      Editar meus dados
-    </p>
-
-    <p className="text-xs text-zinc-300 mt-1">
-      Nome, telefone e CPF
-    </p>
-  </button>
-
-  <button
-    onClick={() => setAddressOpen(true)}
-    className="rounded-2xl bg-white/10 hover:bg-white/15 transition p-5 text-left"
-  >
-    <MapPin size={24} className="mb-3" />
-
-    <p className="font-semibold">
-      Editar endereços
-    </p>
-
-    <p className="text-xs text-zinc-300 mt-1">
-      Gerencie seus endereços
-    </p>
-  </button>
-
-</div>
-
-<div
-className="
-grid
-grid-cols-2
-gap-4
-
-mt-8
-"
->
-
-<div
-className="
-rounded-2xl
-
-bg-white/10
-
-p-5
-"
->
-
-<div className="flex items-center gap-2">
-
-<Package size={18} />
-
-<span className="text-sm">
-
-Pedidos
-
-</span>
-
-</div>
-
-<p className="text-3xl font-black mt-4">
-
-{totalPedidos}
-
-</p>
-
-</div>
-
-<div
-className="
-rounded-2xl
-bg-white/10
-p-5
-"
->
-
-<div className="flex items-center gap-2">
-
-🎁
-
-<span className="text-sm">
-Programa Fidelidade
-</span>
-
-</div>
-
-<p className="text-sm mt-4 leading-6">
-
-Em breve você poderá ganhar descontos
-a cada quantidade de pedidos.
-
-</p>
-
-</div>
-
-
-</div>
-
-</div>
-
-{semPedidos ? (
-  onVerPedidos && (
-    <button
-      type="button"
-      onClick={onVerPedidos}
-      className="mt-8 flex w-full items-center justify-between rounded-2xl border border-zinc-200 bg-white px-5 py-4 text-left"
-    >
-      <span>
-        <span className="block font-bold">Meus pedidos</span>
-        <span className="block text-sm text-zinc-500">{totalPedidos} {totalPedidos === 1 ? "pedido" : "pedidos"} · acompanhar e pedir de novo</span>
-      </span>
-      <span className="text-xl text-zinc-400">›</span>
-    </button>
-  )
-) : (
-<>
-{/* ===========================
-      ÚLTIMOS PEDIDOS
-=========================== */}
-
-<div className="mt-8 scroll-mt-24" id="meus-pedidos">
-
-  <div className="flex items-center justify-between mb-5">
-
-    <h2 className="text-2xl font-black">
-      Últimos pedidos
-    </h2>
-
-    <span className="text-sm text-zinc-500">
-      {totalPedidos} pedidos
-    </span>
-
-  </div>
-
-  {dados.pedidos.length === 0 ? (
-
-    <div className="rounded-3xl bg-white border border-zinc-200 p-8 text-center">
-
-      <Package
-        size={42}
-        className="mx-auto text-zinc-300"
-      />
-
-      <h3 className="font-bold text-lg mt-5">
-        Nenhum pedido ainda
-      </h3>
-
-      <p className="text-zinc-500 mt-2">
-        Assim que você realizar um pedido,
-        ele aparecerá aqui.
-      </p>
-
-    </div>
-
-  ) : (
-
-    <div className="space-y-4">
-
-      {dados.pedidos.map((pedido: any) => {
-
-        const status =
-          NOME_STATUS[String(pedido.status)] || pedido.status || "Recebido";
-
-        const statusColor =
-          status === "Entregue"
-            ? "bg-green-100 text-green-700"
-            : status === "Cancelado"
-            ? "bg-red-100 text-red-700"
-            : status === "Saiu para entrega"
-            ? "bg-blue-100 text-blue-700"
-            : "bg-yellow-100 text-yellow-700";
-
-        return (
-
-          <div
-            key={pedido.id}
-            className="
-              bg-white
-              rounded-3xl
-              border
-              border-zinc-200
-              p-5
-              shadow-sm
-            "
-          >
-
-            <div className="flex justify-between items-start">
-
-              <div>
-
-                <p className="text-xs text-zinc-500">
-                  Pedido
-                </p>
-
-                <h3 className="text-xl font-black">
-                  #{pedido.numero_pedido ?? pedido.id}
-                </h3>
-
+        <div className="mx-auto max-w-2xl px-5 pb-16 pt-6">
+          {/* Carregando */}
+          {loading && (
+            <div className="space-y-4">
+              <div className="h-44 animate-pulse rounded-3xl bg-zinc-200" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="h-24 animate-pulse rounded-2xl bg-zinc-200" />
+                <div className="h-24 animate-pulse rounded-2xl bg-zinc-200" />
               </div>
+            </div>
+          )}
 
-              <span
-                className={`
-                  px-3
-                  py-1.5
-                  rounded-full
-                  text-xs
-                  font-semibold
-                  ${statusColor}
-                `}
+          {/* Sem cliente */}
+          {!loading && !dados && (
+            <div className="rounded-3xl border border-zinc-200 bg-white p-7 text-center shadow-sm">
+              <div
+                className="mx-auto flex h-20 w-20 items-center justify-center rounded-full text-white"
+                style={{ backgroundColor: cor }}
               >
-                {status}
-              </span>
-
+                <User size={36} />
+              </div>
+              <h2 className="mt-5 text-2xl font-black">Bem-vindo 👋</h2>
+              <p className="mx-auto mt-3 max-w-sm leading-7 text-zinc-500">
+                Faça seu primeiro pedido e seus dados ficam salvos neste aparelho. Depois você acompanha pedidos, salva
+                endereços e pede de novo com poucos toques.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-7 flex h-14 w-full items-center justify-center gap-2 rounded-2xl font-bold text-white shadow-md transition active:scale-[0.98]"
+                style={{ backgroundColor: cor }}
+              >
+                Ver o cardápio
+                <ArrowRight size={18} />
+              </button>
             </div>
+          )}
 
-            <div className="grid grid-cols-2 gap-4 mt-6">
+          {/* Cliente logado */}
+          {!loading && dados && (
+            <>
+              {/* Cartão principal (com a cor da loja) */}
+              <div
+                className="rounded-3xl p-6 text-white shadow-xl"
+                style={{ background: `linear-gradient(135deg, ${cor} 0%, ${cor}DD 55%, #111827 100%)` }}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-white/25 bg-white/15 text-2xl font-black">
+                    {inicial || <User size={30} />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-2xl font-black">{dados.cliente.nome}</h2>
+                    <p className="mt-0.5 text-sm text-white/70">Cliente desde {clienteDesde || "hoje"}</p>
+                  </div>
+                  <button
+                    onClick={() => setEditOpen(true)}
+                    aria-label="Editar meus dados"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 transition hover:bg-white/25"
+                  >
+                    <Pencil size={17} />
+                  </button>
+                </div>
 
-              <div>
+                <div className="mt-5 flex items-center gap-2 text-sm text-white/85">
+                  <Phone size={15} />
+                  {dados.cliente.telefone}
+                </div>
 
-                <p className="text-xs text-zinc-500">
-                  Data
-                </p>
+                {/* Números reais */}
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl bg-white/10 p-4">
+                    <div className="flex items-center gap-1.5 text-xs text-white/70">
+                      <Package size={14} /> Pedidos
+                    </div>
+                    <p className="mt-1.5 text-2xl font-black">{totalPedidos}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/10 p-4">
+                    <div className="flex items-center gap-1.5 text-xs text-white/70">
+                      <Wallet size={14} /> Total gasto
+                    </div>
+                    <p className="mt-1.5 text-2xl font-black">{reais(totalGasto)}</p>
+                  </div>
+                </div>
+              </div>
 
-                <p className="font-semibold mt-1">
-
-                  {new Date(
-                    pedido.created_at
-                  ).toLocaleDateString(
-                    "pt-BR",
-                    {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    }
+              {/* Fidelidade (só se o restaurante tiver programa) */}
+              {fidelInfo && (
+                <div className="mt-4 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <Ticket size={18} style={{ color: cor }} />
+                    <h3 className="font-bold">Cartão fidelidade</h3>
+                  </div>
+                  {fidelInfo.disponivel ? (
+                    <div
+                      className="mt-3 rounded-2xl px-4 py-3 text-center text-white"
+                      style={{ backgroundColor: cor }}
+                    >
+                      <p className="text-[15px] font-extrabold">🎉 Você ganhou: {fidelInfo.premio}</p>
+                      <p className="text-xs text-white/85">Marque “Usar meu prêmio” na hora de pagar.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="mt-2 text-sm text-zinc-600">
+                        Junte <strong>{fidelInfo.necessarios} pedidos</strong> e ganhe{" "}
+                        <strong style={{ color: cor }}>{fidelInfo.premio}</strong>.
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                        {Array.from({ length: fidelInfo.necessarios }).map((_, i) => (
+                          <Ticket
+                            key={i}
+                            size={20}
+                            strokeWidth={1.8}
+                            style={{
+                              color: i < fidelInfo.selos ? cor : "#D6B46A",
+                              fill: i < fidelInfo.selos ? cor : "transparent",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      {fidelInfo.selos > 0 && (
+                        <p className="mt-2 text-xs text-zinc-500">
+                          Faltam <strong>{fidelInfo.necessarios - fidelInfo.selos}</strong>{" "}
+                          {fidelInfo.necessarios - fidelInfo.selos === 1 ? "pedido" : "pedidos"}.
+                        </p>
+                      )}
+                    </>
                   )}
-
-                </p>
-
-              </div>
-
-              <div>
-
-                <p className="text-xs text-zinc-500">
-                  Valor
-                </p>
-
-                <p className="font-black text-lg mt-1">
-
-                  {reais(pedido.total_pago || pedido.total || 0)}
-
-                </p>
-
-              </div>
-
-            </div>
-
-{onPedirDeNovo && Array.isArray(pedido.itens) && pedido.itens.length > 0 && (
-  <button
-    type="button"
-    onClick={() => onPedirDeNovo(pedido)}
-    className="mt-6 w-full h-12 rounded-2xl text-white font-semibold"
-    style={{ backgroundColor: "var(--primary-color, #18181b)" }}
-  >
-    Pedir de novo
-  </button>
-)}
-<button
-  onClick={() => {
-
-    router.push(`/pedido/${pedido.id}?c=${pedido.codigo_acesso ?? ""}`);
-
-  }}
-  className="
-    mt-6
-    w-full
-    h-12
-    rounded-2xl
-    bg-zinc-100
-    hover:bg-zinc-200
-    transition
-    flex
-    items-center
-    justify-center
-    gap-2
-    font-semibold
-  "
->
-
-  Ver detalhes
-
-  <ChevronRight size={18} />
-
-</button>
-
-          </div>
-
-        );
-
-      })}
-
-    </div>
-
-  )}
-
-</div>
-
-</>
-)}
-
-{/* ===========================
-      ENDEREÇOS
-=========================== */}
-
-<div className="mt-10">
-
-  <div className="flex items-center gap-2 mb-5">
-
-    <MapPin size={22} />
-
-    <h2 className="text-2xl font-black">
-      Endereços
-    </h2>
-
-  </div>
-
-    {dados.enderecos.length === 0 ? (
-
-    <div className="rounded-3xl bg-white border border-zinc-200 p-8 text-center">
-
-      <MapPin
-        size={42}
-        className="mx-auto text-zinc-300"
-      />
-
-      <h3 className="font-bold text-lg mt-5">
-        Nenhum endereço salvo
-      </h3>
-
-      <p className="text-zinc-500 mt-2">
-        Seu endereço aparecerá aqui após seu
-        primeiro pedido.
-      </p>
-
-    </div>
-
-  ) : (
-
-    <div className="space-y-4">
-
-      {dados.enderecos.map((endereco: any) => (
-
-        <div
-          key={endereco.id}
-          className="
-            bg-white
-            rounded-3xl
-            border
-            border-zinc-200
-            p-5
-            shadow-sm
-          "
-        >
-
-          <div className="flex justify-between items-start">
-
-            <div>
-
-              <h3 className="font-bold text-lg">
-
-                {endereco.apelido || "Endereço"}
-
-              </h3>
-
-              <p className="text-zinc-600 mt-3">
-
-                {endereco.rua}, {endereco.numero}
-
-              </p>
-
-              <p className="text-zinc-500 mt-1">
-
-                {endereco.bairro}
-
-              </p>
-
-              <p className="text-zinc-500">
-
-                {endereco.cidade} - {endereco.estado}
-
-              </p>
-
-              {endereco.cep && (
-
-                <p className="text-zinc-400 text-sm mt-2">
-
-                  CEP {endereco.cep}
-
-                </p>
-
+                </div>
               )}
 
-            </div>
+              {/* Atalhos */}
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setEditOpen(true)}
+                  className="rounded-2xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition active:scale-[0.98]"
+                >
+                  <User size={22} style={{ color: cor }} />
+                  <p className="mt-2 font-bold">Meus dados</p>
+                  <p className="text-xs text-zinc-500">Nome, telefone e CPF</p>
+                </button>
+                <button
+                  onClick={() => setAddressOpen(true)}
+                  className="rounded-2xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition active:scale-[0.98]"
+                >
+                  <MapPin size={22} style={{ color: cor }} />
+                  <p className="mt-2 font-bold">Endereços</p>
+                  <p className="text-xs text-zinc-500">Adicionar e editar</p>
+                </button>
+              </div>
 
-            <MapPin
-              size={22}
-              className="text-zinc-400"
-            />
+              {/* Meus pedidos: link (quando a lista tem aba própria) */}
+              {semPedidos && onVerPedidos && (
+                <button
+                  type="button"
+                  onClick={onVerPedidos}
+                  className="mt-4 flex w-full items-center justify-between rounded-2xl border border-zinc-200 bg-white px-5 py-4 text-left shadow-sm transition active:scale-[0.99]"
+                >
+                  <span className="flex items-center gap-3">
+                    <Package size={20} style={{ color: cor }} />
+                    <span>
+                      <span className="block font-bold">Meus pedidos</span>
+                      <span className="block text-sm text-zinc-500">
+                        {totalPedidos} {totalPedidos === 1 ? "pedido" : "pedidos"} · acompanhar e pedir de novo
+                      </span>
+                    </span>
+                  </span>
+                  <ChevronRight size={20} className="text-zinc-400" />
+                </button>
+              )}
 
-          </div>
+              {/* Lista de pedidos (quando não há aba separada) */}
+              {!semPedidos && (
+                <div className="mt-8 scroll-mt-24" id="meus-pedidos">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-lg font-black">Últimos pedidos</h2>
+                    <span className="text-sm text-zinc-500">
+                      {totalPedidos} {totalPedidos === 1 ? "pedido" : "pedidos"}
+                    </span>
+                  </div>
 
+                  {dados.pedidos.length === 0 ? (
+                    <div className="rounded-3xl border border-zinc-200 bg-white p-8 text-center">
+                      <Package size={40} className="mx-auto text-zinc-300" />
+                      <h3 className="mt-4 font-bold">Nenhum pedido ainda</h3>
+                      <p className="mt-1 text-sm text-zinc-500">Assim que você pedir, aparece aqui.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {dados.pedidos.map((pedido: any) => {
+                        const status = NOME_STATUS[String(pedido.status)] || pedido.status || "Recebido";
+                        return (
+                          <div key={pedido.id} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-xs text-zinc-500">Pedido</p>
+                                <h3 className="text-lg font-black">#{pedido.numero_pedido ?? pedido.id}</h3>
+                              </div>
+                              <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${corDoStatus(status)}`}>
+                                {status}
+                              </span>
+                            </div>
+                            <div className="mt-4 flex items-center justify-between">
+                              <p className="text-sm text-zinc-500">
+                                {new Date(pedido.created_at).toLocaleDateString("pt-BR", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                })}
+                              </p>
+                              <p className="text-lg font-black">{reais(pedido.total_pago || pedido.total || 0)}</p>
+                            </div>
+                            <div className="mt-4 flex gap-3">
+                              {onPedirDeNovo && Array.isArray(pedido.itens) && pedido.itens.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => onPedirDeNovo(pedido)}
+                                  className="h-11 flex-1 rounded-xl font-bold text-white transition active:scale-[0.98]"
+                                  style={{ backgroundColor: cor }}
+                                >
+                                  Pedir de novo
+                                </button>
+                              )}
+                              <button
+                                onClick={() => router.push(`/pedido/${pedido.id}?c=${pedido.codigo_acesso ?? ""}`)}
+                                className="flex h-11 flex-1 items-center justify-center gap-1 rounded-xl bg-zinc-100 font-semibold transition hover:bg-zinc-200"
+                              >
+                                Ver detalhes
+                                <ChevronRight size={16} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Endereços */}
+              <div className="mt-8">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-lg font-black">Endereços</h2>
+                  <button
+                    onClick={() => setAddressOpen(true)}
+                    className="text-sm font-bold"
+                    style={{ color: cor }}
+                  >
+                    + Adicionar
+                  </button>
+                </div>
+
+                {dados.enderecos.length === 0 ? (
+                  <button
+                    onClick={() => setAddressOpen(true)}
+                    className="w-full rounded-3xl border-2 border-dashed border-zinc-300 bg-white p-7 text-center transition hover:border-zinc-400"
+                  >
+                    <MapPin size={36} className="mx-auto text-zinc-300" />
+                    <h3 className="mt-3 font-bold">Nenhum endereço salvo</h3>
+                    <p className="mt-1 text-sm text-zinc-500">Toque para adicionar seu endereço de entrega.</p>
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    {dados.enderecos.map((endereco: any) => {
+                      const ehPrincipal = endereco.id === principalId;
+                      return (
+                        <button
+                          key={endereco.id}
+                          onClick={() => setAddressOpen(true)}
+                          className="flex w-full items-start justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-5 text-left shadow-sm transition active:scale-[0.99]"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold">{endereco.apelido || "Endereço"}</h3>
+                              {ehPrincipal && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
+                                  style={{ backgroundColor: cor }}
+                                >
+                                  <Check size={11} strokeWidth={3} /> Principal
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1.5 text-sm text-zinc-600">
+                              {endereco.rua}, {endereco.numero}
+                            </p>
+                            <p className="text-sm text-zinc-500">
+                              {endereco.bairro}
+                              {endereco.cidade ? ` · ${endereco.cidade} - ${endereco.estado}` : ""}
+                            </p>
+                          </div>
+                          <ChevronRight size={18} className="mt-1 shrink-0 text-zinc-400" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Ações da conta */}
+              <div className="mt-10">
+                <button
+                  onClick={sair}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-zinc-300 font-semibold text-zinc-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                >
+                  <LogOut size={18} />
+                  Sair da conta
+                </button>
+                <button
+                  onClick={() => setConfirmarExclusao(true)}
+                  className="mt-4 w-full text-center text-xs font-semibold text-zinc-400 underline hover:text-red-500"
+                >
+                  Apagar meus dados deste cardápio
+                </button>
+                <p className="mt-2 text-center text-[11px] text-zinc-400">
+                  <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">
+                    Política de Privacidade
+                  </a>
+                </p>
+              </div>
+            </>
+          )}
         </div>
+      </div>
 
-      ))}
+      <ConfirmDialog
+        open={confirmarExclusao}
+        title="Apagar seus dados?"
+        description="Isso apaga seu cadastro, endereços e selos de fidelidade deste restaurante. Seus pedidos ficam sem o nome e o telefone. Não dá para desfazer."
+        confirmText={apagando ? "Apagando..." : "Sim, apagar"}
+        cancelText="Cancelar"
+        onConfirm={apagarMeusDados}
+        onCancel={() => !apagando && setConfirmarExclusao(false)}
+      />
 
-    </div>
+      <EditAddresses
+        corPrincipal={cor}
+        open={addressOpen}
+        onClose={() => {
+          setAddressOpen(false);
+          recarregar();
+        }}
+      />
 
-  )}
+      <EditProfile
+        corPrincipal={cor}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        cliente={dados?.cliente}
+        onSaved={recarregar}
+      />
 
-</div>
-
-{/* ===========================
-      AÇÕES
-=========================== */}
-
-<div className="mt-10">
-
-  <button
-    onClick={sair}
-    className="
-      w-full
-      h-12
-      rounded-2xl
-      border
-      border-zinc-300
-      text-zinc-500
-      font-medium
-      flex
-      items-center
-      justify-center
-      gap-2
-      transition
-      hover:border-red-400
-      hover:text-red-500
-      hover:bg-red-50
-    "
-  >
-    <LogOut size={18} />
-    Sair da conta
-  </button>
-
-  <button
-    onClick={apagarMeusDados}
-    className="mt-4 w-full text-center text-xs font-semibold text-zinc-400 underline hover:text-red-500"
-  >
-    Apagar meus dados deste cardápio
-  </button>
-  <p className="mt-2 text-center text-[11px] text-zinc-400">
-    <a href="/privacidade" target="_blank" rel="noreferrer" className="underline">Política de Privacidade</a>
-  </p>
-
-</div>
-
-</>
-
-)}
-
-</div>
-
-</div>
-
-<EditAddresses
-  open={addressOpen}
-  onClose={() => setAddressOpen(false)}
-/>
-
-<EditProfile
-  open={editOpen}
-  onClose={() => setEditOpen(false)}
-  cliente={dados?.cliente}
-  onSaved={async () => {
-    const slug = window.location.pathname.split("/")[1];
-
-const token = localStorage.getItem(
-  `cliente_token-${slug}`
-);
-
-    if (!token) return;
-
-    const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
-    const resultado = await response.json();
-
-    if (resultado.success) {
-      setDados(resultado);
-    }
-  }}
-/>
-
-<LoginCustomer
-  open={loginOpen}
-  onClose={() => {
-    setLoginOpen(false);
-    onClose();
-  }}
-  onSuccess={async () => {
-    setLoginOpen(false);
-
-    const slug = window.location.pathname.split("/")[1];
-
-const token = localStorage.getItem(
-  `cliente_token-${slug}`
-);
-
-    if (!token) return;
-
-    const response = await fetch("/api/cliente/me", { headers: { "x-cliente-token": token || "" } });
-
-    const resultado = await response.json();
-
-    if (resultado.success) {
-      setDados(resultado);
-    }
-  }}
-/>
-
-</>
-);
+      <LoginCustomer
+        corPrincipal={cor}
+        open={loginOpen}
+        onClose={() => {
+          setLoginOpen(false);
+          onClose();
+        }}
+        onSuccess={async () => {
+          setLoginOpen(false);
+          await recarregar();
+        }}
+      />
+    </>
+  );
 }

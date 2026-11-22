@@ -146,6 +146,14 @@ export default function PedidosPage() {
   const [visao, setVisao] = useState<"colunas" | "lista">("colunas");
   const [motoboys, setMotoboys] = useState<Motoboy[]>([]);
   const [escolherMotoboy, setEscolherMotoboy] = useState<Pedido | null>(null);
+  const [tempos, setTempos] = useState<{ min: number | null; max: number | null; retirada: number | null }>({ min: null, max: null, retirada: null });
+
+  useEffect(() => {
+    apiFetch("/api/painel/operacao")
+      .then((r) => r.json())
+      .then((d) => d?.success && setTempos({ min: d.operacao.tempoEntregaMin, max: d.operacao.tempoEntregaMax, retirada: d.operacao.tempoRetirada }))
+      .catch(() => {});
+  }, []);
 
   async function carregarMotoboys() {
     try {
@@ -359,8 +367,18 @@ export default function PedidosPage() {
     const retirada = pedido.tipo_pedido === "retirada";
     const assinatura = nomeRestaurante ? `\n\n${nomeRestaurante}` : "";
 
+    const eta = retirada
+      ? tempos.retirada
+        ? ` Fica pronto em cerca de ${tempos.retirada} min.`
+        : ""
+      : tempos.min && tempos.max
+        ? ` Deve chegar em ${tempos.min}–${tempos.max} min.`
+        : tempos.min
+          ? ` Deve chegar em cerca de ${tempos.min} min.`
+          : "";
+
     const mensagens: Record<string, string> = {
-      aceito: `Olá, ${nome}! 😊 Seu pedido #${numero} foi aceito e já está em preparo.`,
+      aceito: `Olá, ${nome}! 😊 Seu pedido #${numero} foi aceito e já está em preparo.${eta}`,
       entrega: retirada
         ? `Olá, ${nome}! ✅ Seu pedido #${numero} está pronto para retirada.`
         : `Olá, ${nome}! 🛵 Seu pedido #${numero} saiu para entrega.`,
@@ -396,6 +414,11 @@ export default function PedidosPage() {
     } finally {
       setExcluindo(false);
     }
+  }
+
+  function aceitarEImprimir(p: Pedido) {
+    mudarStatus(p, "aceito");
+    window.open(`/imprimir/${p.id}`, "_blank");
   }
 
   const proximaAcao = (p: Pedido) => {
@@ -568,6 +591,10 @@ export default function PedidosPage() {
 
       <div className={visao === "colunas" ? "lg:hidden" : ""}>
       {/* Abas */}
+      <p className="mt-3 flex items-center gap-1.5 text-xs text-zinc-500">
+        🔔 Deixe esta aba aberta para ouvir o alerta quando chegar um pedido novo.
+      </p>
+
       <div className="mt-4 -mx-4 px-4 overflow-x-auto scrollbar-hide">
         <div className="flex gap-2 w-max">
           {ABAS.map((a) => (
@@ -841,14 +868,24 @@ export default function PedidosPage() {
                     Recusar
                   </button>
                 )}
-                <button
-                  disabled={salvando}
-                  onClick={() => mudarStatus(selecionado, proximaAcao(selecionado)!.status)}
-                  className="flex-1 h-14 rounded-xl bg-[#6D1F2F] text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60"
-                >
-                  {statusNormalizado(selecionado.status) === "aceito" ? <ChefHat size={18} /> : proximaAcao(selecionado)!.icone}
-                  {proximaAcao(selecionado)!.texto}
-                </button>
+                {statusNormalizado(selecionado.status) === "pendente" ? (
+                  <button
+                    disabled={salvando}
+                    onClick={() => aceitarEImprimir(selecionado)}
+                    className="flex-1 h-14 rounded-xl bg-[#6D1F2F] text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    <Printer size={18} /> Aceitar e imprimir
+                  </button>
+                ) : (
+                  <button
+                    disabled={salvando}
+                    onClick={() => mudarStatus(selecionado, proximaAcao(selecionado)!.status)}
+                    className="flex-1 h-14 rounded-xl bg-[#6D1F2F] text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {statusNormalizado(selecionado.status) === "aceito" ? <ChefHat size={18} /> : proximaAcao(selecionado)!.icone}
+                    {proximaAcao(selecionado)!.texto}
+                  </button>
+                )}
               </div>
             )}
           </div>

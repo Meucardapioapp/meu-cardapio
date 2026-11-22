@@ -201,6 +201,7 @@ export default function MeusPedidos({ open, onClose, corPrincipal, onPedirDeNovo
 
       <LoginCustomer
         open={loginAberto}
+        corPrincipal={corPrincipal}
         onClose={() => setLoginAberto(false)}
         onSuccess={() => {
           setLoginAberto(false);

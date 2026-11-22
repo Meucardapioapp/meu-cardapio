@@ -57,6 +57,8 @@ export async function GET(req: NextRequest) {
         nome: p.nome,
         preco: precoAgora(p, agora),
         categoria: String(p.categoria || "Outros"),
+        complementosGratis: p.complementos_gratis ?? null,
+        precoComplementoExtra: Number(p.preco_complemento_extra || 0),
         adicionais: (adicionais ?? [])
           .filter((a: any) => String(a.produto_id) === String(p.id) && !estaPausado(a))
           .map((a: any) => ({ id: String(a.id), nome: a.nome, preco: Number(a.preco || 0) })),
@@ -67,7 +69,7 @@ export async function GET(req: NextRequest) {
             minimo: Number(g.minimo ?? 0),
             maximo: Number(g.maximo ?? 999),
             regra: g.regra_preco || "soma",
-            opcoes: (g.grupo_obrigatorio_opcoes ?? []).map((o: any) => ({ id: String(o.id), nome: o.nome, preco: Number(o.preco || 0) })),
+            opcoes: (g.grupo_obrigatorio_opcoes ?? []).map((o: any) => ({ id: String(o.id), nome: o.nome, preco: Number(o.preco || 0), ...(o.nao_conta === true ? { naoConta: true } : {}) })),
           })),
       })),
     });

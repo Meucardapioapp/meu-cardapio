@@ -5,19 +5,67 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   AlarmClock,
+  Activity,
   ArrowRight,
+  BadgePercent,
+  BarChart3,
+  Bell,
+  Bike,
   ClipboardList,
+  Clock,
   CreditCard,
   ExternalLink,
+  FileText,
   Home,
+  Landmark,
   LayoutGrid,
+  Link2,
   Lock,
+  MapPin,
   Menu,
   MessageCircle,
+  Palette,
+  Plus,
+  Star,
+  Store,
+  Tags,
+  Ticket,
+  User,
+  Users,
   Wallet,
   UtensilsCrossed,
   X,
 } from "lucide-react";
+
+/** Ícone de cada item do menu (deixa a navegação mais fácil de bater o olho). */
+const ICONE_MENU: Record<string, any> = {
+  "/admin/pedidos": ClipboardList,
+  "/admin": Home,
+  "/admin/relatorios": BarChart3,
+  "/admin/clientes": Users,
+  "/admin/saques": Wallet,
+  "/admin/salao": Store,
+  "/admin/salao/equipe": Users,
+  "/admin/salao/relatorio": FileText,
+  "/admin/aparencia": Palette,
+  "/admin/produtos": UtensilsCrossed,
+  "/admin/complementos": Plus,
+  "/admin/categorias": Tags,
+  "/admin/horarios": Clock,
+  "/admin/link-cardapio": Link2,
+  "/admin/fidelidade": Ticket,
+  "/admin/cupons": BadgePercent,
+  "/admin/avaliacoes": Star,
+  "/admin/entrega": Bike,
+  "/admin/restaurante": MapPin,
+  "/admin/pagamentos": CreditCard,
+  "/admin/dados-bancarios": Landmark,
+  "/admin/integracoes": Activity,
+  "/admin/plano": CreditCard,
+  "/admin/configuracoes": User,
+  "/admin/equipe": Users,
+  "/admin/notificacoes": Bell,
+};
 import { supabase } from "@/lib/supabase";
 import { tocarAlerta } from "@/lib/alerta-sonoro";
 import { apiFetch } from "@/utils/apiFetch";
@@ -611,11 +659,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {grupo.itens.map((item) => {
               const ativo = pathname === item.link;
               const pisca = !ativo && piscaItem(item.link);
+              const Icone = ICONE_MENU[item.link];
               return (
                 <Link
                   key={item.link}
                   href={item.link}
-                  className={`px-3 py-2.5 rounded-xl text-[15px] font-medium transition flex items-center gap-2 ${
+                  className={`px-3 py-2.5 rounded-xl text-[15px] font-medium transition flex items-center gap-2.5 ${
                     ativo
                       ? "bg-gradient-to-r from-[#7A1F3D] to-[#542129] text-white shadow"
                       : pisca
@@ -625,6 +674,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       : "text-white/85 hover:bg-white/10"
                   }`}
                 >
+                  {Icone && <Icone size={17} className="shrink-0 opacity-80" />}
                   <span className="flex-1">{item.nome}</span>
                   {pisca && (
                     <span className="text-[10px] font-black uppercase bg-amber-400 text-zinc-900 rounded-full px-2 py-0.5">

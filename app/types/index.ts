@@ -57,6 +57,12 @@ export interface ProdutoFormatado {
   adicionais?: Adicional[]
 
   gruposObrigatorios?: GrupoObrigatorio[]
+
+  /** Quantos complementos vêm grátis no total (null = sem limite especial). */
+  complementosGratis?: number | null
+
+  /** Preço de cada complemento depois dos grátis. */
+  precoComplementoExtra?: number
 }
 
 export interface CartItem extends ProdutoFormatado {
@@ -75,6 +81,7 @@ export interface CartItem extends ProdutoFormatado {
   grupo: string;
   nome: string;
   preco: number;
+  extra?: boolean;
 }[]
 }
 

@@ -5,11 +5,15 @@
  */
 export type AdicionalAgrupado = { id?: string; nome: string; preco: number; qtd: number };
 
-export function agruparAdicionais(lista: { id?: unknown; nome?: unknown; preco?: unknown }[] | null | undefined) {
+type Escolhido = { id?: unknown; nome?: unknown; preco?: unknown; extra?: unknown };
+
+export function agruparAdicionais(lista: Escolhido[] | null | undefined) {
   const mapa = new Map<string, AdicionalAgrupado>();
   for (const a of lista ?? []) {
-    const nome = String(a?.nome ?? "").trim();
-    if (!nome) continue;
+    const base = String(a?.nome ?? "").trim();
+    if (!base) continue;
+    // Complemento que passou do grátis (ex.: 4º do açaí de 3): "Granola (extra)".
+    const nome = a?.extra ? `${base} (extra)` : base;
     const preco = Number(a?.preco || 0);
     const chave = `${a?.id ?? ""}|${nome}|${preco}`;
     const atual = mapa.get(chave);
@@ -20,7 +24,7 @@ export function agruparAdicionais(lista: { id?: unknown; nome?: unknown; preco?:
 }
 
 /** "2x Nutella, Morango" */
-export function textoAdicionais(lista: { id?: unknown; nome?: unknown; preco?: unknown }[] | null | undefined) {
+export function textoAdicionais(lista: Escolhido[] | null | undefined) {
   return agruparAdicionais(lista)
     .map((a) => (a.qtd > 1 ? `${a.qtd}x ${a.nome}` : a.nome))
     .join(", ");
@@ -30,7 +34,7 @@ export function textoAdicionais(lista: { id?: unknown; nome?: unknown; preco?: u
 export const MAX_REPETICOES_ADICIONAL = 10;
 
 /** "Uva · 2x Nutella" (escolhas obrigatórias, juntando as repetidas). */
-export function textoEscolhas(lista: { id?: unknown; nome?: unknown; preco?: unknown }[] | null | undefined, separador = " · ") {
+export function textoEscolhas(lista: Escolhido[] | null | undefined, separador = " · ") {
   return agruparAdicionais(lista)
     .map((a) => (a.qtd > 1 ? `${a.qtd}x ${a.nome}` : a.nome))
     .join(separador);

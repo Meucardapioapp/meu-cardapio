@@ -23,7 +23,8 @@ function porGrupo(lista: any[]) {
     const nomeGrupo = String(o?.grupo ?? "").trim() || "Escolha";
     let g = grupos.find((x) => x.grupo === nomeGrupo);
     if (!g) grupos.push((g = { grupo: nomeGrupo, itens: [] }));
-    const nome = String(o?.nome ?? "");
+    // Passou dos complementos grátis do produto: "Granola (extra)".
+    const nome = String(o?.nome ?? "") + (o?.extra ? " (extra)" : "");
     const preco = Number(o?.preco || 0);
     const igual = g.itens.find((i) => i.nome === nome && i.preco === preco);
     if (igual) igual.qtd++;

@@ -49,6 +49,20 @@ export function proxy(request: NextRequest) {
   const resposta = NextResponse.next({ request: { headers: cabecalhos } });
   resposta.headers.set("Content-Security-Policy", csp);
 
+  // Cadeados extras de navegador (reforço do CSP):
+  // - HSTS: obriga HTTPS sempre (só em produção, para não travar o localhost).
+  // - nosniff: o navegador não "adivinha" o tipo do arquivo.
+  // - Referrer-Policy: não vaza o link interno para outros sites.
+  // - Permissions-Policy: desliga câmera e microfone (o site não usa).
+  //   Geolocalização fica liberada só para o próprio site (o dono pega a
+  //   localização da loja na tela de entrega).
+  if (producao) {
+    resposta.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  }
+  resposta.headers.set("X-Content-Type-Options", "nosniff");
+  resposta.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  resposta.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(self), browsing-topics=()");
+
   // Painel não aparece no Google.
   if (/^\/(admin|entregador|equipe|garcom|cozinha|seguranca|plataforma|contatos-restaurantes|financeiro)/.test(request.nextUrl.pathname)) {
     resposta.headers.set("X-Robots-Tag", "noindex, nofollow");

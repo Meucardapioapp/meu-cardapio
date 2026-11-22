@@ -7,6 +7,7 @@ import { agoraNoFuso } from "@/lib/horario";
 import { precoAgora } from "@/lib/promocao";
 import { estaPausado, minimoDisponivel } from "@/lib/complementos";
 import { MAX_REPETICOES_ADICIONAL, grupoPermiteRepetir, podeRepetir } from "@/lib/adicionais";
+import { aplicarGratis, contaNoGratis, regraGratisDe } from "@/lib/complementosGratis";
 
 /**
  * Recalcula o pedido inteiro com os preços do banco.
@@ -42,6 +43,8 @@ export type ItemCalculado = {
     grupo: string;
     nome: string;
     preco: number;
+    /** Passou dos complementos grátis do produto: cobrado como extra. */
+    extra?: boolean;
   }[];
 };
 
@@ -192,6 +195,7 @@ export async function calcularItens(
             grupo: String(grupo.nome),
             nome: String(opcao.nome),
             preco: Number(opcao.preco || 0),
+            naoConta: opcao.nao_conta === true,
           };
         }
       }
@@ -235,12 +239,20 @@ export async function calcularItens(
       }
     }
 
+    // Complementos grátis no total (ex.: açaí com 3): os que passam do
+    // limite custam o valor do extra. Sempre recalculado aqui, com o banco.
+    const regraDoGrupo = new Map((gruposDoProduto as any[]).map((g) => [String(g.id), g.regra_preco]));
+    const escolhasFinais = aplicarGratis(
+      obrigatoriosEscolhidos.map((o) => ({ ...o, conta: contaNoGratis(o.preco, regraDoGrupo.get(o.grupoId), o.naoConta) })),
+      regraGratisDe(produto)
+    );
+
     // Preço do momento (promoção por dia/horário entra aqui).
     const precoBase = precoAgora(produto, agora);
     const precoUnitario = arred(
       precoBase +
         adicionaisEscolhidos.reduce((s, a) => s + a.preco, 0) +
-        obrigatoriosEscolhidos.reduce((s, o) => s + o.preco, 0)
+        escolhasFinais.reduce((s, o) => s + o.preco, 0)
     );
 
     resultado.push({
@@ -252,7 +264,7 @@ export async function calcularItens(
       precoBase,
       preco: precoUnitario,
       adicionaisSelecionados: adicionaisEscolhidos,
-      obrigatoriosSelecionados: obrigatoriosEscolhidos.map(({ grupoId: _g, ...resto }) => resto),
+      obrigatoriosSelecionados: escolhasFinais.map(({ grupoId: _g, naoConta: _n, ...resto }) => resto),
     });
   }
 

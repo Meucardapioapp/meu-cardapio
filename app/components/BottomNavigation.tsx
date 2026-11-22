@@ -68,7 +68,7 @@ export default function BottomNavigation({ corPrincipal, onBuscar, onInicio, onP
       )}
 
       {aberto === "conta" && (
-        <CustomerArea open semPedidos onVerPedidos={() => setAberto("pedidos")} onClose={() => setAberto(null)} />
+        <CustomerArea open semPedidos corPrincipal={corPrincipal} onVerPedidos={() => setAberto("pedidos")} onClose={() => setAberto(null)} />
       )}
     </>
   );

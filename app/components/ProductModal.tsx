@@ -6,6 +6,7 @@ import type { ProdutoFormatado } from "../types";
 import { normalizarRegra, precosEfetivos } from "@/lib/precos";
 import { precoAPartirDe, reais } from "@/lib/dinheiro";
 import { MAX_REPETICOES_ADICIONAL, grupoPermiteRepetir, podeRepetir } from "@/lib/adicionais";
+import { aplicarGratis, contaNoGratis, regraGratisDe } from "@/lib/complementosGratis";
 
 type Adicional = { id?: string; nome: string; preco: number };
 
@@ -15,6 +16,7 @@ type ObrigatorioSelecionado = {
   nome: string;
   descricao?: string;
   preco: number;
+  extra?: boolean;
 };
 
 type Props = {
@@ -124,14 +126,42 @@ export default function ProductModal({
     return mapa;
   }, [grupos, escolhas]);
 
+  // Complementos grátis no total (ex.: açaí 300ml com 3): todas as escolhas
+  // de R$ 0, na ordem do cardápio. As que passam do limite custam o extra.
+  const regraGratis = regraGratisDe(product);
+  const linhasEscolhidas = useMemo(
+    () =>
+      grupos.flatMap((g: any) =>
+        g.opcoes.flatMap((o: any) =>
+          (escolhas[g.id] || [])
+            .filter((id: string) => id === o.id)
+            .map(() => ({
+              id: o.id,
+              grupo: g.nome,
+              nome: o.nome,
+              descricao: o.descricao || "",
+              preco: precoPorOpcao.get(String(o.id)) ?? Number(o.preco),
+              conta: contaNoGratis(o.preco, g.regra_preco, o.nao_conta),
+            }))
+        )
+      ),
+    [grupos, escolhas, precoPorOpcao]
+  );
+  const escolhasComGratis = useMemo(() => aplicarGratis(linhasEscolhidas, regraGratis), [linhasEscolhidas, regraGratis?.gratis, regraGratis?.extra]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!open || !product) return null;
+
+  const gratisUsados = regraGratis ? linhasEscolhidas.filter((l) => l.conta).length : 0;
+  const qtdExtras = regraGratis ? Math.max(0, gratisUsados - regraGratis.gratis) : 0;
+  /** Opção de R$ 0 neste grupo gasta o grátis? (mostra "Grátis" ou o preço do extra). */
+  const rotuloGratis = (g: any, o: any) => {
+    if (!regraGratis || !contaNoGratis(o.preco, g.regra_preco, o.nao_conta)) return undefined;
+    return gratisUsados < regraGratis.gratis ? "Grátis" : regraGratis.extra > 0 ? `+ ${reais(regraGratis.extra)}` : "Grátis";
+  };
 
   const totalAdicionais = adicionais.reduce((t, a) => t + Number(a.preco || 0), 0);
   // Cada vez que a opção foi escolhida conta (ex.: 2x Nutella).
-  const totalOpcoes = grupos.reduce(
-    (t: number, g: any) => t + (escolhas[g.id] || []).reduce((s: number, id: string) => s + (precoPorOpcao.get(String(id)) ?? 0), 0),
-    0
-  );
+  const totalOpcoes = escolhasComGratis.reduce((t: number, o: any) => t + Number(o.preco || 0), 0);
   const unitario = Number(product.preco || 0) + totalAdicionais + totalOpcoes;
   const outras = sugestoes.filter((s) => String(s.id) !== String(product.id)).slice(0, 6);
   const totalExtras = outras.reduce((t, x) => t + Number(x.preco || 0) * (extras[String(x.id)] || 0), 0);
@@ -210,17 +240,15 @@ export default function ProductModal({
     if (!escolhasOk()) return;
 
     // Uma linha por vez escolhida (2x Nutella = 2 linhas), na ordem do cardápio.
-    const obrigatorios = grupos.flatMap((g: any) =>
-      g.opcoes
-        .flatMap((o: any) => (escolhas[g.id] || []).filter((id: string) => id === o.id).map(() => o))
-        .map((o: any) => ({
-          id: o.id,
-          grupo: g.nome,
-          nome: o.nome,
-          descricao: o.descricao || "",
-          preco: precoPorOpcao.get(String(o.id)) ?? Number(o.preco),
-        }))
-    );
+    // As que passaram dos grátis já vêm com o preço do extra (o servidor confere).
+    const obrigatorios: ObrigatorioSelecionado[] = escolhasComGratis.map((o: any) => ({
+      id: o.id,
+      grupo: o.grupo,
+      nome: o.nome,
+      descricao: o.descricao,
+      preco: Number(o.preco || 0),
+      ...(o.extra ? { extra: true } : {}),
+    }));
 
     if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
       (window as any).fbq("track", "AddToCart", {
@@ -307,6 +335,23 @@ export default function ProductModal({
             </div>
           </div>
 
+          {regraGratis && (
+            <div className="mx-5 mb-3 rounded-2xl border px-4 py-3" style={{ borderColor: `${corPrincipal}40`, backgroundColor: `${corPrincipal}0D` }}>
+              <p className="text-[14px] font-bold" style={{ color: corPrincipal }}>
+                {Math.min(gratisUsados, regraGratis.gratis)} de {regraGratis.gratis} complemento{regraGratis.gratis === 1 ? "" : "s"} grátis
+              </p>
+              <p className="mt-0.5 text-xs text-zinc-600">
+                {qtdExtras > 0
+                  ? `${qtdExtras} extra${qtdExtras === 1 ? "" : "s"}: + ${reais(qtdExtras * regraGratis.extra)}${regraGratis.extra > 0 ? ` · o próximo custa + ${reais(regraGratis.extra)}` : ""}`
+                  : gratisUsados >= regraGratis.gratis
+                    ? regraGratis.extra > 0
+                      ? `Grátis usados. O próximo custa + ${reais(regraGratis.extra)}`
+                      : "Grátis usados."
+                    : `Faltam ${regraGratis.gratis - gratisUsados} grátis${regraGratis.extra > 0 ? ` · depois, + ${reais(regraGratis.extra)} cada` : ""}`}
+              </p>
+            </div>
+          )}
+
           {grupos.map((g: any) => {
             const marcadas = escolhas[g.id] || [];
             const ok = completo(g);
@@ -358,6 +403,7 @@ export default function ProductModal({
                           descricao={o.descricao}
                           imagem={o.imagem}
                           preco={preco}
+                          rotuloPreco={rotuloGratis(g, o)}
                           vezes={vezes}
                           podeMais={!cheio && vezes < MAX_REPETICOES_ADICIONAL}
                           cor={corPrincipal}
@@ -379,6 +425,9 @@ export default function ProductModal({
                           <p className="text-[15px] font-medium leading-snug">{o.nome}</p>
                           {o.descricao && <p className="mt-0.5 text-xs leading-4 text-zinc-500">{o.descricao}</p>}
                           {preco > 0 && <p className="mt-0.5 text-sm font-semibold text-zinc-700">+ {reais(preco)}</p>}
+                          {preco <= 0 && rotuloGratis(g, o) && (
+                            <p className="mt-0.5 text-sm font-semibold text-zinc-700">{rotuloGratis(g, o)}</p>
+                          )}
                         </div>
                         <span
                           className={`flex h-6 w-6 shrink-0 items-center justify-center border-2 ${g.maximo === 1 ? "rounded-full" : "rounded-md"}`}
@@ -551,6 +600,7 @@ function LinhaQuantidade({
   descricao,
   imagem,
   preco,
+  rotuloPreco,
   vezes,
   podeMais,
   cor,
@@ -560,6 +610,8 @@ function LinhaQuantidade({
   descricao?: string;
   imagem?: string;
   preco: number;
+  /** Troca o "+ R$ 0,00" por "Grátis" / "+ R$ 3,50" (complementos grátis no total). */
+  rotuloPreco?: string;
   vezes: number;
   podeMais: boolean;
   cor: string;
@@ -575,8 +627,8 @@ function LinhaQuantidade({
         <p className="text-[15px] font-medium leading-snug">{nome}</p>
         {descricao && <p className="mt-0.5 text-xs leading-4 text-zinc-500">{descricao}</p>}
         <p className="mt-0.5 text-sm font-semibold text-zinc-700">
-          + {reais(preco)}
-          {vezes > 1 && <span className="ml-1 font-normal text-zinc-500">({vezes}x = {reais(preco * vezes)})</span>}
+          {rotuloPreco ?? `+ ${reais(preco)}`}
+          {!rotuloPreco && vezes > 1 && <span className="ml-1 font-normal text-zinc-500">({vezes}x = {reais(preco * vezes)})</span>}
         </p>
       </div>
       {vezes === 0 ? (

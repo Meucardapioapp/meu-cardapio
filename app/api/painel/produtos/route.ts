@@ -39,6 +39,9 @@ const esquema = z.object({
     promo_fim: texto(8).nullable().optional(),
     estoque: z.number().int().min(0).max(1000000).nullable().optional(),
     sugerir_no_carrinho: z.boolean().optional(),
+    // SQL 26: complementos grátis no total (ex.: açaí com 3) e preço do extra.
+    complementos_gratis: z.number().int().min(0).max(99).nullable().optional(),
+    preco_complemento_extra: dinheiro.nullable().optional(),
   }),
   grupos: z
     .array(
@@ -55,6 +58,8 @@ const esquema = z.object({
               descricao: texto(500).nullable().optional(),
               preco: dinheiro,
               pausado: z.boolean().optional(),
+              // SQL 27: opção "Não quero / não precisa" não gasta os complementos grátis.
+              nao_conta: z.boolean().optional(),
             })
           )
           .min(1)
@@ -108,6 +113,10 @@ async function gravarFilhos(produtoId: string | number, corpo: Corpo, pausados: 
   // campo que falta em uma vira "vazio" no banco.
   const marca = (grupo: string, nome: string) => (pausados ? { pausado: pausados.has(chaveDoComplemento(grupo, nome)) } : {});
 
+  // "Não quero / não precisa" (SQL 27): só envia a coluna quando alguma opção
+  // usa — e então em todas as linhas (true/false), pelo mesmo motivo acima.
+  const usaNaoConta = corpo.grupos.some((g) => g.opcoes.some((o) => o.nao_conta === true));
+
   const criados = { grupos: [] as (string | number)[], adicionais: [] as (string | number)[] };
 
   try {
@@ -138,6 +147,7 @@ async function gravarFilhos(produtoId: string | number, corpo: Corpo, pausados: 
         imagem: "",
         ordem: i,
         ...marca(g.nome, o.nome),
+        ...(usaNaoConta ? { nao_conta: o.nao_conta === true } : {}),
       }));
       const { error: erroOpcoes } = await supabaseAdmin.from("grupo_obrigatorio_opcoes").insert(opcoes);
       if (erroOpcoes) throw erroOpcoes;

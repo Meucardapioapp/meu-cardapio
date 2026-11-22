@@ -30,7 +30,7 @@ import { GRUPO_ADICIONAIS, chaveComplemento, chaveDoComplemento } from "@/lib/co
    Tipos e utilidades
    ============================================================ */
 
-type Opcao = { chave: string; nome: string; descricao: string; preco: string };
+type Opcao = { chave: string; nome: string; descricao: string; preco: string; naoConta?: boolean };
 
 type Regra = "uma" | "ate" | "livre";
 
@@ -96,6 +96,7 @@ function grupoDoBanco(g: any): Grupo {
         nome: o.nome,
         descricao: o.descricao || "",
         preco: paraTexto(o.preco),
+        naoConta: o.nao_conta === true,
       })),
   };
 }
@@ -134,8 +135,10 @@ export default function NovoProdutoPage() {
 
 function FormularioProduto() {
   const produtoId = useSearchParams().get("id");
+  const duplicarId = useSearchParams().get("duplicar");
+  const idCarregar = produtoId ?? duplicarId;
 
-  const [carregando, setCarregando] = useState(Boolean(produtoId));
+  const [carregando, setCarregando] = useState(Boolean(idCarregar));
   const [salvando, setSalvando] = useState(false);
 
   const [nome, setNome] = useState("");
@@ -155,6 +158,11 @@ function FormularioProduto() {
   const [controlarEstoque, setControlarEstoque] = useState(false);
   const [estoque, setEstoque] = useState("");
   const [sugerir, setSugerir] = useState(false);
+  // Complementos grátis no total (SQL 26): ex.: açaí 300ml com 3 grátis, depois R$ 3,50 cada.
+  const [colunaGratis, setColunaGratis] = useState(false);
+  const [limitarGratis, setLimitarGratis] = useState(false);
+  const [qtdGratis, setQtdGratis] = useState("3");
+  const [precoExtra, setPrecoExtra] = useState("");
   const [imagemArquivo, setImagemArquivo] = useState<File | null>(null);
   const [imagemUrl, setImagemUrl] = useState("");
   const [grupos, setGrupos] = useState<Grupo[]>([]);
@@ -192,23 +200,23 @@ function FormularioProduto() {
           .select("nome")
           .eq("restaurante_id", restauranteId)
           .order("ordem", { ascending: true }),
-        produtoId
-          ? supabase.from("produtos").select("*").eq("id", produtoId).maybeSingle()
+        idCarregar
+          ? supabase.from("produtos").select("*").eq("id", idCarregar).maybeSingle()
           : Promise.resolve({ data: null }),
-        produtoId
+        idCarregar
           ? supabase
               .from("grupos_obrigatorios")
               .select("*, grupo_obrigatorio_opcoes(*)")
-              .eq("produto_id", produtoId)
+              .eq("produto_id", idCarregar)
               .order("ordem")
           : Promise.resolve({ data: null }),
-        produtoId
-          ? supabase.from("adicionais").select("*").eq("produto_id", produtoId).order("nome")
+        idCarregar
+          ? supabase.from("adicionais").select("*").eq("produto_id", idCarregar).order("nome")
           : Promise.resolve({ data: null }),
       ]);
       setCategorias((cats ?? []).map((c: any) => c.nome));
 
-      if (!produtoId) {
+      if (!idCarregar) {
         setCarregando(false);
         return;
       }
@@ -220,7 +228,7 @@ function FormularioProduto() {
         return;
       }
 
-      setNome(p.nome || "");
+      setNome((p.nome || "") + (duplicarId && !produtoId ? " (cópia)" : ""));
       setDescricao(p.descricao || "");
       setCategoria(p.categoria || "");
       setPreco(paraTexto(p.preco));
@@ -234,6 +242,10 @@ function FormularioProduto() {
       setControlarEstoque(p.estoque != null);
       setEstoque(p.estoque != null ? String(p.estoque) : "");
       setSugerir(Boolean(p.sugerir_no_carrinho));
+      setColunaGratis("complementos_gratis" in p);
+      setLimitarGratis(p.complementos_gratis != null);
+      setQtdGratis(p.complementos_gratis != null ? String(p.complementos_gratis) : "3");
+      setPrecoExtra(p.preco_complemento_extra ? paraTexto(p.preco_complemento_extra) : "");
       if (p.promo_preco || p.estoque != null || p.sugerir_no_carrinho) setAvancado(true);
       setImagemUrl(p.imagem || "");
 
@@ -246,7 +258,7 @@ function FormularioProduto() {
     }
 
     carregar();
-  }, [produtoId]);
+  }, [produtoId, duplicarId]);
 
   const previewFoto = useMemo(
     () => (imagemArquivo ? URL.createObjectURL(imagemArquivo) : imagemUrl),
@@ -420,6 +432,32 @@ function FormularioProduto() {
       return "Na promoção, o preço antigo precisa ser maior que o preço atual.";
     }
 
+    if (limitarGratis) {
+      const n = Number(qtdGratis);
+      if (!grupos.length) return "Para usar \"complementos grátis\", crie no passo 2 as escolhas (ex.: Frutas, Secos).";
+      if (!/^\d{1,2}$/.test(qtdGratis.trim()) || !Number.isInteger(n)) return "Diga quantos complementos vêm grátis (ex.: 3) no passo 2.";
+      if (paraNumero(precoExtra) <= 0) return "Diga quanto custa cada complemento depois dos grátis (ex.: R$ 3,50) no passo 2.";
+
+      // Só contam as escolhas sem preço que "Somam" e não são "Só 1" (ex.: Frutas,
+      // Secos). Se elas não permitirem passar do nº de grátis, o cliente trava
+      // antes e o extra nunca é cobrado — a promessa do contador não se cumpre.
+      const contando = grupos.filter(
+        (g) =>
+          g.regra !== "uma" &&
+          g.cobranca === "soma" &&
+          g.opcoes.some((o) => o.nome.trim() && paraNumero(o.preco) <= 0)
+      );
+      if (!contando.length) {
+        return `Para os "${n} grátis" funcionarem, crie uma escolha de "Quantas quiser" (ou "Até um limite") com opções sem preço — ex.: Frutas, Secos. Escolhas de "Só 1" (ex.: Creme) não contam.`;
+      }
+      const capacidade = contando.some((g) => g.regra === "livre")
+        ? Infinity
+        : contando.reduce((soma, g) => soma + g.maximo, 0);
+      if (capacidade <= n) {
+        return `Os ${n} complementos grátis nunca serão ultrapassados: as escolhas que contam somam no máximo ${capacidade}. Para o cliente poder pagar o extra, deixe uma delas em "Quantas quiser" ou aumente o limite.`;
+      }
+    }
+
     for (const [i, g] of grupos.entries()) {
       const opcoesValidas = g.opcoes.filter((o) => o.nome.trim());
       if (!g.nome.trim()) return `Escreva a pergunta da escolha ${i + 1} (ex.: "Escolha o sabor").`;
@@ -474,6 +512,14 @@ function FormularioProduto() {
         });
       }
 
+      // Complementos grátis no total (SQL 26): só vai quando usado ou quando o banco já tem a coluna.
+      if (colunaGratis || limitarGratis) {
+        Object.assign(dados, {
+          complementos_gratis: limitarGratis ? Math.max(0, Math.floor(Number(qtdGratis) || 0)) : null,
+          preco_complemento_extra: limitarGratis ? paraNumero(precoExtra) : null,
+        });
+      }
+
       // Tudo é gravado de uma vez pelo servidor ("tudo ou nada"): se algo
       // falhar no meio, nada fica salvo pela metade e a mensagem é verdadeira.
       const corpo = {
@@ -489,6 +535,7 @@ function FormularioProduto() {
               nome: o.nome.trim(),
               descricao: o.descricao.trim() || null,
               preco: paraNumero(o.preco),
+              ...(o.naoConta ? { nao_conta: true } : {}),
             })),
         })),
         adicionais: extras
@@ -863,6 +910,17 @@ function FormularioProduto() {
                             placeholder="Ingredientes (opcional) — Ex.: massa, molho, muçarela, calabresa e cebola"
                             className="campo bg-white text-sm sm:col-span-2"
                           />
+                          {limitarGratis && (
+                            <label className="sm:col-span-2 flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={Boolean(o.naoConta)}
+                                onChange={(e) => mudarOpcao(g.chave, o.chave, { naoConta: e.target.checked })}
+                                className="h-4 w-4 accent-[#6D1F2F]"
+                              />
+                              É a opção “Não quero / não precisa” (não gasta os complementos grátis)
+                            </label>
+                          )}
                           {estaEmFalta(g.nome, o.nome) && (
                             <div className="sm:col-span-2">
                               <AvisoEmFalta />
@@ -902,6 +960,55 @@ function FormularioProduto() {
                 </div>
               ))}
             </div>
+
+            {grupos.length > 0 && (
+              <div className={`mt-4 rounded-2xl border-2 p-3 sm:p-4 ${limitarGratis ? "border-[#6D1F2F] bg-[#6D1F2F]/5" : "border-zinc-200"}`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={limitarGratis}
+                    onChange={(e) => setLimitarGratis(e.target.checked)}
+                    className="mt-1 h-5 w-5 accent-[#6D1F2F]"
+                  />
+                  <span>
+                    <strong className="block text-sm">Complementos grátis no total</strong>
+                    <span className="block text-xs text-zinc-500">
+                      Ex.: açaí 300ml com 3 complementos grátis, somando todas as escolhas acima. Depois disso, cada um é cobrado à parte.
+                    </span>
+                  </span>
+                </label>
+
+                {limitarGratis && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <Campo rotulo="Quantos complementos vêm grátis?">
+                      <input
+                        value={qtdGratis}
+                        onChange={(e) => setQtdGratis(e.target.value.replace(/\D/g, "").slice(0, 2))}
+                        inputMode="numeric"
+                        placeholder="Ex.: 3"
+                        className="campo bg-white"
+                      />
+                    </Campo>
+                    <Campo rotulo="Depois disso, cada um custa">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-zinc-500 shrink-0">R$</span>
+                        <input
+                          value={precoExtra}
+                          onChange={(e) => setPrecoExtra(mascaraDinheiro(e.target.value))}
+                          inputMode="numeric"
+                          placeholder="3,50"
+                          className="campo bg-white"
+                        />
+                      </div>
+                    </Campo>
+                    <p className="text-xs text-zinc-500 sm:col-span-2">
+                      Contam só as opções sem preço (R$ 0,00). Opção com preço próprio (ex.: Nutella + R$ 5,00) é cobrada normalmente e não gasta os grátis.
+                      Cada escolha continua com o seu limite (ex.: Cremes, escolha 1). Para o cliente poder pular uma escolha (ex.: “Não quero creme”), crie essa opção e marque “Não quero / não precisa” nela.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="mt-4">
               <button
