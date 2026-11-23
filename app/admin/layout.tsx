@@ -459,12 +459,16 @@ function useSalaoNovos(pathname: string, ativo: boolean) {
     }
 
     olhar();
-    const t = setInterval(olhar, 10000);
+    // Pausa quando a aba está em segundo plano; volta a checar ao reabrir.
+    const t = setInterval(() => { if (!document.hidden) olhar(); }, 30000);
+    const aoVoltar = () => document.visibilityState === "visible" && olhar();
+    document.addEventListener("visibilitychange", aoVoltar);
     const visto = () => setAviso("");
     window.addEventListener("salao-visto", visto);
     return () => {
       parar = true;
       clearInterval(t);
+      document.removeEventListener("visibilitychange", aoVoltar);
       window.removeEventListener("salao-visto", visto);
     };
   }, [ativo]);

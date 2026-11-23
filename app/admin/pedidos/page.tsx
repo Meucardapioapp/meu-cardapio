@@ -271,13 +271,17 @@ export default function PedidosPage() {
       .subscribe();
 
     // Garantia caso o tempo real não esteja disponível.
-    const intervalo = setInterval(buscarPedidos, 15000);
+    // Realtime atualiza na hora; este poll é rede de segurança e pausa em 2º plano.
+    const intervalo = setInterval(() => { if (!document.hidden) buscarPedidos(); }, 30000);
     const relogio = setInterval(() => forcarRelogio((n) => n + 1), 60000);
+    const aoVoltar = () => document.visibilityState === "visible" && buscarPedidos();
+    document.addEventListener("visibilitychange", aoVoltar);
     window.addEventListener("novo-pedido", buscarPedidos);
 
     return () => {
       supabase.removeChannel(canal);
       clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", aoVoltar);
       clearInterval(relogio);
       window.removeEventListener("novo-pedido", buscarPedidos);
     };

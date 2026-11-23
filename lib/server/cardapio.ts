@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { lerRestaurantePublico } from "@/lib/restaurantePublico";
 import { restaurantePodeReceberPedidos } from "@/lib/server/assinatura";
@@ -102,116 +103,128 @@ async function resumoAvaliacoes(restauranteId: string): Promise<ResumoAvaliacoes
   return resumo;
 }
 
+const carregarMenu = (slug: string) =>
+  unstable_cache(
+    async () => {
+      const { data: restaurante } = await lerRestaurantePublico((tabela) =>
+        supabaseAdmin.from(tabela).select("*").eq("slug", slug).maybeSingle()
+      );
+      if (!restaurante) return null;
+
+      const id = String(restaurante.id);
+      const restaurantePublico = somentePublico(restaurante);
+
+      const [aparenciaRes, categoriasRes, produtosRes, idsMaisPedidos, avaliacao, taxasRes, formas] = await Promise.all([
+        supabaseAdmin.from("aparencia").select("*").eq("restaurante_id", id).limit(1),
+        supabaseAdmin.from("categorias").select("id, nome, ordem").eq("restaurante_id", id).order("ordem", { ascending: true }),
+        supabaseAdmin
+          .from("produtos")
+          .select("*")
+          .eq("restaurante_id", id)
+          .eq("ativo", true)
+          .order("ordem", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: false }),
+        maisPedidos(id).catch(() => [] as string[]),
+        resumoAvaliacoes(id).catch(() => null),
+        supabaseAdmin.from("bairros_entrega").select("valor").eq("restaurante_id", id).order("valor", { ascending: true }).limit(1),
+        lerFormasPedido(id).catch(() => null),
+      ]);
+      const taxas = taxasRes.data;
+      const taxaMinima = taxas?.length ? Number(taxas[0].valor || 0) : null;
+
+      const produtos = (produtosRes.data ?? []).filter((p: any) => p.estoque == null || Number(p.estoque) > 0);
+      const agora = agoraNoFuso((restaurante as any).uf);
+      const ids = produtos.map((p: any) => p.id);
+
+      const [adicionaisRes, gruposRes] = ids.length
+        ? await Promise.all([
+            supabaseAdmin.from("adicionais").select("*").in("produto_id", ids),
+            supabaseAdmin
+              .from("grupos_obrigatorios")
+              .select("*, grupo_obrigatorio_opcoes(*)")
+              .in("produto_id", ids)
+              .order("ordem", { ascending: true }),
+          ])
+        : [{ data: [] as any[] }, { data: [] as any[] }];
+
+      const adicionaisPorProduto = new Map<string, any[]>();
+      for (const a of adicionaisRes.data ?? []) {
+        if (estaPausado(a)) continue;
+        const k = String(a.produto_id);
+        if (!adicionaisPorProduto.has(k)) adicionaisPorProduto.set(k, []);
+        adicionaisPorProduto.get(k)!.push(a);
+      }
+      const gruposPorProduto = new Map<string, any[]>();
+      for (const g of gruposRes.data ?? []) {
+        const k = String(g.produto_id);
+        if (!gruposPorProduto.has(k)) gruposPorProduto.set(k, []);
+        gruposPorProduto.get(k)!.push(g);
+      }
+      const indisponiveis = new Set<string>();
+      for (const [k, gs] of gruposPorProduto) {
+        const r = semPausados(gs, "grupo_obrigatorio_opcoes");
+        gruposPorProduto.set(k, r.grupos);
+        if (r.indisponivel) indisponiveis.add(k);
+      }
+      const produtosVisiveis = produtos.filter((p: any) => !indisponiveis.has(String(p.id)));
+
+      return {
+        id,
+        restaurante: restaurantePublico,
+        aparencia: aparenciaRes.data?.[0] ?? null,
+        categorias: (categoriasRes.data ?? []).map((c: any) => String(c.nome)),
+        aceitaRetirada: formas ? formas.retirada : true,
+        avaliacao,
+        taxaMinima,
+        maisPedidos: idsMaisPedidos.filter((pid) => produtosVisiveis.some((p: any) => String(p.id) === pid)).slice(0, 6),
+        produtos: produtosVisiveis.map((produto: any) => {
+          const promoHoje = promocaoAtiva(produto, agora);
+          return {
+            id: produto.id,
+            nome: produto.nome,
+            descricao: produto.descricao,
+            preco: promoHoje ? Number(produto.promo_preco) : Number(produto.preco),
+            precoAntigo: promoHoje ? Number(produto.preco) : Number(produto.preco_antigo || 0),
+            imagem: produto.imagem,
+            categoria: produto.categoria || "Outros",
+            promocao: promoHoje || produto.promocao === true,
+            rotuloPromocao: promoHoje ? rotuloPromocao(produto) : null,
+            estoque: produto.estoque ?? null,
+            sugerirNoCarrinho: produto.sugerir_no_carrinho === true,
+            adicionais: adicionaisPorProduto.get(String(produto.id)) ?? [],
+            gruposObrigatorios: gruposPorProduto.get(String(produto.id)) ?? [],
+            complementosGratis: produto.complementos_gratis ?? null,
+            precoComplementoExtra: Number(produto.preco_complemento_extra || 0),
+          };
+        }),
+      };
+    },
+    ["cardapio-menu", slug],
+    { revalidate: 60, tags: [`cardapio-${slug}`] }
+  )();
+
+/**
+ * Cardápio público. O MENU (produtos, visual, taxas) é cacheado por 60s e
+ * revalidado na hora quando o dono salva um produto. Já o estado OPERACIONAL
+ * (pausa de pedidos e plano) é sempre buscado fresco — nunca cacheado — e a
+ * criação do pedido revalida tudo no servidor.
+ */
 export const carregarCardapio = cache(async (slug: string) => {
   if (!slug || slug.length > 80) return null;
 
-  const { data: restaurante } = await lerRestaurantePublico((tabela) =>
-    supabaseAdmin.from(tabela).select("*").eq("slug", slug).maybeSingle()
-  );
+  const menu = await carregarMenu(slug);
+  if (!menu) return null;
 
-  if (!restaurante) return null;
-
-  const id = String(restaurante.id);
-  const restaurantePublico = somentePublico(restaurante);
-
-  const [aparenciaRes, categoriasRes, produtosRes, operacao, planoAtivo, idsMaisPedidos, avaliacao, taxasRes, formas] = await Promise.all([
-    supabaseAdmin.from("aparencia").select("*").eq("restaurante_id", id).limit(1),
-    supabaseAdmin.from("categorias").select("id, nome, ordem").eq("restaurante_id", id).order("ordem", { ascending: true }),
-    supabaseAdmin
-      .from("produtos")
-      .select("*")
-      .eq("restaurante_id", id)
-      .eq("ativo", true)
-      .order("ordem", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: false }),
-    getOperacao(id),
-    restaurantePodeReceberPedidos(id),
-    maisPedidos(id).catch(() => [] as string[]),
-    resumoAvaliacoes(id).catch(() => null),
-    supabaseAdmin
-      .from("bairros_entrega")
-      .select("valor")
-      .eq("restaurante_id", id)
-      .order("valor", { ascending: true })
-      .limit(1),
-    lerFormasPedido(id).catch(() => null),
+  const [operacao, planoAtivo] = await Promise.all([
+    getOperacao(menu.id),
+    restaurantePodeReceberPedidos(menu.id),
   ]);
-  const taxas = taxasRes.data;
-  const taxaMinima = taxas?.length ? Number(taxas[0].valor || 0) : null;
 
-  // Esgotado pelo estoque = some do cardápio.
-  const produtos = (produtosRes.data ?? []).filter((p: any) => p.estoque == null || Number(p.estoque) > 0);
-  const agora = agoraNoFuso((restaurante as any).uf);
-  const ids = produtos.map((p: any) => p.id);
-
-  const [adicionaisRes, gruposRes] = ids.length
-    ? await Promise.all([
-        supabaseAdmin.from("adicionais").select("*").in("produto_id", ids),
-        supabaseAdmin
-          .from("grupos_obrigatorios")
-          .select("*, grupo_obrigatorio_opcoes(*)")
-          .in("produto_id", ids)
-          .order("ordem", { ascending: true }),
-      ])
-    : [{ data: [] as any[] }, { data: [] as any[] }];
-
-  const adicionaisPorProduto = new Map<string, any[]>();
-  for (const a of adicionaisRes.data ?? []) {
-    if (estaPausado(a)) continue; // complemento pausado (acabou): some do cardápio
-    const k = String(a.produto_id);
-    if (!adicionaisPorProduto.has(k)) adicionaisPorProduto.set(k, []);
-    adicionaisPorProduto.get(k)!.push(a);
-  }
-
-  const gruposPorProduto = new Map<string, any[]>();
-  for (const g of gruposRes.data ?? []) {
-    const k = String(g.produto_id);
-    if (!gruposPorProduto.has(k)) gruposPorProduto.set(k, []);
-    gruposPorProduto.get(k)!.push(g);
-  }
-
-  // Opções pausadas saem do cardápio. Produto cuja escolha obrigatória ficou
-  // sem nenhuma opção (ex.: todos os sabores pausados) some até voltar.
-  const indisponiveis = new Set<string>();
-  for (const [k, gs] of gruposPorProduto) {
-    const r = semPausados(gs, "grupo_obrigatorio_opcoes");
-    gruposPorProduto.set(k, r.grupos);
-    if (r.indisponivel) indisponiveis.add(k);
-  }
-  const produtosVisiveis = produtos.filter((p: any) => !indisponiveis.has(String(p.id)));
-
+  const { id: _id, ...resto } = menu;
   return {
-    restaurante: restaurantePublico,
-    aparencia: aparenciaRes.data?.[0] ?? null,
-    categorias: (categoriasRes.data ?? []).map((c: any) => String(c.nome)),
+    ...resto,
     operacao,
     pedidosAtivos: planoAtivo && !operacao.pausado,
-    // false = "Só trabalho com delivery": o carrinho não oferece retirada.
-    aceitaRetirada: formas ? formas.retirada : true,
-    avaliacao,
-    taxaMinima,
-    maisPedidos: idsMaisPedidos.filter((pid) => produtosVisiveis.some((p: any) => String(p.id) === pid)).slice(0, 6),
-    produtos: produtosVisiveis.map((produto: any) => {
-      const promoHoje = promocaoAtiva(produto, agora);
-      return {
-      id: produto.id,
-      nome: produto.nome,
-      descricao: produto.descricao,
-      preco: promoHoje ? Number(produto.promo_preco) : Number(produto.preco),
-      precoAntigo: promoHoje ? Number(produto.preco) : Number(produto.preco_antigo || 0),
-      imagem: produto.imagem,
-      categoria: produto.categoria || "Outros",
-      promocao: promoHoje || produto.promocao === true,
-      rotuloPromocao: promoHoje ? rotuloPromocao(produto) : null,
-      estoque: produto.estoque ?? null,
-      sugerirNoCarrinho: produto.sugerir_no_carrinho === true,
-      adicionais: adicionaisPorProduto.get(String(produto.id)) ?? [],
-      gruposObrigatorios: gruposPorProduto.get(String(produto.id)) ?? [],
-      // Complementos grátis no total (null = produto funciona como sempre).
-      complementosGratis: produto.complementos_gratis ?? null,
-      precoComplementoExtra: Number(produto.preco_complemento_extra || 0),
-      };
-    }),
   };
 });
 

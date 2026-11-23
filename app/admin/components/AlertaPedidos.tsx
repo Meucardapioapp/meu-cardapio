@@ -187,7 +187,7 @@ export default function AlertaPedidos() {
   // Consulta periódica + tempo real.
   useEffect(() => {
     verificar();
-    const intervalo = setInterval(verificar, 10000);
+    const intervalo = setInterval(verificar, 20000); // realtime é o gatilho imediato; isto é só rede de segurança
     window.addEventListener("pedidos-atualizados", verificar);
 
     const restauranteId = localStorage.getItem("restaurante_id");
