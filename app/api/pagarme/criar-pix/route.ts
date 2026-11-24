@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const { data: pedido } = await supabaseAdmin
       .from("pedidos")
       .select(
-        "id, numero_pedido, restaurante_id, nome, telefone, total, payment_method, payment_status, pagarme_order_id, codigo_acesso"
+        "id, numero_pedido, restaurante_id, nome, telefone, total, valor_online, payment_method, payment_status, pagarme_order_id, codigo_acesso"
       )
       .eq("id", pedidoId)
       .eq("codigo_acesso", codigo)
@@ -97,7 +97,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const totalCentavos = centavos(Number(pedido.total));
+    // Em pedido dividido, cobra só a parte online (valor_online); senão, o total.
+    const totalCentavos = centavos(Number(pedido.valor_online ?? pedido.total));
 
     if (totalCentavos < 100) {
       return NextResponse.json(

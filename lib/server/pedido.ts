@@ -374,6 +374,9 @@ export function pedidoPublico(pedido: any) {
     referencia: pedido.referencia,
     observacoes: pedido.observacoes,
     troco_para: pedido.troco_para ?? null,
+    pagamento_dividido: pedido.pagamento_dividido ?? false,
+    pagamentos: pedido.pagamentos ?? null,
+    valor_online: pedido.valor_online ?? null,
     itens: Array.isArray(pedido.itens) ? pedido.itens : [],
     restaurante_id: pedido.restaurante_id,
   };

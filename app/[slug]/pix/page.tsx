@@ -7,6 +7,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import { reais } from "@/lib/dinheiro";
 import { limparCarrinho } from "@/lib/carrinho";
+import ResumoDivisao from "@/app/components/customer/ResumoDivisao";
 
 function copiarTexto(texto: string) {
   if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(texto);
@@ -164,8 +165,19 @@ function PixContent() {
             <div className="rounded-3xl bg-white p-5">
               <div className="flex items-end justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-zinc-500">Valor</p>
-                  <p className="text-2xl font-extrabold">{pedido?.total != null ? reais(pedido.total) : "—"}</p>
+                  <p className="text-xs font-semibold text-zinc-500">
+                    {pedido?.pagamento_dividido ? "Valor deste Pix" : "Valor"}
+                  </p>
+                  <p className="text-2xl font-extrabold">
+                    {pedido?.pagamento_dividido && pedido?.valor_online != null
+                      ? reais(Number(pedido.valor_online))
+                      : pedido?.total != null
+                        ? reais(pedido.total)
+                        : "—"}
+                  </p>
+                  {pedido?.pagamento_dividido && (
+                    <p className="mt-0.5 text-xs text-zinc-500">de {reais(pedido.total)} no total</p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-semibold text-zinc-500">Expira em</p>
@@ -201,6 +213,10 @@ function PixContent() {
                 ))}
               </ol>
             </div>
+
+            {pedido?.pagamento_dividido && (
+              <ResumoDivisao pagamentos={pedido.pagamentos} pago={false} />
+            )}
 
             <div className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
               <LoaderCircle size={20} className="shrink-0 animate-spin text-amber-600" />

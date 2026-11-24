@@ -29,16 +29,20 @@ export async function pixChaveAtivo(restauranteId: string) {
 }
 
 /** Dados que o cliente vê para pagar um pedido com Pix na chave do restaurante. */
-export async function pixChaveDoPedido(pedido: {
-  restaurante_id: string;
-  total?: number | string | null;
-  total_pago?: number | string | null;
-  numero_pedido?: number | string | null;
-}) {
+export async function pixChaveDoPedido(
+  pedido: {
+    restaurante_id: string;
+    total?: number | string | null;
+    total_pago?: number | string | null;
+    numero_pedido?: number | string | null;
+  },
+  valorForcado?: number
+) {
   const pix = await getPixChave(String(pedido.restaurante_id));
   if (!pix) return null;
 
-  const valor = Number(pedido.total_pago ?? pedido.total ?? 0);
+  // Em pedido dividido, usa o valor da parcela do Pix na chave.
+  const valor = valorForcado != null ? valorForcado : Number(pedido.total_pago ?? pedido.total ?? 0);
 
   return {
     tipo: pix.tipo,

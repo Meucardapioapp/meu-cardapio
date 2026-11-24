@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { pedidoPublico } from "@/lib/server/pedido";
 import { pixChaveDoPedido } from "@/lib/server/pixChave";
+import { normalizarPagamentos, valorDaParte } from "@/lib/pagamentoDividido";
 
 /** Acompanhamento do pedido pelo cliente: exige o código do pedido. */
 export async function GET(request: Request) {
@@ -35,11 +36,17 @@ export async function GET(request: Request) {
     );
   }
 
-  const aguardandoPixChave = data.payment_method === "pix_chave" && data.payment_status !== "approved";
+  // Valor do Pix na chave: parcela da divisão, ou o total quando é só Pix na chave.
+  const parcelas = data.pagamento_dividido ? normalizarPagamentos(data.pagamentos) : [];
+  const valorPixChave = data.pagamento_dividido
+    ? valorDaParte(parcelas, "pix_chave")
+    : data.payment_method === "pix_chave" && data.payment_status !== "approved"
+      ? Number(data.total_pago ?? data.total ?? 0)
+      : 0;
 
   const [{ data: restaurante }, pixChave] = await Promise.all([
     supabaseAdmin.from("restaurantes").select("whatsapp").eq("id", data.restaurante_id).maybeSingle(),
-    aguardandoPixChave ? pixChaveDoPedido(data).catch(() => null) : Promise.resolve(null),
+    valorPixChave > 0 ? pixChaveDoPedido(data, valorPixChave).catch(() => null) : Promise.resolve(null),
   ]);
 
   return NextResponse.json({

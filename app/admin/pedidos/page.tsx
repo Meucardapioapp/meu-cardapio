@@ -42,6 +42,9 @@ type Pedido = {
   cupom_codigo?: string | null;
   premio_fidelidade?: string | null;
   troco_para?: number | null;
+  pagamento_dividido?: boolean;
+  pagamentos?: { metodo: string; valor: number }[] | null;
+  valor_online?: number | null;
   distancia_km?: number | null;
   total: number;
   total_pago: number;
@@ -82,9 +85,26 @@ const PAGAMENTO: Record<string, string> = {
 const aguardandoPix = (p: Pedido) => p.payment_method === "pix_chave" && p.payment_status !== "approved";
 
 const nomePagamento = (p: Pedido) =>
-  p.payment_method === "pix_chave"
+  p.pagamento_dividido
+    ? "Pagamento dividido"
+    : p.payment_method === "pix_chave"
     ? aguardandoPix(p) ? "Pix na sua chave (conferir)" : "Pix na sua chave (recebido)"
     : PAGAMENTO[p.payment_method] ?? p.payment_method;
+
+const LABEL_DIV: Record<string, string> = {
+  pix: "Pix online",
+  pix_chave: "Pix na chave",
+  card_delivery: "Cartão na entrega",
+  cash: "Dinheiro",
+};
+
+/** Quanto o restaurante ainda recebe na entrega (dinheiro + cartão) num pedido dividido. */
+const aReceberNaEntrega = (p: Pedido) =>
+  Array.isArray(p.pagamentos)
+    ? p.pagamentos
+        .filter((x) => x.metodo === "cash" || x.metodo === "card_delivery")
+        .reduce((s, x) => s + Number(x.valor || 0), 0)
+    : 0;
 
 const km = (v: unknown) => (v != null && Number(v) > 0 ? ` · ${String(Number(v)).replace(".", ",")} km` : "");
 
@@ -190,8 +210,12 @@ export default function PedidosPage() {
 
   function textoParaMotoboy(p: Pedido) {
     const total = Number(p.total_pago ?? p.total);
-    const cobrar =
-      p.payment_method === "cash"
+    const naEntrega = aReceberNaEntrega(p);
+    const cobrar = p.pagamento_dividido
+      ? naEntrega > 0
+        ? `Pagamento dividido — receber ${reais(naEntrega)} na entrega${p.troco_para && Number(p.troco_para) > naEntrega ? ` (troco para ${reais(Number(p.troco_para))} → levar ${reais(Number(p.troco_para) - naEntrega)})` : ""}`
+        : "Pagamento dividido — já pago, não cobrar"
+      : p.payment_method === "cash"
         ? `Receber em dinheiro: ${reais(total)}${p.troco_para && Number(p.troco_para) > total ? ` (troco para ${reais(Number(p.troco_para))} → levar ${reais(Number(p.troco_para) - total)})` : ""}`
         : p.payment_method === "card_delivery"
           ? `Levar maquininha: cobrar ${reais(total)}`
@@ -820,6 +844,33 @@ export default function PedidosPage() {
                     <div className="flex justify-between text-green-700 font-bold"><span>🎁 Cliente fiel + {selecionado.premio_fidelidade}</span><span>{reais(0)}</span></div>
                   )}
                   <div className="flex justify-between text-base font-black pt-1"><span>Total</span><span>{reais(selecionado.total_pago ?? selecionado.total)}</span></div>
+                  {selecionado.pagamento_dividido && Array.isArray(selecionado.pagamentos) && (
+                    <div className="mt-2 rounded-lg bg-zinc-50 px-3 py-2">
+                      <p className="font-bold text-zinc-800">Pagamento dividido</p>
+                      {selecionado.pagamentos.map((pt, i) => (
+                        <div key={i} className="flex justify-between text-sm text-zinc-700">
+                          <span>
+                            {LABEL_DIV[pt.metodo] ?? pt.metodo}
+                            <span className="text-zinc-400">
+                              {pt.metodo === "pix"
+                                ? selecionado.payment_status === "approved"
+                                  ? " · pago ✓"
+                                  : " · aguardando"
+                                : pt.metodo === "pix_chave"
+                                  ? " · conferir na conta"
+                                  : " · receber na entrega"}
+                            </span>
+                          </span>
+                          <span className="font-semibold">{reais(Number(pt.valor))}</span>
+                        </div>
+                      ))}
+                      {aReceberNaEntrega(selecionado) > 0 && (
+                        <p className="mt-1 text-sm font-bold text-green-800">
+                          A receber na entrega: {reais(aReceberNaEntrega(selecionado))}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   {selecionado.troco_para ? (
                     <p className="mt-2 rounded-lg bg-green-50 px-3 py-2 font-semibold text-green-800">
                       Troco para {reais(Number(selecionado.troco_para))} — levar {reais(Number(selecionado.troco_para) - Number(selecionado.total))}

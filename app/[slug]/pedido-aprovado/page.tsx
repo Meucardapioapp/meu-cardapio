@@ -18,6 +18,7 @@ import {
 import { useRestaurant } from "@/contexts/RestaurantContext";
 import AvaliarPedido from "@/app/components/customer/AvaliarPedido";
 import PixChaveRestaurante from "@/app/components/customer/PixChaveRestaurante";
+import ResumoDivisao from "@/app/components/customer/ResumoDivisao";
 
 export default function PedidoAprovadoPage() {
   const params = useParams();
@@ -273,7 +274,13 @@ function etapaAtual() {
           </div>
         </div>
 
-        {aguardandoPix && pedido.pix_chave && (
+        {pedido.pagamento_dividido && (
+          <div className="mt-6">
+            <ResumoDivisao pagamentos={pedido.pagamentos} pago={pedido.payment_status === "approved"} />
+          </div>
+        )}
+
+        {pedido.pix_chave && (
           <PixChaveRestaurante
             pix={pedido.pix_chave}
             numeroPedido={pedido.numero_pedido ?? pedido.id}

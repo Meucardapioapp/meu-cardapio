@@ -19,6 +19,14 @@ import { limitar, limitarChave } from "@/lib/server/rate-limit";
 import { mensagemDeErroBanco } from "@/lib/server/erros";
 import { lancarPedidoDoQr } from "@/lib/server/salao";
 import { lerFormasPedido } from "@/lib/server/formasPedido";
+import {
+  normalizarPagamentos,
+  divisaoValida,
+  valorOnline as calcValorOnline,
+  valorDaParte,
+  metodoPrimario,
+  type ParcelaPagamento,
+} from "@/lib/pagamentoDividido";
 
 const METODOS = ["pix", "cash", "card_delivery", "pix_chave"] as const;
 type Metodo = (typeof METODOS)[number];
@@ -262,15 +270,46 @@ export async function POST(req: NextRequest) {
     const total =
       Math.round(Math.max(subtotal + taxaEntrega - descontoCupom - descontoFidelidade, 0) * 100) / 100;
 
-    if (metodo === "pix" && total < 1) {
+    // ---------- pagamento dividido (mais de uma forma no mesmo pedido) ----------
+    let parcelas: ParcelaPagamento[] = [];
+    if (body.pagamentos != null) {
+      parcelas = normalizarPagamentos(body.pagamentos);
+      if (!divisaoValida(parcelas, total)) {
+        return erro("A divisão do pagamento precisa somar exatamente o total do pedido.");
+      }
+      // cada forma escolhida precisa estar habilitada no restaurante
+      for (const p of parcelas) {
+        if (p.metodo === "pix") {
+          if (!formas.pix_online || !(await getRecebedorId(restauranteId)))
+            return erro("Pix online indisponível neste restaurante.");
+        } else if (p.metodo === "pix_chave") {
+          if (!(await pixChaveAtivo(restauranteId))) return erro("Pix na chave do restaurante indisponível.");
+        } else if (p.metodo === "cash") {
+          if (!formas.dinheiro) return erro("Pagamento em dinheiro indisponível.");
+        } else if (p.metodo === "card_delivery") {
+          if (!formas.cartao_entrega) return erro("Cartão na entrega indisponível.");
+        }
+      }
+      if (metodoPrimario(parcelas) !== metodo) {
+        return erro("Forma de pagamento principal inconsistente com a divisão.");
+      }
+    }
+    const dividido = parcelas.length >= 2;
+    const valorOnlineV = dividido ? calcValorOnline(parcelas) : metodo === "pix" ? total : 0;
+
+    if (valorOnlineV > 0 && valorOnlineV < 1) {
+      return erro("A parte paga no Pix online precisa ser de pelo menos R$ 1,00.");
+    }
+    if (!dividido && metodo === "pix" && total < 1) {
       return erro("Para pedidos abaixo de R$ 1,00, escolha pagar na entrega.");
     }
 
+    // Valor em dinheiro (parte da divisão, ou o total quando for só dinheiro).
+    const valorDinheiro = dividido ? valorDaParte(parcelas, "cash") : metodo === "cash" ? total : 0;
     let trocoPara: number | null = null;
-
-    if (metodo === "cash" && body.trocoPara != null && body.trocoPara !== "") {
+    if (valorDinheiro > 0 && body.trocoPara != null && body.trocoPara !== "") {
       const valor = Number(String(body.trocoPara).replace(",", "."));
-      if (Number.isFinite(valor) && valor > total) trocoPara = Math.round(valor * 100) / 100;
+      if (Number.isFinite(valor) && valor > valorDinheiro) trocoPara = Math.round(valor * 100) / 100;
     }
 
     // ---------- grava o pedido ----------
@@ -307,6 +346,9 @@ export async function POST(req: NextRequest) {
         confirmado: metodo !== "pix",
         desconto_fidelidade: descontoFidelidade,
         troco_para: trocoPara,
+        // Pagamento dividido (só vai quando usado; funciona mesmo antes do SQL 29).
+        ...(dividido ? { pagamento_dividido: true, pagamentos: parcelas } : {}),
+        ...(dividido && valorOnlineV > 0 ? { valor_online: valorOnlineV } : {}),
         // Campos novos só vão quando usados (funciona mesmo antes do SQL 04).
         ...(mesa ? { mesa } : {}),
         ...(frete.km != null ? { distancia_km: frete.km } : {}),

@@ -23,6 +23,7 @@ import { FaPix } from "react-icons/fa6";
 import { agoraNoFuso, statusDaLoja } from "@/lib/horario";
 import { paraUF } from "@/lib/uf";
 import { lerCarrinho, limparCarrinho, precoUnitario } from "@/lib/carrinho";
+import { metodoPrimario, valorOnline as calcOnline } from "@/lib/pagamentoDividido";
 
 type Metodo = "pix" | "pix_chave" | "cartao_entrega" | "dinheiro";
 
@@ -134,6 +135,11 @@ export default function PagamentoPage() {
   const [cupomErro, setCupomErro] = useState("");
   const [validandoCupom, setValidandoCupom] = useState(false);
   const [mostrarCupom, setMostrarCupom] = useState(false);
+
+  // Pagamento dividido (mais de uma forma no mesmo pedido)
+  const [dividir, setDividir] = useState(false);
+  const [valores, setValores] = useState<Record<string, string>>({});
+  const [divHover, setDivHover] = useState(false);
 
   useEffect(() => {
     async function carregar() {
@@ -265,6 +271,32 @@ export default function PagamentoPage() {
   const cpfOk = validarCPF(cpf);
   const trocoNumero = Number(trocoPara.replace(/\./g, "").replace(",", "."));
 
+  // ---- pagamento dividido ----
+  const metodosAtivos: { id: Metodo; titulo: string; icone: React.ReactNode }[] = [
+    ...(aceitaPix ? [{ id: "pix" as Metodo, titulo: "Pix online", icone: <FaPix size={20} color="#32BCAD" /> }] : []),
+    ...(aceitaPixChave
+      ? [{ id: "pix_chave" as Metodo, titulo: aceitaPix ? "Pix na chave" : "Pix", icone: <FaPix size={20} color="#32BCAD" /> }]
+      : []),
+    ...(aceitaCartaoEntrega
+      ? [{ id: "cartao_entrega" as Metodo, titulo: "Cartão na entrega", icone: <CreditCard size={18} color={corPrincipal} /> }]
+      : []),
+    ...(aceitaDinheiro ? [{ id: "dinheiro" as Metodo, titulo: "Dinheiro", icone: <Banknote size={18} color="#16A34A" /> }] : []),
+  ];
+  const podeDividir = metodosAtivos.length >= 2;
+  const parseValor = (s: string) => {
+    const n = Number(String(s || "").replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const parcelasUI = metodosAtivos
+    .map((m) => ({ metodo: METODO_API[m.id], valor: Math.round(parseValor(valores[m.id] || "") * 100) / 100 }))
+    .filter((p) => p.valor > 0);
+  const somaDividir = Math.round(parcelasUI.reduce((s, p) => s + p.valor, 0) * 100) / 100;
+  const faltaDistribuir = Math.round((total - somaDividir) * 100) / 100;
+  const temOnlineDiv = parcelasUI.some((p) => p.metodo === "pix");
+  const temDinheiroDiv = parcelasUI.some((p) => p.metodo === "cash");
+  const valorOnlineUI = parcelasUI.find((p) => p.metodo === "pix")?.valor ?? 0;
+  const divisaoOk = dividir && parcelasUI.length >= 2 && Math.abs(faltaDistribuir) < 0.001;
+
   function voltar() {
     router.push(retirada ? `/${slug}/carrinho` : `/${slug}/endereco`);
   }
@@ -291,23 +323,51 @@ export default function PagamentoPage() {
       return;
     }
 
-    if (!metodo) {
-      setErro("Escolha uma forma de pagamento.");
-      return;
-    }
-
-    if (metodo === "pix" && !cpfOk) {
-      setErro("Para gerar o Pix, informe um CPF válido.");
-      return;
-    }
-
-    if (metodo === "dinheiro" && precisaTroco && !(trocoNumero > total)) {
-      setErro(`O troco precisa ser para um valor maior que ${reais(total)}.`);
-      return;
-    }
-
     if (carrinho.length === 0) {
       setErro("Seu carrinho está vazio.");
+      return;
+    }
+
+    // Monta o pagamento (único ou dividido).
+    let pagamentos: { metodo: string; valor: number }[] | null = null;
+    let paymentMethod: string;
+    let temOnline: boolean;
+    let valorDinheiro: number;
+
+    if (dividir) {
+      if (parcelasUI.length < 2) {
+        setErro("Escolha pelo menos duas formas e distribua o valor entre elas.");
+        return;
+      }
+      if (Math.abs(faltaDistribuir) > 0.001) {
+        setErro(
+          faltaDistribuir > 0
+            ? `Ainda falta distribuir ${reais(faltaDistribuir)}.`
+            : `A soma passou do total em ${reais(-faltaDistribuir)}.`
+        );
+        return;
+      }
+      pagamentos = parcelasUI;
+      paymentMethod = metodoPrimario(parcelasUI as any);
+      temOnline = temOnlineDiv;
+      valorDinheiro = parcelasUI.find((p) => p.metodo === "cash")?.valor ?? 0;
+    } else {
+      if (!metodo) {
+        setErro("Escolha uma forma de pagamento.");
+        return;
+      }
+      paymentMethod = METODO_API[metodo];
+      temOnline = metodo === "pix";
+      valorDinheiro = metodo === "dinheiro" ? total : 0;
+    }
+
+    if (temOnline && !cpfOk) {
+      setErro("Para a parte paga no Pix online, informe um CPF válido.");
+      return;
+    }
+
+    if (valorDinheiro > 0 && precisaTroco && !(trocoNumero > valorDinheiro)) {
+      setErro(`O troco precisa ser para um valor maior que ${reais(valorDinheiro)}.`);
       return;
     }
 
@@ -330,8 +390,9 @@ export default function PagamentoPage() {
           cep: retirada ? "" : dados.cep || "",
           referencia: dados.referencia || "",
           observacoes: "",
-          payment_method: METODO_API[metodo],
-          trocoPara: metodo === "dinheiro" && precisaTroco ? trocoNumero : null,
+          payment_method: paymentMethod,
+          ...(pagamentos ? { pagamentos } : {}),
+          trocoPara: valorDinheiro > 0 && precisaTroco ? trocoNumero : null,
           usarPremioFidelidade: usarPremio,
           cupom: cupom?.codigo || "",
           clienteToken,
@@ -372,7 +433,7 @@ export default function PagamentoPage() {
       const pedido = resultado.pedido;
       const codigo = pedido.codigo_acesso;
 
-      if (metodo === "pix") {
+      if (temOnline) {
         const pix = await fetch("/api/pagarme/criar-pix", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -499,6 +560,117 @@ export default function PagamentoPage() {
           <div className="rounded-2xl bg-white p-5 text-zinc-600">
             O restaurante ainda não configurou as formas de pagamento.
           </div>
+        ) : dividir ? (
+          <div className="space-y-3">
+            <div className="rounded-2xl bg-white border p-4">
+              <p className="font-bold text-zinc-900">Dividir o pagamento</p>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Informe quanto pagar em cada forma. A soma precisa dar <strong>{reais(total)}</strong>.
+              </p>
+
+              <div className="mt-3 space-y-2">
+                {metodosAtivos.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 rounded-xl border px-3 py-2">
+                    <div className="w-9 h-9 rounded-lg bg-zinc-50 flex items-center justify-center shrink-0">{m.icone}</div>
+                    <span className="flex-1 text-sm font-semibold text-zinc-800">{m.titulo}</span>
+                    <div className="flex items-center gap-1 rounded-lg border px-2" style={{ borderColor: (valores[m.id] ? corPrincipal : "#E5E7EB") }}>
+                      <span className="text-sm text-zinc-400">R$</span>
+                      <input
+                        inputMode="decimal"
+                        value={valores[m.id] || ""}
+                        onChange={(e) =>
+                          setValores((v) => ({ ...v, [m.id]: e.target.value.replace(/[^\d,]/g, "") }))
+                        }
+                        placeholder="0,00"
+                        className="w-20 py-1.5 text-right text-base font-bold outline-none"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {faltaDistribuir > 0.001 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const vazio = metodosAtivos.find((m) => parseValor(valores[m.id] || "") <= 0);
+                    if (vazio)
+                      setValores((v) => ({ ...v, [vazio.id]: faltaDistribuir.toFixed(2).replace(".", ",") }));
+                  }}
+                  className="mt-2 text-xs font-semibold"
+                  style={{ color: corPrincipal }}
+                >
+                  Lançar o que falta ({reais(faltaDistribuir)}) na forma vazia
+                </button>
+              )}
+
+              <div
+                className={`mt-3 rounded-xl px-3 py-2 text-sm font-bold ${
+                  divisaoOk ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"
+                }`}
+              >
+                {divisaoOk
+                  ? `Tudo certo — ${reais(somaDividir)}`
+                  : parcelasUI.length < 2
+                    ? "Preencha pelo menos duas formas."
+                    : faltaDistribuir > 0
+                      ? `Falta distribuir ${reais(faltaDistribuir)}`
+                      : `Passou ${reais(-faltaDistribuir)} do total`}
+              </div>
+            </div>
+
+            {temOnlineDiv && (
+              <div className="rounded-2xl bg-white border p-4">
+                <label className="text-xs font-semibold text-zinc-600" htmlFor="cpf-div">
+                  CPF de quem vai pagar o Pix online
+                </label>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    id="cpf-div"
+                    value={cpf}
+                    onChange={(e) => setCpf(formatarCPF(e.target.value))}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="000.000.000-00"
+                    className="flex-1 py-2 text-base font-semibold outline-none"
+                  />
+                  {cpf.length === 14 && (
+                    <span className={`text-xs font-bold ${cpfOk ? "text-green-600" : "text-red-500"}`}>
+                      {cpfOk ? "OK" : "Inválido"}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-zinc-500">Exigido pelo banco para gerar o Pix de {reais(valorOnlineUI)}.</p>
+              </div>
+            )}
+
+            {temDinheiroDiv && (
+              <div className="rounded-2xl bg-white border p-4 space-y-3">
+                <label className="flex items-center gap-3 text-sm font-medium">
+                  <input type="checkbox" checked={precisaTroco} onChange={(e) => setPrecisaTroco(e.target.checked)} className="w-5 h-5" />
+                  Preciso de troco (parte em dinheiro)
+                </label>
+                {precisaTroco && (
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-600" htmlFor="troco-div">
+                      Troco para quanto?
+                    </label>
+                    <div className="mt-1 flex items-center gap-2 rounded-xl border px-3">
+                      <span className="text-zinc-500">R$</span>
+                      <input
+                        id="troco-div"
+                        value={trocoPara}
+                        onChange={(e) => setTrocoPara(e.target.value.replace(/[^\d,]/g, ""))}
+                        inputMode="decimal"
+                        placeholder="100,00"
+                        className="flex-1 py-3 text-base font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         ) : (
           <div className="space-y-3">
             {aceitaPix && (
@@ -617,6 +789,24 @@ export default function PagamentoPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Dividir pagamento em mais de uma forma */}
+        {!carregando && !semFormas && podeDividir && (
+          <button
+            type="button"
+            onClick={() => {
+              setErro("");
+              setDividir((d) => !d);
+            }}
+            onMouseEnter={() => setDivHover(true)}
+            onMouseLeave={() => setDivHover(false)}
+            onTouchStart={() => setDivHover(true)}
+            className="mt-3 w-full text-left text-[15px] font-bold transition-colors"
+            style={{ color: divHover || dividir ? corPrincipal : "#18181b" }}
+          >
+            {dividir ? "← Voltar para uma forma de pagamento" : "Quero pagar com mais de uma forma »"}
+          </button>
         )}
 
         {/* Prêmio do cliente fiel */}
@@ -800,7 +990,7 @@ export default function PagamentoPage() {
 
           <button
             type="button"
-            disabled={enviando || carregando || semFormas || !pedidosAtivos}
+            disabled={enviando || carregando || semFormas || !pedidosAtivos || (dividir && !divisaoOk)}
             onClick={finalizar}
             className="w-full h-14 rounded-xl text-white font-bold shadow-lg transition active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-3"
             style={{ backgroundColor: corPrincipal }}
@@ -810,8 +1000,8 @@ export default function PagamentoPage() {
                 <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 Finalizando pedido...
               </>
-            ) : metodo === "pix" ? (
-              `Gerar Pix de ${reais(total)}`
+            ) : (dividir ? temOnlineDiv : metodo === "pix") ? (
+              `Gerar Pix de ${reais(dividir ? valorOnlineUI : total)}`
             ) : (
               `Finalizar pedido • ${reais(total)}`
             )}
