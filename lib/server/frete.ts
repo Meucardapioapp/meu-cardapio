@@ -89,6 +89,80 @@ type Ponto = { lat: number; lon: number };
 const cacheGeo = new Map<string, { ate: number; ponto: Ponto | null }>();
 let ultimaBusca = 0;
 
+const GEOAPIFY_KEY = process.env.GEOAPIFY_API_KEY || "";
+
+type ViaCep = { logradouro: string; bairro: string; cidade: string; uf: string };
+
+/** CEP -> cidade/UF/rua/bairro oficiais (ViaCEP, cobertura excelente no Brasil). */
+async function buscarViaCep(cepDigitos: string): Promise<ViaCep | null> {
+  if (cepDigitos.length !== 8) return null;
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${cepDigitos}/json/`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(5000),
+      cache: "no-store",
+    });
+    if (!r.ok) return null;
+    const d = (await r.json()) as any;
+    if (!d || d.erro) return null;
+    return {
+      logradouro: limpar(d.logradouro),
+      bairro: limpar(d.bairro),
+      cidade: limpar(d.localidade, 80),
+      uf: limpar(d.uf, 2),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Geocodifica um texto livre pela Geoapify (melhor no Brasil). Null se sem chave/erro. */
+async function geocodeGeoapify(texto: string, vies?: Ponto, raioKm?: number): Promise<Ponto | null> {
+  if (!GEOAPIFY_KEY || !texto) return null;
+  const url = new URL("https://api.geoapify.com/v1/geocode/search");
+  url.searchParams.set("text", texto);
+  // Trava os resultados num círculo ao redor do restaurante (não cair em outra cidade / outra ponta da avenida).
+  if (vies && raioKm) url.searchParams.set("filter", `circle:${vies.lon},${vies.lat},${Math.round(raioKm * 1000)}`);
+  else url.searchParams.set("filter", "countrycode:br");
+  if (vies) url.searchParams.set("bias", `proximity:${vies.lon},${vies.lat}`);
+  url.searchParams.set("lang", "pt");
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("apiKey", GEOAPIFY_KEY);
+
+  const r = await fetch(url, { signal: AbortSignal.timeout(6000), cache: "no-store" });
+  if (!r.ok) throw new Error(`Geoapify HTTP ${r.status}`);
+  const d = (await r.json()) as any;
+  const f = Array.isArray(d?.features) ? d.features[0] : null;
+  const lat = Number(f?.properties?.lat);
+  const lon = Number(f?.properties?.lon);
+  return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+}
+
+/** Tenta Geoapify e, se falhar, Nominatim (texto livre), ambos presos ao redor do restaurante. */
+async function geocodeTexto(texto: string, vies?: Ponto, raioKm?: number): Promise<Ponto | null> {
+  if (!texto) return null;
+  try {
+    const g = await geocodeGeoapify(texto, vies, raioKm);
+    if (g) return g;
+  } catch (e) {
+    console.error("[frete] geoapify", e);
+  }
+  try {
+    const extra: Record<string, string> = {};
+    if (vies && raioKm) {
+      const dLat = raioKm / 111;
+      const dLon = raioKm / (111 * Math.cos((vies.lat * Math.PI) / 180) || 1);
+      // viewbox = esquerda,cima,direita,baixo (lon_min, lat_max, lon_max, lat_min)
+      extra.viewbox = `${vies.lon - dLon},${vies.lat + dLat},${vies.lon + dLon},${vies.lat - dLat}`;
+      extra.bounded = "1";
+    }
+    return await buscarNominatim({ q: texto, ...extra });
+  } catch (e) {
+    console.error("[frete] nominatim", e);
+    return null;
+  }
+}
+
 export type EnderecoBusca = {
   rua?: string | null;
   numero?: string | null;
@@ -129,31 +203,57 @@ async function buscarNominatim(params: Record<string, string>): Promise<Ponto | 
   return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
 }
 
-export async function geocodificar(endereco: EnderecoBusca): Promise<Ponto | null> {
-  const rua = limpar(endereco.rua);
+export async function geocodificar(endereco: EnderecoBusca, vies?: Ponto, raioKm?: number): Promise<Ponto | null> {
+  let rua = limpar(endereco.rua);
   const num = limpar(endereco.numero, 20);
-  const bairro = limpar(endereco.bairro);
-  const cidade = limpar(endereco.cidade, 80);
-  const estado = limpar(endereco.estado, 40);
-  const cep = limpar(endereco.cep, 12).replace(/\D/g, "");
+  let bairro = limpar(endereco.bairro);
+  let cidade = limpar(endereco.cidade, 80);
+  let estado = limpar(endereco.estado, 40);
+  const cepDigitos = limpar(endereco.cep, 12).replace(/\D/g, "");
 
-  if (!rua && !cep) return null;
+  // ViaCEP define o endereço oficial do CEP (fonte mais confiável no Brasil).
+  // No modo por distância o CEP é obrigatório, então ele manda na localização.
+  if (cepDigitos.length === 8) {
+    const via = await buscarViaCep(cepDigitos);
+    if (via) {
+      if (via.cidade) cidade = via.cidade;
+      if (via.uf) estado = via.uf;
+      if (via.bairro) bairro = via.bairro;
+      if (via.logradouro) rua = via.logradouro;
+    }
+  }
 
-  const chave = [rua, num, bairro, cidade, estado, cep].join("|").toLowerCase();
+  if (!rua && !bairro && cepDigitos.length !== 8) return null;
+
+  const cepFmt = cepDigitos.length === 8 ? `${cepDigitos.slice(0, 5)}-${cepDigitos.slice(5)}` : "";
+  const local = cidade ? `${cidade}${estado ? " - " + estado : ""}` : "";
+
+  // Do mais preciso (rua + nº) ao mais amplo (bairro). O raio ao redor do
+  // restaurante já garante a região, então o bairro funciona mesmo sem cidade.
+  const bruto: string[] = [];
+  if (rua) bruto.push([`${rua}${num ? ", " + num : ""}`, bairro, local, cepFmt].filter(Boolean).join(", "));
+  if (rua) bruto.push([rua, bairro, local].filter(Boolean).join(", "));
+  if (bairro) bruto.push([bairro, local].filter(Boolean).join(", "));
+  if (cepFmt) bruto.push([local, cepFmt].filter(Boolean).join(", ") || cepFmt);
+  if (local) bruto.push(local);
+  const candidatos = [...new Set(bruto.map((c) => c.trim()).filter(Boolean))];
+
+  const chave = candidatos.join("|").toLowerCase();
   const guardado = cacheGeo.get(chave);
   if (guardado && guardado.ate > Date.now()) return guardado.ponto;
 
-  const tentativas: Record<string, string>[] = [
-    { street: [num, rua].filter(Boolean).join(" "), city: cidade, state: estado, country: "Brasil" },
-    { q: [rua && `${rua}${num ? ", " + num : ""}`, bairro, cidade, estado].filter(Boolean).join(", ") },
-  ];
-  if (cep.length === 8) tentativas.push({ postalcode: `${cep.slice(0, 5)}-${cep.slice(5)}`, country: "Brasil" });
-
   let ponto: Ponto | null = null;
-  for (const t of tentativas) {
-    if (!Object.values(t).some(Boolean)) continue;
-    ponto = await buscarNominatim(t);
+  for (const texto of candidatos) {
+    ponto = await geocodeTexto(texto, vies, raioKm);
     if (ponto) break;
+  }
+  // Último recurso: CEP puro no Nominatim.
+  if (!ponto && cepFmt) {
+    try {
+      ponto = await buscarNominatim({ postalcode: cepFmt, country: "Brasil" });
+    } catch (e) {
+      console.error("[frete] nominatim cep", e);
+    }
   }
 
   cacheGeo.set(chave, { ate: Date.now() + 24 * 3600_000, ponto });
@@ -223,9 +323,17 @@ export async function freteKm(restauranteId: string, config: ConfigFrete, endere
   }
 
   const ref = await enderecoDoRestaurante(restauranteId);
+  // Raio da busca ao redor do restaurante: a área de entrega + margem (exclui
+  // pontos distantes como "mesma rua/bairro" na outra ponta da cidade).
+  const maxFaixaKm = config.faixas[config.faixas.length - 1]?.ate_km ?? 15;
+  const raioKm = Math.min(Math.max(maxFaixaKm * 1.3 + 3, 12), 80);
   let ponto: Ponto | null = null;
   try {
-    ponto = await geocodificar({ ...endereco, cidade: endereco.cidade || ref.cidade, estado: endereco.estado || ref.estado });
+    ponto = await geocodificar(
+      { ...endereco, cidade: endereco.cidade || ref.cidade, estado: endereco.estado || ref.estado },
+      { lat: config.latitude, lon: config.longitude },
+      raioKm
+    );
   } catch (error) {
     console.error("[frete] geocodificar", error);
     throw new Error("Não foi possível calcular a distância agora. Tente de novo em instantes.");
@@ -234,5 +342,15 @@ export async function freteKm(restauranteId: string, config: ConfigFrete, endere
   if (!ponto) throw new EnderecoNaoEncontradoError();
 
   const km = Math.round(distanciaKm(config.latitude, config.longitude, ponto.lat, ponto.lon) * 10) / 10;
-  return { km, valor: valorPorDistancia(km, config.faixas) };
+
+  const faixa = config.faixas.find((f) => km <= f.ate_km + 1e-9);
+  if (!faixa) {
+    const maxKm = config.faixas[config.faixas.length - 1]?.ate_km ?? 0;
+    const e = new ForaDaAreaError(
+      `Este endereço ficou a ${String(km).replace(".", ",")} km — a entrega vai até ${String(maxKm).replace(".", ",")} km.`
+    );
+    (e as any).km = km;
+    throw e;
+  }
+  return { km, valor: faixa.valor };
 }

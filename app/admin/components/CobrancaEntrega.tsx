@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, LocateFixed, MapPin, Plus, Route, Trash2 } from "lucide-react";
+import { Loader2, MapPin, Plus, Route, Trash2 } from "lucide-react";
 import { apiFetch } from "@/utils/apiFetch";
 
 type Faixa = { ate_km: string; valor: string };
@@ -27,7 +27,7 @@ export default function CobrancaEntrega({ children }: { children: ReactNode }) {
   const [modoSalvo, setModoSalvo] = useState<Modo>("bairro");
   const [faixas, setFaixas] = useState<Faixa[]>([]);
   const [localizado, setLocalizado] = useState(false);
-  const [temEndereco, setTemEndereco] = useState(false);
+  const [cep, setCep] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
 
   function aplicar(d: any) {
@@ -49,7 +49,7 @@ export default function CobrancaEntrega({ children }: { children: ReactNode }) {
       .then((d) => {
         if (d?.success) {
           aplicar(d);
-          setTemEndereco(Boolean(d.temEndereco));
+          if (d.cep) setCep(String(d.cep).replace(/\D/g, "").slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2"));
         }
       })
       .catch(() => {})
@@ -91,24 +91,9 @@ export default function CobrancaEntrega({ children }: { children: ReactNode }) {
     );
   }
 
-  function usarGps() {
-    if (!navigator.geolocation) return toast.error("Este aparelho não informa a localização.");
-    setOcupado("gps");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setOcupado(null);
-        enviar(
-          { acao: "minha_localizacao", latitude: pos.coords.latitude, longitude: pos.coords.longitude },
-          "gps",
-          "Localização do restaurante salva."
-        );
-      },
-      () => {
-        setOcupado(null);
-        toast.error("Não conseguimos sua localização. Permita o acesso à localização no navegador.");
-      },
-      { enableHighAccuracy: true, timeout: 15000 }
-    );
+  function marcarPorCep() {
+    if (cep.replace(/\D/g, "").length !== 8) return toast.warning("Digite um CEP válido (8 números).");
+    enviar({ acao: "localizar_cep", cep }, "cep", "Localização do restaurante marcada pelo CEP.");
   }
 
   const botaoModo = (m: Modo, titulo: string, texto: string, Icone: typeof MapPin) => (
@@ -170,7 +155,9 @@ export default function CobrancaEntrega({ children }: { children: ReactNode }) {
           {/* 1. Onde fica o restaurante */}
           <div>
             <p className="font-bold text-zinc-900">1. Onde fica o restaurante</p>
-            <p className="text-sm text-zinc-500 mt-1">A distância é medida em linha reta daqui até o endereço do cliente.</p>
+            <p className="text-sm text-zinc-500 mt-1">
+              Informe o CEP do restaurante. A distância até o cliente é medida a partir daqui (pelo CEP, igual ao cliente).
+            </p>
 
             <div
               className={`mt-3 rounded-xl p-4 text-sm ${
@@ -181,22 +168,24 @@ export default function CobrancaEntrega({ children }: { children: ReactNode }) {
             </div>
 
             <div className="mt-3 flex flex-col sm:flex-row gap-3">
+              <div className="flex items-center h-11 rounded-xl border px-3 flex-1">
+                <span className="text-sm text-zinc-500 mr-2">CEP</span>
+                <input
+                  value={cep}
+                  onChange={(e) => setCep(e.target.value.replace(/\D/g, "").slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2"))}
+                  inputMode="numeric"
+                  placeholder="00000-000"
+                  className="w-full outline-none font-semibold"
+                  aria-label="CEP do restaurante"
+                />
+              </div>
               <button
-                onClick={usarGps}
+                onClick={marcarPorCep}
                 disabled={ocupado !== null}
                 className="h-11 px-4 rounded-xl bg-[#7A1F3D] text-white font-bold flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {ocupado === "gps" ? <Loader2 size={16} className="animate-spin" /> : <LocateFixed size={16} />}
-                Estou no restaurante agora
-              </button>
-              <button
-                onClick={() => enviar({ acao: "localizar_endereco" }, "endereco", "Localização encontrada pelo endereço.")}
-                disabled={ocupado !== null || !temEndereco}
-                title={temEndereco ? "" : "Cadastre o endereço em Endereço e retirada"}
-                className="h-11 px-4 rounded-xl border font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {ocupado === "endereco" ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}
-                Usar o endereço cadastrado
+                {ocupado === "cep" ? <Loader2 size={16} className="animate-spin" /> : <MapPin size={16} />}
+                Marcar pelo CEP
               </button>
             </div>
           </div>

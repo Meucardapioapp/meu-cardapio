@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       success: true,
       ...config,
       temEndereco: Boolean(endereco.rua && endereco.cidade),
+      cep: endereco.cep ?? "",
     });
   } catch (error) {
     return erroInterno("painel/frete GET", error);
@@ -35,14 +36,8 @@ const esquema = z.union([
       .array(z.object({ ate_km: z.number().positive().max(100), valor: z.number().min(0).max(500) }))
       .max(20),
   }),
-  // Ponto no mapa a partir do endereço cadastrado do restaurante
-  z.object({ acao: z.literal("localizar_endereco") }),
-  // Ponto exato pelo GPS do aparelho (o dono está no restaurante)
-  z.object({
-    acao: z.literal("minha_localizacao"),
-    latitude: z.number().min(-34).max(6),
-    longitude: z.number().min(-74).max(-28),
-  }),
+  // Ponto do restaurante a partir do CEP dele (mesmo cálculo usado no cliente).
+  z.object({ acao: z.literal("localizar_cep"), cep: z.string().min(8).max(12) }),
 ]);
 
 export async function PUT(req: NextRequest) {
@@ -78,28 +73,20 @@ export async function PUT(req: NextRequest) {
         return NextResponse.json({ success: false, error: mensagem }, { status });
       }
     } else {
-      let ponto: { lat: number; lon: number } | null = null;
-
-      if (d.acao === "minha_localizacao") {
-        ponto = { lat: d.latitude, lon: d.longitude };
-      } else {
-        if (!(await limitar(req, "painel-geocodificar", 10, 600))) {
-          return NextResponse.json({ success: false, error: "Muitas buscas. Aguarde alguns minutos." }, { status: 429 });
-        }
-        const endereco = await enderecoDoRestaurante(restauranteId);
-        if (!endereco.rua || !endereco.cidade) {
-          return NextResponse.json(
-            { success: false, error: "Cadastre primeiro o endereço do restaurante (menu Endereço e retirada)." },
-            { status: 400 }
-          );
-        }
-        ponto = await geocodificar(endereco).catch(() => null);
-        if (!ponto) {
-          return NextResponse.json(
-            { success: false, error: "Não achamos seu endereço no mapa. Use o botão \"Estou no restaurante agora\"." },
-            { status: 400 }
-          );
-        }
+      // localizar_cep: marca a origem do restaurante pelo CEP dele.
+      if (!(await limitar(req, "painel-geocodificar", 10, 600))) {
+        return NextResponse.json({ success: false, error: "Muitas buscas. Aguarde alguns minutos." }, { status: 429 });
+      }
+      const cepDig = d.cep.replace(/\D/g, "");
+      if (cepDig.length !== 8) {
+        return NextResponse.json({ success: false, error: "Informe um CEP válido (8 números)." }, { status: 400 });
+      }
+      const ponto = await geocodificar({ cep: cepDig }).catch(() => null);
+      if (!ponto) {
+        return NextResponse.json(
+          { success: false, error: "Não achamos esse CEP no mapa. Confira os números." },
+          { status: 400 }
+        );
       }
 
       const { error } = await supabaseAdmin

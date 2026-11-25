@@ -12,7 +12,7 @@ import { reais, semAcento } from "@/lib/dinheiro";
 import { formatarTelefone, telefoneValido } from "@/lib/validacoes";
 import { lerCarrinho, quantidadeCarrinho, totalCarrinho } from "@/lib/carrinho";
 
-type Erros = Partial<Record<"nome" | "whatsapp" | "bairro" | "rua" | "numero" | "geral", string>>;
+type Erros = Partial<Record<"nome" | "whatsapp" | "bairro" | "rua" | "numero" | "cep" | "geral", string>>;
 type Frete = { estado: "vazio" | "calculando" | "ok" | "fora" | "erro"; valor?: number; km?: number | null; mensagem?: string };
 
 function Campo({
@@ -161,18 +161,18 @@ export default function EnderecoPage() {
     else if (bairros.length) setFrete({ estado: "fora", mensagem: "Não entregamos neste bairro." });
   }, [modoFrete, bairro, bairros]);
 
-  // Por distância: calcula sozinho quando rua, número e bairro estão preenchidos.
+  // Por distância: calcula pelo CEP (dado mais confiável no Brasil).
   const ultimaConsulta = useRef("");
   useEffect(() => {
     if (modoFrete !== "km" || !restauranteId) return;
-    const chave = [rua.trim(), numero.trim(), bairro.trim(), cep.replace(/\D/g, "")].join("|");
-    if (rua.trim().length < 3 || !numero.trim() || bairro.trim().length < 2) {
+    const cepDig = cep.replace(/\D/g, "");
+    if (cepDig.length !== 8) {
       ultimaConsulta.current = "";
       return setFrete({ estado: "vazio" });
     }
-    if (chave === ultimaConsulta.current) return;
+    if (cepDig === ultimaConsulta.current) return;
     const t = setTimeout(async () => {
-      ultimaConsulta.current = chave;
+      ultimaConsulta.current = cepDig;
       setFrete({ estado: "calculando" });
       try {
         const r = await fetch("/api/calcular-frete", {
@@ -181,17 +181,46 @@ export default function EnderecoPage() {
           body: JSON.stringify({ restauranteId, bairro, rua, numero, cep }),
         });
         const d = await r.json();
-        if (ultimaConsulta.current !== chave) return;
+        if (ultimaConsulta.current !== cepDig) return;
         if (r.ok && d?.faixaFrete) setFrete({ estado: "ok", valor: Number(d.faixaFrete.valor), km: d.faixaFrete.distanciaKm ?? null });
         else if (d?.foraDaArea) setFrete({ estado: "fora", mensagem: d.erro || "Endereço fora da área de entrega." });
-        else setFrete({ estado: "erro", mensagem: d?.erro || d?.error || "Não achamos esse endereço. Confira a rua e o número." });
+        else setFrete({ estado: "erro", mensagem: d?.erro || d?.error || "Não achamos esse CEP. Confira os números." });
       } catch {
         setFrete({ estado: "erro", mensagem: "Sem conexão. Tente de novo." });
         ultimaConsulta.current = "";
       }
-    }, 900);
+    }, 700);
     return () => clearTimeout(t);
-  }, [modoFrete, restauranteId, rua, numero, bairro, cep]);
+  }, [modoFrete, restauranteId, cep, bairro, rua, numero]);
+
+  // Autopreenche rua e bairro pelo CEP (modo distância), uma vez por CEP novo.
+  const cepPreenchido = useRef("");
+  useEffect(() => {
+    if (modoFrete !== "km") return;
+    const cepDig = cep.replace(/\D/g, "");
+    if (cepDig.length !== 8 || cepDig === cepPreenchido.current) return;
+    let cancel = false;
+    (async () => {
+      try {
+        const r = await fetch(`https://viacep.com.br/ws/${cepDig}/json/`);
+        const d = await r.json();
+        if (cancel || !d || d.erro) return;
+        cepPreenchido.current = cepDig;
+        if (d.logradouro) {
+          setRua(d.logradouro);
+          setErros((x) => ({ ...x, rua: undefined }));
+        }
+        if (d.bairro) {
+          setBairro(d.bairro);
+          setErros((x) => ({ ...x, bairro: undefined }));
+        }
+      } catch {}
+    })();
+    return () => {
+      cancel = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cep, modoFrete]);
 
   const bairrosFiltrados = useMemo(() => {
     const t = semAcento(buscaBairro.trim());
@@ -212,6 +241,7 @@ export default function EnderecoPage() {
     const e: Erros = {};
     if (nome.trim().length < 2) e.nome = "Digite seu nome";
     if (!telefoneValido(whatsapp)) e.whatsapp = "Digite um WhatsApp com DDD";
+    if (modoFrete === "km" && cep.replace(/\D/g, "").length !== 8) e.cep = "Informe o CEP (a entrega é calculada por ele)";
     if (!bairro.trim()) e.bairro = modoFrete === "bairro" ? "Escolha seu bairro na lista" : "Digite seu bairro";
     if (rua.trim().length < 3) e.rua = "Digite a rua";
     if (!numero.trim()) e.numero = "Digite o número (ou S/N)";
@@ -221,7 +251,7 @@ export default function EnderecoPage() {
     else if (frete.estado !== "ok" && !e.bairro && !e.rua && !e.numero) e.geral = frete.mensagem || "Não conseguimos calcular a entrega para este endereço.";
 
     setErros(e);
-    const primeiro = (["nome", "whatsapp", "bairro", "rua", "numero"] as const).find((k) => e[k]);
+    const primeiro = (["nome", "whatsapp", "cep", "bairro", "rua", "numero"] as const).find((k) => e[k]);
     if (primeiro) {
       document.getElementById(`campo-${primeiro}`)?.focus();
       return;
@@ -381,7 +411,21 @@ export default function EnderecoPage() {
               </div>
             </Campo>
           ) : (
-            <div className="grid grid-cols-[1fr_120px] gap-3">
+            <>
+              <Campo id="campo-cep" rotulo="CEP" erro={erros.cep} dica="A entrega é calculada pelo seu CEP.">
+                <input
+                  id="campo-cep"
+                  value={cep}
+                  onChange={(e) => {
+                    setCep(e.target.value.replace(/\D/g, "").slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2"));
+                    setErros((x) => ({ ...x, cep: undefined }));
+                  }}
+                  inputMode="numeric"
+                  autoComplete="postal-code"
+                  placeholder="00000-000"
+                  className={estiloInput(erros.cep)}
+                />
+              </Campo>
               <Campo id="campo-bairro" rotulo="Bairro" erro={erros.bairro}>
                 <input
                   id="campo-bairro"
@@ -394,18 +438,7 @@ export default function EnderecoPage() {
                   className={estiloInput(erros.bairro)}
                 />
               </Campo>
-              <Campo id="campo-cep" rotulo="CEP (opcional)">
-                <input
-                  id="campo-cep"
-                  value={cep}
-                  onChange={(e) => setCep(e.target.value.replace(/\D/g, "").slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2"))}
-                  inputMode="numeric"
-                  autoComplete="postal-code"
-                  placeholder="00000-000"
-                  className={estiloInput()}
-                />
-              </Campo>
-            </div>
+            </>
           )}
 
           <div className="grid grid-cols-[1fr_96px] gap-3">

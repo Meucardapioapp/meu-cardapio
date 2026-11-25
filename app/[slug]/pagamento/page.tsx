@@ -13,6 +13,7 @@ import {
   CreditCard,
   Banknote,
   Check,
+  Split,
   Gift,
   AlertTriangle,
   TicketPercent,
@@ -139,7 +140,6 @@ export default function PagamentoPage() {
   // Pagamento dividido (mais de uma forma no mesmo pedido)
   const [dividir, setDividir] = useState(false);
   const [valores, setValores] = useState<Record<string, string>>({});
-  const [divHover, setDivHover] = useState(false);
 
   useEffect(() => {
     async function carregar() {
@@ -302,6 +302,7 @@ export default function PagamentoPage() {
   }
 
   function escolherMetodo(m: Metodo) {
+    setDividir(false);
     setMetodo(m);
     if (typeof window !== "undefined" && typeof (window as any).fbq === "function") {
       (window as any).fbq("track", "AddPaymentInfo", { value: total, currency: "BRL", payment_type: m });
@@ -560,117 +561,6 @@ export default function PagamentoPage() {
           <div className="rounded-2xl bg-white p-5 text-zinc-600">
             O restaurante ainda não configurou as formas de pagamento.
           </div>
-        ) : dividir ? (
-          <div className="space-y-3">
-            <div className="rounded-2xl bg-white border p-4">
-              <p className="font-bold text-zinc-900">Dividir o pagamento</p>
-              <p className="mt-0.5 text-xs text-zinc-500">
-                Informe quanto pagar em cada forma. A soma precisa dar <strong>{reais(total)}</strong>.
-              </p>
-
-              <div className="mt-3 space-y-2">
-                {metodosAtivos.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 rounded-xl border px-3 py-2">
-                    <div className="w-9 h-9 rounded-lg bg-zinc-50 flex items-center justify-center shrink-0">{m.icone}</div>
-                    <span className="flex-1 text-sm font-semibold text-zinc-800">{m.titulo}</span>
-                    <div className="flex items-center gap-1 rounded-lg border px-2" style={{ borderColor: (valores[m.id] ? corPrincipal : "#E5E7EB") }}>
-                      <span className="text-sm text-zinc-400">R$</span>
-                      <input
-                        inputMode="decimal"
-                        value={valores[m.id] || ""}
-                        onChange={(e) =>
-                          setValores((v) => ({ ...v, [m.id]: e.target.value.replace(/[^\d,]/g, "") }))
-                        }
-                        placeholder="0,00"
-                        className="w-20 py-1.5 text-right text-base font-bold outline-none"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {faltaDistribuir > 0.001 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const vazio = metodosAtivos.find((m) => parseValor(valores[m.id] || "") <= 0);
-                    if (vazio)
-                      setValores((v) => ({ ...v, [vazio.id]: faltaDistribuir.toFixed(2).replace(".", ",") }));
-                  }}
-                  className="mt-2 text-xs font-semibold"
-                  style={{ color: corPrincipal }}
-                >
-                  Lançar o que falta ({reais(faltaDistribuir)}) na forma vazia
-                </button>
-              )}
-
-              <div
-                className={`mt-3 rounded-xl px-3 py-2 text-sm font-bold ${
-                  divisaoOk ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"
-                }`}
-              >
-                {divisaoOk
-                  ? `Tudo certo — ${reais(somaDividir)}`
-                  : parcelasUI.length < 2
-                    ? "Preencha pelo menos duas formas."
-                    : faltaDistribuir > 0
-                      ? `Falta distribuir ${reais(faltaDistribuir)}`
-                      : `Passou ${reais(-faltaDistribuir)} do total`}
-              </div>
-            </div>
-
-            {temOnlineDiv && (
-              <div className="rounded-2xl bg-white border p-4">
-                <label className="text-xs font-semibold text-zinc-600" htmlFor="cpf-div">
-                  CPF de quem vai pagar o Pix online
-                </label>
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    id="cpf-div"
-                    value={cpf}
-                    onChange={(e) => setCpf(formatarCPF(e.target.value))}
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="000.000.000-00"
-                    className="flex-1 py-2 text-base font-semibold outline-none"
-                  />
-                  {cpf.length === 14 && (
-                    <span className={`text-xs font-bold ${cpfOk ? "text-green-600" : "text-red-500"}`}>
-                      {cpfOk ? "OK" : "Inválido"}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-zinc-500">Exigido pelo banco para gerar o Pix de {reais(valorOnlineUI)}.</p>
-              </div>
-            )}
-
-            {temDinheiroDiv && (
-              <div className="rounded-2xl bg-white border p-4 space-y-3">
-                <label className="flex items-center gap-3 text-sm font-medium">
-                  <input type="checkbox" checked={precisaTroco} onChange={(e) => setPrecisaTroco(e.target.checked)} className="w-5 h-5" />
-                  Preciso de troco (parte em dinheiro)
-                </label>
-                {precisaTroco && (
-                  <div>
-                    <label className="text-xs font-semibold text-zinc-600" htmlFor="troco-div">
-                      Troco para quanto?
-                    </label>
-                    <div className="mt-1 flex items-center gap-2 rounded-xl border px-3">
-                      <span className="text-zinc-500">R$</span>
-                      <input
-                        id="troco-div"
-                        value={trocoPara}
-                        onChange={(e) => setTrocoPara(e.target.value.replace(/[^\d,]/g, ""))}
-                        inputMode="decimal"
-                        placeholder="100,00"
-                        className="flex-1 py-3 text-base font-semibold outline-none"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         ) : (
           <div className="space-y-3">
             {aceitaPix && (
@@ -791,22 +681,151 @@ export default function PagamentoPage() {
           </div>
         )}
 
-        {/* Dividir pagamento em mais de uma forma */}
+        {/* Dividir pagamento em mais de uma forma — card no mesmo estilo das formas acima */}
         {!carregando && !semFormas && podeDividir && (
           <button
             type="button"
             onClick={() => {
               setErro("");
-              setDividir((d) => !d);
+              setDividir((d) => {
+                const novo = !d;
+                if (novo) setMetodo(null);
+                return novo;
+              });
             }}
-            onMouseEnter={() => setDivHover(true)}
-            onMouseLeave={() => setDivHover(false)}
-            onTouchStart={() => setDivHover(true)}
-            className="mt-3 w-full text-left text-[15px] font-bold transition-colors"
-            style={{ color: divHover || dividir ? corPrincipal : "#18181b" }}
+            className="mt-3 w-full bg-white rounded-2xl border-2 p-4 flex items-center justify-between gap-3 text-left transition active:scale-[0.99]"
+            style={{ borderColor: dividir ? corPrincipal : "#E5E7EB" }}
           >
-            {dividir ? "← Voltar para uma forma de pagamento" : "Quero pagar com mais de uma forma »"}
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-zinc-50 flex items-center justify-center shrink-0">
+                <Split size={22} color={corPrincipal} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-zinc-900">Dividir em mais de uma forma</p>
+                <p className="text-xs text-zinc-500">Ex.: parte no Pix, parte em dinheiro</p>
+              </div>
+            </div>
+            <span
+              className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0"
+              style={{ borderColor: dividir ? corPrincipal : "#D4D4D8", backgroundColor: dividir ? corPrincipal : "white" }}
+            >
+              {dividir && <Check size={14} color="white" strokeWidth={3} />}
+            </span>
           </button>
+        )}
+
+        {/* Painel da divisão: abre abaixo do card quando "Dividir" está selecionado */}
+        {dividir && (
+          <div className="mt-3 space-y-3">
+            <div className="rounded-2xl bg-white border p-4">
+              <p className="font-bold text-zinc-900">Quanto pagar em cada forma?</p>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                A soma precisa dar <strong>{reais(total)}</strong>.
+              </p>
+
+              <div className="mt-3 space-y-2">
+                {metodosAtivos.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 rounded-xl border px-3 py-2">
+                    <div className="w-9 h-9 rounded-lg bg-zinc-50 flex items-center justify-center shrink-0">{m.icone}</div>
+                    <span className="flex-1 text-sm font-semibold text-zinc-800">{m.titulo}</span>
+                    <div
+                      className="flex items-center gap-1 rounded-lg border px-2"
+                      style={{ borderColor: valores[m.id] ? corPrincipal : "#E5E7EB" }}
+                    >
+                      <span className="text-sm text-zinc-400">R$</span>
+                      <input
+                        inputMode="decimal"
+                        value={valores[m.id] || ""}
+                        onChange={(e) => setValores((v) => ({ ...v, [m.id]: e.target.value.replace(/[^\d,]/g, "") }))}
+                        placeholder="0,00"
+                        className="w-20 py-1.5 text-right text-base font-bold outline-none"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {faltaDistribuir > 0.001 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const vazio = metodosAtivos.find((m) => parseValor(valores[m.id] || "") <= 0);
+                    if (vazio) setValores((v) => ({ ...v, [vazio.id]: faltaDistribuir.toFixed(2).replace(".", ",") }));
+                  }}
+                  className="mt-2 text-xs font-semibold"
+                  style={{ color: corPrincipal }}
+                >
+                  Lançar o que falta ({reais(faltaDistribuir)}) na forma vazia
+                </button>
+              )}
+
+              <div
+                className={`mt-3 rounded-xl px-3 py-2 text-sm font-bold ${
+                  divisaoOk ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-800"
+                }`}
+              >
+                {divisaoOk
+                  ? `Tudo certo — ${reais(somaDividir)}`
+                  : parcelasUI.length < 2
+                    ? "Preencha pelo menos duas formas."
+                    : faltaDistribuir > 0
+                      ? `Falta distribuir ${reais(faltaDistribuir)}`
+                      : `Passou ${reais(-faltaDistribuir)} do total`}
+              </div>
+            </div>
+
+            {temOnlineDiv && (
+              <div className="rounded-2xl bg-white border p-4">
+                <label className="text-xs font-semibold text-zinc-600" htmlFor="cpf-div">
+                  CPF de quem vai pagar o Pix online
+                </label>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    id="cpf-div"
+                    value={cpf}
+                    onChange={(e) => setCpf(formatarCPF(e.target.value))}
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="000.000.000-00"
+                    className="flex-1 py-2 text-base font-semibold outline-none"
+                  />
+                  {cpf.length === 14 && (
+                    <span className={`text-xs font-bold ${cpfOk ? "text-green-600" : "text-red-500"}`}>
+                      {cpfOk ? "OK" : "Inválido"}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-zinc-500">Exigido pelo banco para gerar o Pix de {reais(valorOnlineUI)}.</p>
+              </div>
+            )}
+
+            {temDinheiroDiv && (
+              <div className="rounded-2xl bg-white border p-4 space-y-3">
+                <label className="flex items-center gap-3 text-sm font-medium">
+                  <input type="checkbox" checked={precisaTroco} onChange={(e) => setPrecisaTroco(e.target.checked)} className="w-5 h-5" />
+                  Preciso de troco (parte em dinheiro)
+                </label>
+                {precisaTroco && (
+                  <div>
+                    <label className="text-xs font-semibold text-zinc-600" htmlFor="troco-div">
+                      Troco para quanto?
+                    </label>
+                    <div className="mt-1 flex items-center gap-2 rounded-xl border px-3">
+                      <span className="text-zinc-500">R$</span>
+                      <input
+                        id="troco-div"
+                        value={trocoPara}
+                        onChange={(e) => setTrocoPara(e.target.value.replace(/[^\d,]/g, ""))}
+                        inputMode="decimal"
+                        placeholder="100,00"
+                        className="flex-1 py-3 text-base font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* Prêmio do cliente fiel */}

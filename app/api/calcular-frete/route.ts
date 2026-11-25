@@ -43,17 +43,28 @@ export async function POST(req: Request) {
     const config = await getConfigFrete(restauranteId);
 
     if (config.modo === "km") {
+      // No modo por distância o cálculo é pelo CEP (mais confiável no Brasil).
+      const cep = texto(body.cep, 12).replace(/\D/g, "");
+      if (cep.length !== 8) {
+        return NextResponse.json(
+          { sucesso: false, precisaCep: true, erro: "Informe o CEP para calcular a entrega." },
+          { status: 400 }
+        );
+      }
       try {
         const { km, valor } = await freteKm(restauranteId, config, {
           rua: texto(body.rua),
           numero: texto(body.numero, 20),
           bairro,
-          cep: texto(body.cep, 12),
+          cep,
         });
         return NextResponse.json({ sucesso: true, faixaFrete: { valor, distanciaKm: km } });
       } catch (error) {
         if (error instanceof ForaDaAreaError) {
-          return NextResponse.json({ sucesso: false, foraDaArea: true, erro: error.message }, { status: 400 });
+          return NextResponse.json(
+            { sucesso: false, foraDaArea: true, erro: error.message, distanciaKm: (error as any).km ?? null },
+            { status: 400 }
+          );
         }
         if (error instanceof EnderecoNaoEncontradoError) {
           return NextResponse.json({ sucesso: false, erro: error.message }, { status: 400 });
